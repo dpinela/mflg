@@ -1,62 +1,49 @@
 // Package buffer implements a text-editing buffer.
 package buffer
 
-import "io"
+import (
+	"bufio"
+	"io"
+)
 
-// Buffer is a text buffer that supports efficient insertion of text at the current insertion point.
+// Buffer is a text buffer that support efficient access to individual lines of text.
 // It implements the io.ReaderFrom and io.WriterTo interfaces.
 type Buffer struct {
-	data             []byte
-	gapStart, gapEnd int
+	lines [][]byte
 }
 
-const defaultGapLen = 128
-
-func New(initialSize int) *Buffer {
-	buf := make([]byte, initialSize)
-	return &Buffer{data: buf, gapStart: 0, gapEnd: initialSize}
-}
-
-func (b *Buffer) gap() []byte { return b.data[b.gapStart:b.gapEnd] }
-func (b *Buffer) gapLen() int { return b.gapEnd - b.gapStart }
-
-// moveGap moves the gap to pos, growing it to the default length if it's shorter than that.
-func (b *Buffer) moveGap(pos int) {
-	copy(b.data[b.gapStart:], b.data[b.gapEnd:])
-	gapLen := b.gapLen()
-	b.gapStart = len(b.data) - gapLen
-	b.gapEnd = len(b.data)
-	if gapLen < defaultGapLen {
-		b.data = append(b.data, make([]byte, defaultGapLen-gapLen)...)
-		b.gapEnd = len(b.data)
-	}
-}
+func New() *Buffer { return &Buffer{lines: nil} }
 
 // ReadFrom reads data from r until EOF, splicing it in at the current insertion point position.
 func (b *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
-	var nr int
+	br := bufio.NewReader(r)
 	for {
-		for b.gapLen() > 0 {
-			nr, err = r.Read(b.gap())
-			n += int64(nr)
-			b.gapStart += nr
-			if err != nil {
-				if err == io.EOF {
-					err = nil
-				}
-				return
+		var line []byte
+		line, err = br.ReadBytes('\n')
+		b.lines = append(b.lines, line)
+		if err != nil {
+			if err == io.EOF {
+				err = nil
 			}
+			return
 		}
-		b.moveGap(b.gapStart)
+		n += int64(len(line))
 	}
 }
 
 // WriteTo writes the full content of the buffer to w.
 func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
-	nw, err := w.Write(b.data[:b.gapStart])
-	if err != nil {
-		return int64(nw), err
+	var n int64
+	for _, line := range b.lines {
+		nw, err := w.Write(line)
+		n += int64(nw)
+		if err != nil {
+			return n, err
+		}
 	}
-	nw2, err := w.Write(b.data[b.gapEnd:])
-	return int64(nw + nw2), err
+	return n, nil
+}
+
+func (b *Buffer) LinesAt(i int) [][]byte {
+	return b.lines[i:]
 }
