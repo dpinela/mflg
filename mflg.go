@@ -19,6 +19,16 @@ func exitAlternateScreen() {
 	os.Stdout.WriteString("\033[?1049l")
 }
 
+func mustWrite(w io.Writer, b []byte) {
+	if _, err := w.Write(b); err != nil {
+		panic(err)
+	}
+}
+
+func gotoTop(w io.Writer) {
+	mustWrite(w, resetScreen)
+}
+
 // Returns buf truncated to the first n runes.
 func truncateToWidth(buf []byte, n int) []byte {
 	j := 0
@@ -31,9 +41,14 @@ func truncateToWidth(buf []byte, n int) []byte {
 
 // Predefined []byte strings to avoid allocations.
 var (
+	resetScreen = []byte("\033[;H\033[;2J")
+
 	crlf       = []byte("\r\n")
 	tab        = []byte("\t")
 	fourSpaces = []byte("    ")
+
+	upKey   = []byte("\033[A")
+	downKey = []byte("\033[B")
 )
 
 func renderBufferAt(buf *buffer.Buffer, topLine int, window io.Writer, width, height int) error {
@@ -88,14 +103,26 @@ func main() {
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
 	enterAlternateScreen()
 	defer exitAlternateScreen()
-	if err := renderBufferAt(buf, 0, os.Stdout, w, h); err != nil {
-		panic(err)
-	}
+	pos := 0
 	for {
-		var b [5]byte
+		gotoTop(os.Stdout)
+		if err := renderBufferAt(buf, pos, os.Stdout, w, h); err != nil {
+			panic(err)
+		}
+		var b [8]byte
 		n, err := os.Stdin.Read(b[:])
 		if err != nil || (n == 1 && b[0] == 'q') {
 			break
+		}
+		switch {
+		case bytes.Equal(b[:n], upKey):
+			if pos > 0 {
+				pos--
+			}
+		case bytes.Equal(b[:n], downKey):
+			if pos < buf.LineCount()-1 {
+				pos++
+			}
 		}
 		fmt.Printf("%q\r\n", b[:n])
 	}

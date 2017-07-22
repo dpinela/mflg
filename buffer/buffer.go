@@ -51,3 +51,6 @@ func (b *Buffer) SliceLines(i, j int) [][]byte {
 	}
 	return b.lines[i:j]
 }
+
+// LineCount returns the number of lines in the buffer.
+func (b *Buffer) LineCount() int { return len(b.lines) }
