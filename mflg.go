@@ -40,15 +40,14 @@ func renderBufferAt(buf *buffer.Buffer, topLine int, window io.Writer, width, he
 	lines := buf.SliceLines(topLine, topLine+height)
 	const gutterSize = 4
 	for i, line := range lines {
-		line = truncateToWidth(line, width-gutterSize)
 		if len(line) > 0 && line[len(line)-1] == '\n' {
 			line = line[:len(line)-1]
 		}
-		modLine := bytes.Replace(line, tab, fourSpaces, -1)
+		line = truncateToWidth(bytes.Replace(line, tab, fourSpaces, -1), width-gutterSize)
 		if _, err := fmt.Fprintf(window, "% 3d ", topLine+i+1); err != nil {
 			return err
 		}
-		if _, err := window.Write(modLine); err != nil {
+		if _, err := window.Write(line); err != nil {
 			return err
 		}
 		if i+1 < height {
