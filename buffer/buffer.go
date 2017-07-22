@@ -44,6 +44,10 @@ func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
 	return n, nil
 }
 
-func (b *Buffer) LinesAt(i int) [][]byte {
-	return b.lines[i:]
+// SliceLines returns the lines of the buffer in the interval [i, j[.
+func (b *Buffer) SliceLines(i, j int) [][]byte {
+	if j > len(b.lines) {
+		j = len(b.lines)
+	}
+	return b.lines[i:j]
 }

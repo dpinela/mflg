@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-    "unicode/utf8"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
 	"io"
-	"io/ioutil"
 	"os"
+	"unicode/utf8"
+
+	"github.com/dpinela/mflg/buffer"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func enterAlternateScreen() {
@@ -18,31 +19,40 @@ func exitAlternateScreen() {
 	os.Stdout.WriteString("\033[?1049l")
 }
 
-func truncateToWidth(buf []byte, width int) []byte {
-    j := 0
-    for i := 0; i < width && len(buf[j:]) > 0; i++ {
-        _, n := utf8.DecodeRune(buf[j:])
-        j += n
-    }
-    return buf[:j]
+// Returns buf truncated to the first n runes.
+func truncateToWidth(buf []byte, n int) []byte {
+	j := 0
+	for i := 0; i < n && len(buf[j:]) > 0; i++ {
+		_, n := utf8.DecodeRune(buf[j:])
+		j += n
+	}
+	return buf[:j]
 }
 
-func renderBuffer(buf []byte, window io.Writer, width, height int) error {
-	lines := bytes.SplitN(buf, []byte{'\n'}, height+1)
-	if len(lines) > height {
-		lines = lines[:height]
-	}
+// Predefined []byte strings to avoid allocations.
+var (
+	crlf       = []byte("\r\n")
+	tab        = []byte("\t")
+	fourSpaces = []byte("    ")
+)
+
+func renderBufferAt(buf *buffer.Buffer, topLine int, window io.Writer, width, height int) error {
+	lines := buf.SliceLines(topLine, topLine+height)
 	const gutterSize = 4
 	for i, line := range lines {
-        line = truncateToWidth(line, width-gutterSize)
-		if _, err := fmt.Fprintf(window, "% 3d ", i+1); err != nil {
+		line = truncateToWidth(line, width-gutterSize)
+		if len(line) > 0 && line[len(line)-1] == '\n' {
+			line = line[:len(line)-1]
+		}
+		modLine := bytes.Replace(line, tab, fourSpaces, -1)
+		if _, err := fmt.Fprintf(window, "% 3d ", topLine+i+1); err != nil {
 			return err
 		}
-		if _, err := window.Write(line); err != nil {
+		if _, err := window.Write(modLine); err != nil {
 			return err
 		}
 		if i+1 < height {
-			if _, err := window.Write([]byte("\r\n")); err != nil {
+			if _, err := window.Write(crlf); err != nil {
 				return err
 			}
 		}
@@ -61,8 +71,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	content, err := ioutil.ReadAll(f)
-	if err != nil {
+	buf := buffer.New()
+	if _, err = buf.ReadFrom(f); err != nil {
 		fmt.Fprintf(os.Stderr, "error reading %s: %v", fname, err)
 		os.Exit(2)
 	}
@@ -79,7 +89,7 @@ func main() {
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
 	enterAlternateScreen()
 	defer exitAlternateScreen()
-	if err := renderBuffer(content, os.Stdout, w, h); err != nil {
+	if err := renderBufferAt(buf, 0, os.Stdout, w, h); err != nil {
 		panic(err)
 	}
 	for {
