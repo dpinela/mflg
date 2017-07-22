@@ -29,6 +29,12 @@ func gotoTop(w io.Writer) {
 	mustWrite(w, resetScreen)
 }
 
+func gotoPos(w io.Writer, row, col int) {
+	if _, err := fmt.Fprintf(w, "\033[%d;%dH", row+1, col+1); err != nil {
+		panic(err)
+	}
+}
+
 // Returns buf truncated to the first n runes.
 func truncateToWidth(buf []byte, n int) []byte {
 	j := 0
@@ -47,32 +53,11 @@ var (
 	tab        = []byte("\t")
 	fourSpaces = []byte("    ")
 
-	upKey   = []byte("\033[A")
-	downKey = []byte("\033[B")
+	upKey    = []byte("\033[A")
+	downKey  = []byte("\033[B")
+	leftKey  = []byte("\033[D")
+	rightKey = []byte("\033[C")
 )
-
-func renderBufferAt(buf *buffer.Buffer, topLine int, window io.Writer, width, height int) error {
-	lines := buf.SliceLines(topLine, topLine+height)
-	const gutterSize = 4
-	for i, line := range lines {
-		if len(line) > 0 && line[len(line)-1] == '\n' {
-			line = line[:len(line)-1]
-		}
-		line = truncateToWidth(bytes.Replace(line, tab, fourSpaces, -1), width-gutterSize)
-		if _, err := fmt.Fprintf(window, "% 3d ", topLine+i+1); err != nil {
-			return err
-		}
-		if _, err := window.Write(line); err != nil {
-			return err
-		}
-		if i+1 < height {
-			if _, err := window.Write(crlf); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -100,15 +85,16 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error entering raw mode:", err)
 		os.Exit(2)
 	}
+	win := window{w: os.Stdout, width: w, height: h, buf: buf, cursorX: 4}
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
 	enterAlternateScreen()
 	defer exitAlternateScreen()
-	pos := 0
 	for {
 		gotoTop(os.Stdout)
-		if err := renderBufferAt(buf, pos, os.Stdout, w, h); err != nil {
+		if err := win.renderBuffer(); err != nil {
 			panic(err)
 		}
+		gotoPos(os.Stdout, win.cursorY, win.cursorX)
 		var b [8]byte
 		n, err := os.Stdin.Read(b[:])
 		if err != nil || (n == 1 && b[0] == 'q') {
@@ -116,14 +102,11 @@ func main() {
 		}
 		switch {
 		case bytes.Equal(b[:n], upKey):
-			if pos > 0 {
-				pos--
-			}
+			win.moveCursorUp()
 		case bytes.Equal(b[:n], downKey):
-			if pos < buf.LineCount()-1 {
-				pos++
-			}
+			win.moveCursorDown()
+		default:
+			win.w.Write([]byte("\a"))
 		}
-		fmt.Printf("%q\r\n", b[:n])
 	}
 }
