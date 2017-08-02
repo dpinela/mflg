@@ -75,5 +75,13 @@ func (w *window) moveCursorRight() {
 }
 
 func (w *window) typeText(text []byte) {
-	w.buf.Insert(text, w.topLine+w.cursorY, w.cursorX)
+	switch text[0] {
+	case '\r':
+		w.buf.InsertLineBreak(w.topLine+w.cursorY, w.cursorX)
+		w.moveCursorDown()
+		w.cursorX = 0
+	default:
+		w.buf.Insert(text, w.topLine+w.cursorY, w.cursorX)
+		w.moveCursorRight()
+	}
 }

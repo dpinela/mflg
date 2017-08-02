@@ -111,7 +111,6 @@ func main() {
 			win.moveCursorRight()
 		case n > 0 && b[0] != '\033':
 			win.typeText(b[:n])
-			win.moveCursorRight()
 		}
 	}
 }
