@@ -105,8 +105,12 @@ func main() {
 			win.moveCursorUp()
 		case bytes.Equal(b[:n], downKey):
 			win.moveCursorDown()
+		case bytes.Equal(b[:n], leftKey):
+			win.moveCursorLeft()
+		case bytes.Equal(b[:n], rightKey):
+			win.moveCursorRight()
 		default:
-			win.w.Write([]byte("\a"))
+
 		}
 	}
 }
