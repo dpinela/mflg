@@ -40,8 +40,6 @@ func (w *window) renderBuffer() error {
 	return nil
 }
 
-// moveCursorDown attempts to move the cursor down by one line and returns a bool indicating
-// whether it actually moved.
 func (w *window) moveCursorDown() {
 	switch {
 	case w.cursorY < w.height-1:
@@ -53,8 +51,6 @@ func (w *window) moveCursorDown() {
 	}
 }
 
-// moveCursorUp attempts to move the cursor up by one line and returns a bool indicating
-// whether it actually moved.
 func (w *window) moveCursorUp() {
 	switch {
 	case w.cursorY > 0:
@@ -76,4 +72,8 @@ func (w *window) moveCursorRight() {
 	if w.cursorX < w.width-1 {
 		w.cursorX++
 	}
+}
+
+func (w *window) typeText(text []byte) {
+	w.buf.Insert(text, w.topLine+w.cursorY, w.cursorX)
 }

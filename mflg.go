@@ -85,7 +85,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error entering raw mode:", err)
 		os.Exit(2)
 	}
-	win := window{w: os.Stdout, width: w, height: h, buf: buf, cursorX: 4}
+	win := window{w: os.Stdout, width: w, height: h, buf: buf}
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
 	enterAlternateScreen()
 	defer exitAlternateScreen()
@@ -94,7 +94,7 @@ func main() {
 		if err := win.renderBuffer(); err != nil {
 			panic(err)
 		}
-		gotoPos(os.Stdout, win.cursorY, win.cursorX)
+		gotoPos(os.Stdout, win.cursorY, win.cursorX+4)
 		var b [8]byte
 		n, err := os.Stdin.Read(b[:])
 		if err != nil || (n == 1 && b[0] == 'q') {
@@ -109,8 +109,9 @@ func main() {
 			win.moveCursorLeft()
 		case bytes.Equal(b[:n], rightKey):
 			win.moveCursorRight()
-		default:
-
+		case n > 0 && b[0] != '\033':
+			win.typeText(b[:n])
+			win.moveCursorRight()
 		}
 	}
 }

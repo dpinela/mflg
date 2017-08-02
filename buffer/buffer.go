@@ -4,6 +4,8 @@ package buffer
 import (
 	"bufio"
 	"io"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // Buffer is a text buffer that support efficient access to individual lines of text.
@@ -54,3 +56,17 @@ func (b *Buffer) SliceLines(i, j int) [][]byte {
 
 // LineCount returns the number of lines in the buffer.
 func (b *Buffer) LineCount() int { return len(b.lines) }
+
+func (b *Buffer) Insert(text []byte, row, col int) {
+	line := b.lines[row]
+	i := 0
+	insPoint := 0
+	for insPoint < len(line) && i < col {
+		insPoint += norm.NFC.NextBoundary(line[insPoint:], true)
+		i++
+	}
+	line = append(line, make([]byte, len(text))...)
+	copy(line[insPoint+len(text):], line[insPoint:])
+	copy(line[insPoint:], text)
+	b.lines[row] = line
+}
