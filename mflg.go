@@ -111,6 +111,8 @@ func main() {
 			win.moveCursorRight()
 		case n == 1 && b[0] == '\x11':
 			return
+		case n == 1 && b[0] == '\x7f':
+			win.backspace()
 		case n > 0 && b[0] != '\033':
 			win.typeText(b[:n])
 			//win.typeText([]byte(strconv.Quote(string(b[:n]))))

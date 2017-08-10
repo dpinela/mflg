@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/dpinela/mflg/buffer"
+	"golang.org/x/text/unicode/norm"
 )
 
 type window struct {
@@ -15,6 +16,21 @@ type window struct {
 	cursorX, cursorY int //The cursor position relative to the top left corner of the window
 
 	buf *buffer.Buffer // The buffer being edited in the window
+}
+
+// Returns the length of line, as visually seen on the console.
+func displayLen(line []byte) int {
+	n := 0
+	for i := 0; i < len(line); {
+		p := norm.NFC.NextBoundary(line, true)
+		if p == 1 && line[0] == '\t' {
+			n += 4
+		} else if !(p == 1 && line[0] == '\n') {
+			n++
+		}
+		line = line[p:]
+	}
+	return n
 }
 
 func (w *window) renderBuffer() error {
@@ -83,5 +99,20 @@ func (w *window) typeText(text []byte) {
 	default:
 		w.buf.Insert(text, w.topLine+w.cursorY, w.cursorX)
 		w.moveCursorRight()
+	}
+}
+
+func (w *window) backspace() {
+	row := w.topLine + w.cursorY
+	newX := 0
+	if row > 0 {
+		newX = displayLen(w.buf.SliceLines(row-1, row)[0])
+	}
+	w.buf.DeleteChar(row, w.cursorX)
+	if w.cursorX == 0 {
+		w.moveCursorUp()
+		w.cursorX = newX
+	} else {
+		w.moveCursorLeft()
 	}
 }

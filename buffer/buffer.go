@@ -92,3 +92,23 @@ func (b *Buffer) InsertLineBreak(row, col int) {
 	b.lines[row] = dupToLine(line[:p])
 	b.lines[row+1] = line[p:]
 }
+
+func (b *Buffer) DeleteChar(row, col int) {
+	// If we're deleting before the start of a line, concatenate it into the previous one,
+	// then remove it.
+	if col == 0 {
+		if row == 0 {
+			return
+		}
+		prevLine := b.lines[row-1]
+		b.lines[row-1] = append(prevLine[:len(prevLine)-1], b.lines[row]...)
+		copy(b.lines[row:], b.lines[row+1:])
+		b.lines = b.lines[:len(b.lines)-1]
+	} else {
+		line := b.lines[row]
+		p := bufIndexForColumn(line, col-1)
+		n := norm.NFC.NextBoundary(line[p:], true)
+		copy(line[p:], line[p+n:])
+		b.lines[row] = line[:len(line)-n]
+	}
+}
