@@ -97,8 +97,8 @@ func main() {
 		gotoPos(os.Stdout, win.cursorY, win.cursorX+4)
 		var b [8]byte
 		n, err := os.Stdin.Read(b[:])
-		if err != nil || (n == 1 && b[0] == 'q') {
-			break
+		if err != nil {
+			return
 		}
 		switch {
 		case bytes.Equal(b[:n], upKey):
@@ -109,8 +109,11 @@ func main() {
 			win.moveCursorLeft()
 		case bytes.Equal(b[:n], rightKey):
 			win.moveCursorRight()
+		case n == 1 && b[0] == '\x11':
+			return
 		case n > 0 && b[0] != '\033':
 			win.typeText(b[:n])
+			//win.typeText([]byte(strconv.Quote(string(b[:n]))))
 		}
 	}
 }
