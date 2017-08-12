@@ -90,25 +90,31 @@ func (w *window) moveCursorRight() {
 	}
 }
 
+func (w *window) windowCoordsToTextCoords(wy, wx int) (ty int, tx int) {
+	//row := w.topLine + w.cursorY
+	return w.topLine + wy, wx
+}
+
 func (w *window) typeText(text []byte) {
+	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	switch text[0] {
 	case '\r':
-		w.buf.InsertLineBreak(w.topLine+w.cursorY, w.cursorX)
+		w.buf.InsertLineBreak(y, x)
 		w.moveCursorDown()
 		w.cursorX = 0
 	default:
-		w.buf.Insert(text, w.topLine+w.cursorY, w.cursorX)
+		w.buf.Insert(text, y, x)
 		w.moveCursorRight()
 	}
 }
 
 func (w *window) backspace() {
-	row := w.topLine + w.cursorY
+	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	newX := 0
-	if row > 0 {
-		newX = displayLen(w.buf.SliceLines(row-1, row)[0])
+	if y > 0 {
+		newX = displayLen(w.buf.SliceLines(y-1, y)[0])
 	}
-	w.buf.DeleteChar(row, w.cursorX)
+	w.buf.DeleteChar(y, x)
 	if w.cursorX == 0 {
 		w.moveCursorUp()
 		w.cursorX = newX
