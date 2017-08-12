@@ -23,9 +23,11 @@ func displayLen(line []byte) int {
 	n := 0
 	for i := 0; i < len(line); {
 		p := norm.NFC.NextBoundary(line, true)
-		if p == 1 && line[0] == '\t' {
+		if p == 1 && line[0] == '\n' {
+			break
+		} else if p == 1 && line[0] == '\t' {
 			n += 4
-		} else if !(p == 1 && line[0] == '\n') {
+		} else {
 			n++
 		}
 		line = line[p:]
@@ -103,6 +105,8 @@ func (w *window) windowCoordsToTextCoords(wy, wx int) (ty int, tx int) {
 		p := norm.NFC.NextBoundary(line, true)
 		if p == 1 && line[0] == '\t' {
 			n += 4
+		} else if p == 1 && line[0] == '\n' {
+			break
 		} else {
 			n++
 		}
