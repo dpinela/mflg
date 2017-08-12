@@ -15,6 +15,8 @@ type window struct {
 	topLine          int //The index of the topmost line being displayed
 	cursorX, cursorY int //The cursor position relative to the top left corner of the window
 
+	dirty bool //Indicates whether the contents of the window's buffer have been modified
+
 	buf *buffer.Buffer // The buffer being edited in the window
 }
 
@@ -117,6 +119,7 @@ func (w *window) windowCoordsToTextCoords(wy, wx int) (ty int, tx int) {
 }
 
 func (w *window) typeText(text []byte) {
+	w.dirty = true
 	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	switch text[0] {
 	case '\r':
@@ -130,6 +133,7 @@ func (w *window) typeText(text []byte) {
 }
 
 func (w *window) backspace() {
+	w.dirty = true
 	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	newX := 0
 	if y > 0 {
@@ -142,4 +146,12 @@ func (w *window) backspace() {
 	} else {
 		w.moveCursorLeft()
 	}
+}
+
+var gotoBottomAndClear = []byte("\033[1;2000B\033[K")
+
+func (w *window) printAtBottom(text string) error {
+	gotoPos(w.w, 2000, 0)
+	_, err := w.w.Write([]byte(text))
+	return err
 }

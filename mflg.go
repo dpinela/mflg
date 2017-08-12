@@ -59,6 +59,22 @@ var (
 	rightKey = []byte("\033[C")
 )
 
+func saveBuffer(f *os.File, buf *buffer.Buffer) error {
+	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
+		return err
+	}
+	if _, err := buf.WriteTo(f); err != nil {
+		return err
+	}
+	return nil
+}
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
@@ -110,12 +126,28 @@ func main() {
 		case bytes.Equal(b[:n], rightKey):
 			win.moveCursorRight()
 		case n == 1 && b[0] == '\x11':
-			return
+			if !win.dirty {
+				return
+			}
+			must(win.printAtBottom("[S]ave/[D]iscard changes/[C]ancel?"))
+			if m, err := os.Stdin.Read(b[:]); err == nil {
+				if m == 1 {
+					switch b[0] {
+					case 's', 'S':
+						if err := saveBuffer(f, buf); err != nil {
+							must(win.printAtBottom(err.Error()))
+						} else {
+							return
+						}
+					case 'd', 'D':
+						return
+					}
+				}
+			}
 		case n == 1 && b[0] == '\x7f':
 			win.backspace()
 		case n > 0 && b[0] != '\033':
 			win.typeText(b[:n])
-			//win.typeText([]byte(strconv.Quote(string(b[:n]))))
 		}
 	}
 }
