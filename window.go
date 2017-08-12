@@ -90,9 +90,26 @@ func (w *window) moveCursorRight() {
 	}
 }
 
+// Window coordinates: a (y, x) position within the window.
+// Text coordinates: a (line, column) position within the text.
+
 func (w *window) windowCoordsToTextCoords(wy, wx int) (ty int, tx int) {
-	//row := w.topLine + w.cursorY
-	return w.topLine + wy, wx
+	ty = w.topLine + wy
+	if ty >= w.buf.LineCount() {
+		ty = w.buf.LineCount() - 1
+	}
+	line := w.buf.SliceLines(ty, ty+1)[0]
+	for n := 0; len(line) != 0 && n < wx; {
+		p := norm.NFC.NextBoundary(line, true)
+		if p == 1 && line[0] == '\t' {
+			n += 4
+		} else {
+			n++
+		}
+		tx++
+		line = line[p:]
+	}
+	return ty, tx
 }
 
 func (w *window) typeText(text []byte) {
