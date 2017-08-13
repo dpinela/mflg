@@ -27,10 +27,8 @@ func displayLen(line []byte) int {
 		p := norm.NFC.NextBoundary(line, true)
 		if p == 1 && line[0] == '\n' {
 			break
-		} else if p == 1 && line[0] == '\t' {
-			n += 4
 		} else {
-			n++
+			n += displayLenChar(line[:p])
 		}
 		line = line[p:]
 	}
@@ -85,6 +83,10 @@ func (w *window) moveCursorUp() {
 func (w *window) moveCursorLeft() {
 	if w.cursorX > 0 {
 		w.cursorX--
+	} else if w.cursorY > 0 || w.topLine > 0 {
+		w.moveCursorUp()
+		y, _ := w.windowCoordsToTextCoords(w.cursorY, 0)
+		w.cursorX = displayLen(w.buf.SliceLines(y, y+1)[0])
 	}
 }
 
@@ -92,6 +94,13 @@ func (w *window) moveCursorRight() {
 	if w.cursorX < w.width-1 {
 		w.cursorX++
 	}
+}
+
+func displayLenChar(char []byte) int {
+	if len(char) == 1 && char[0] == '\t' {
+		return 4
+	}
+	return 1
 }
 
 // Window coordinates: a (y, x) position within the window.
@@ -105,12 +114,10 @@ func (w *window) windowCoordsToTextCoords(wy, wx int) (ty int, tx int) {
 	line := w.buf.SliceLines(ty, ty+1)[0]
 	for n := 0; len(line) != 0 && n < wx; {
 		p := norm.NFC.NextBoundary(line, true)
-		if p == 1 && line[0] == '\t' {
-			n += 4
-		} else if p == 1 && line[0] == '\n' {
+		if p == 1 && line[0] == '\n' {
 			break
 		} else {
-			n++
+			n += displayLenChar(line[:p])
 		}
 		tx++
 		line = line[p:]
