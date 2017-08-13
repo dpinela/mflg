@@ -43,7 +43,7 @@ func (w *window) renderBuffer() error {
 			line = line[:len(line)-1]
 		}
 		line = truncateToWidth(bytes.Replace(line, tab, fourSpaces, -1), w.width-gutterSize)
-		if _, err := fmt.Fprintf(w.w, "% 3d ", w.topLine+i+1); err != nil {
+		if _, err := fmt.Fprintf(w.w, "%3d ", w.topLine+i+1); err != nil {
 			return err
 		}
 		if _, err := w.w.Write(line); err != nil {
@@ -64,35 +64,51 @@ func (w *window) moveCursorDown() {
 		w.cursorY++
 	case w.topLine < w.buf.LineCount():
 		w.topLine++
-	default:
-		mustWrite(w.w, []byte("\a"))
+		/*default:
+		mustWrite(w.w, []byte("\a"))*/
 	}
+	w.roundCursorPos()
 }
 
 func (w *window) moveCursorUp() {
+
 	switch {
 	case w.cursorY > 0:
 		w.cursorY--
 	case w.topLine > 0:
 		w.topLine--
-	default:
-		mustWrite(w.w, []byte("\a"))
+		/*default:
+		mustWrite(w.w, []byte("\a"))*/
 	}
+	w.roundCursorPos()
+
+}
+
+func (w *window) roundCursorPos() {
+	w.cursorY, w.cursorX = w.textCoordsToWindowCoords(w.windowCoordsToTextCoords(
+		w.cursorY, w.cursorX))
 }
 
 func (w *window) moveCursorLeft() {
-	if w.cursorX > 0 {
-		w.cursorX--
-	} else if w.cursorY > 0 || w.topLine > 0 {
+	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
+	if x > 0 {
+		w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x-1)
+	} else {
 		w.moveCursorUp()
 		y, _ := w.windowCoordsToTextCoords(w.cursorY, 0)
-		w.cursorX = displayLen(w.buf.SliceLines(y, y+1)[0])
+		w.cursorX = displayLen(w.buf.Line(y))
 	}
+	/*if w.cursorX > 0 {
+		w.cursorX--
+	} else if w.cursorY > 0 || w.topLine > 0 {*/
+
 }
 
 func (w *window) moveCursorRight() {
-	if w.cursorX < w.width-1 {
-		w.cursorX++
+	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
+	w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x+1)
+	if w.cursorX >= w.width {
+		w.cursorX = w.width
 	}
 }
 
@@ -106,7 +122,7 @@ func displayLenChar(char []byte) int {
 // Window coordinates: a (y, x) position within the window.
 // Text coordinates: a (line, column) position within the text.
 
-func (w *window) windowCoordsToTextCoords(wy, wx int) (ty int, tx int) {
+func (w *window) windowCoordsToTextCoords(wy, wx int) (ty, tx int) {
 	ty = w.topLine + wy
 	if ty >= w.buf.LineCount() {
 		ty = w.buf.LineCount() - 1
@@ -125,6 +141,21 @@ func (w *window) windowCoordsToTextCoords(wy, wx int) (ty int, tx int) {
 	return ty, tx
 }
 
+func (w *window) textCoordsToWindowCoords(ty, tx int) (wy, wx int) {
+	wy = ty - w.topLine
+	line := w.buf.Line(ty)
+	for i := 0; len(line) != 0 && i < tx; {
+		p := norm.NFC.NextBoundary(line, true)
+		if p == 1 && line[0] == '\n' {
+			break
+		}
+		i++
+		wx += displayLenChar(line[:p])
+		line = line[p:]
+	}
+	return wy, wx
+}
+
 func (w *window) typeText(text []byte) {
 	w.dirty = true
 	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
@@ -136,6 +167,11 @@ func (w *window) typeText(text []byte) {
 	default:
 		w.buf.Insert(text, y, x)
 		w.moveCursorRight()
+		/*n := displayLen(text)
+		for i := 0; i < n; i++ {
+			w.moveCursorRight()
+		}*/
+
 	}
 }
 
@@ -150,8 +186,9 @@ func (w *window) backspace() {
 	if w.cursorX == 0 {
 		w.moveCursorUp()
 		w.cursorX = newX
+		w.roundCursorPos()
 	} else {
-		w.moveCursorLeft()
+		w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x - 1)
 	}
 }
 
@@ -162,3 +199,6 @@ func (w *window) printAtBottom(text string) error {
 	_, err := w.w.Write([]byte(text))
 	return err
 }
+//foo
+//bara
+//baz
