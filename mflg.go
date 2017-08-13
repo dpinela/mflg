@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/dpinela/mflg/buffer"
@@ -75,6 +76,24 @@ func must(err error) {
 	}
 }
 
+func rawGetLine(in io.Reader, out io.Writer) (string, error) {
+	var b [8]byte
+	var line []byte
+	for {
+		n, err := in.Read(b[:])
+		if err != nil {
+			return string(line), err
+		}
+		if n == 1 && b[0] == '\r' {
+			return string(line), nil
+		}
+		if _, err := out.Write(b[:n]); err != nil {
+			return string(line), err
+		}
+		line = append(line, b[:n]...)
+	}
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
@@ -129,7 +148,7 @@ func main() {
 			if !win.dirty {
 				return
 			}
-			must(win.printAtBottom("[S]ave/[D]iscard changes/[C]ancel?"))
+			must(win.printAtBottom("[S]ave/[D]iscard changes/[C]ancel? "))
 			if m, err := os.Stdin.Read(b[:]); err == nil {
 				if m == 1 {
 					switch b[0] {
@@ -146,6 +165,14 @@ func main() {
 			}
 		case n == 1 && b[0] == '\x7f':
 			win.backspace()
+		case n == 1 && b[0] == '\f':
+			must(win.printAtBottom("Go to line: "))
+			lineStr, err := rawGetLine(os.Stdin, win.w)
+			must(err)
+			y, err := strconv.ParseInt(lineStr, 10, 32)
+			if err == nil {
+				win.gotoLine(int(y - 1))
+			}
 		case n > 0 && b[0] != '\033':
 			win.typeText(b[:n])
 		}

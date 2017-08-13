@@ -84,6 +84,12 @@ func (w *window) moveCursorUp() {
 
 }
 
+func (w *window) gotoLine(y int) {
+	w.topLine = y
+	w.cursorY = 0
+	w.roundCursorPos()
+}
+
 func (w *window) roundCursorPos() {
 	w.cursorY, w.cursorX = w.textCoordsToWindowCoords(w.windowCoordsToTextCoords(
 		w.cursorY, w.cursorX))
@@ -188,7 +194,7 @@ func (w *window) backspace() {
 		w.cursorX = newX
 		w.roundCursorPos()
 	} else {
-		w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x - 1)
+		w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x-1)
 	}
 }
 
@@ -199,6 +205,7 @@ func (w *window) printAtBottom(text string) error {
 	_, err := w.w.Write([]byte(text))
 	return err
 }
-//foo
+
+//oo
 //bara
 //baz
