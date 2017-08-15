@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"unicode/utf8"
@@ -60,14 +61,25 @@ var (
 	rightKey = []byte("\033[C")
 )
 
-func saveBuffer(f *os.File, buf *buffer.Buffer) error {
-	if _, err := f.Seek(0, os.SEEK_SET); err != nil {
+func saveBuffer(fname string, buf *buffer.Buffer) error {
+	tf, err := ioutil.TempFile("", "mflg-tmp-")
+	if err != nil {
+		return err
+	}
+	if _, err := buf.WriteTo(tf); err != nil {
+		return err
+	}
+	if err = tf.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tf.Name(), fname)
+	/*if _, err := f.Seek(0, os.SEEK_SET); err != nil {
 		return err
 	}
 	if _, err := buf.WriteTo(f); err != nil {
 		return err
 	}
-	return nil
+	return nil*/
 }
 
 func must(err error) {
@@ -100,7 +112,7 @@ func main() {
 		os.Exit(2)
 	}
 	fname := os.Args[1]
-	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE, 0644)
+	f, err := os.Open(fname)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
@@ -110,6 +122,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error reading %s: %v", fname, err)
 		os.Exit(2)
 	}
+	f.Close()
 	w, h, err := terminal.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error finding terminal size:", err)
@@ -153,7 +166,7 @@ func main() {
 				if m == 1 {
 					switch b[0] {
 					case 's', 'S':
-						if err := saveBuffer(f, buf); err != nil {
+						if err := saveBuffer(fname, buf); err != nil {
 							must(win.printAtBottom(err.Error()))
 						} else {
 							return
