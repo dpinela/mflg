@@ -21,3 +21,4 @@ In other words, more like an advanced nano and less like vi or emacs.
 
 - **Quit**: Control-Q
 - **Go to Line**: Control-L
+- **Find**: Control-F

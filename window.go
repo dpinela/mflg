@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"regexp"
 
 	"github.com/dpinela/mflg/buffer"
 	"golang.org/x/text/unicode/norm"
@@ -17,7 +18,8 @@ type window struct {
 
 	dirty bool //Indicates whether the contents of the window's buffer have been modified
 
-	buf *buffer.Buffer // The buffer being edited in the window
+	buf      *buffer.Buffer // The buffer being edited in the window
+	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
 }
 
 // Returns the length of line, as visually seen on the console.
@@ -120,6 +122,15 @@ func (w *window) moveCursorRight() {
 	}
 	if w.cursorX >= w.width {
 		w.cursorX = w.width
+	}
+}
+
+func (w *window) searchRegexp(re *regexp.Regexp) {
+	w.searchRE = re
+	for i, line := range w.buf.SliceLines(0, w.buf.LineCount()) {
+		if re.Match(line) {
+			w.gotoLine(i)
+		}
 	}
 }
 

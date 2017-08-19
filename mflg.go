@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strconv"
 	"unicode/utf8"
 
@@ -185,6 +186,16 @@ func main() {
 			y, err := strconv.ParseInt(lineStr, 10, 32)
 			if err == nil {
 				win.gotoLine(int(y - 1))
+			}
+		case n == 1 && b[0] == 6:
+			must(win.printAtBottom("Search: "))
+			reText, err := rawGetLine(os.Stdin, win.w)
+			must(err)
+			re, err := regexp.Compile(reText)
+			if err != nil {
+				must(win.printAtBottom(err.Error()))
+			} else {
+				win.searchRegexp(re)
 			}
 		case n > 0 && b[0] != '\033':
 			win.typeText(b[:n])
