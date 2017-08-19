@@ -215,10 +215,12 @@ func (w *window) backspace() {
 	}
 }
 
-var gotoBottomAndClear = []byte("\033[1;2000B\033[K")
+var gotoBottomAndClear = []byte("\033[2000;1H\033[K")
 
 func (w *window) printAtBottom(text string) error {
-	gotoPos(w.w, 2000, 0)
+	if _, err := w.w.Write(gotoBottomAndClear); err != nil {
+		return err
+	}
 	_, err := w.w.Write([]byte(text))
 	return err
 }
