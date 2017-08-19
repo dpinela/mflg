@@ -130,6 +130,7 @@ func (w *window) searchRegexp(re *regexp.Regexp) {
 	for i, line := range w.buf.SliceLines(0, w.buf.LineCount()) {
 		if re.Match(line) {
 			w.gotoLine(i)
+			return
 		}
 	}
 }
