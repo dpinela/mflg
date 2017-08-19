@@ -111,8 +111,13 @@ func (w *window) moveCursorLeft() {
 }
 
 func (w *window) moveCursorRight() {
+	oldY, oldX := w.cursorY, w.cursorX
 	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x+1)
+	if w.cursorX == oldX && w.cursorY == oldY {
+		w.cursorX = 0
+		w.moveCursorDown()
+	}
 	if w.cursorX >= w.width {
 		w.cursorX = w.width
 	}
@@ -205,7 +210,3 @@ func (w *window) printAtBottom(text string) error {
 	_, err := w.w.Write([]byte(text))
 	return err
 }
-
-//oo
-//bara
-//baz
