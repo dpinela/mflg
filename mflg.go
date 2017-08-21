@@ -197,7 +197,7 @@ func main() {
 			} else {
 				win.searchRegexp(re)
 			}
-		case n > 0 && b[0] != '\033':
+		case n > 0 && (b[0] >= ' ' || b[0] == '\r' || b[0] == '\t'):
 			win.typeText(b[:n])
 		}
 	}
