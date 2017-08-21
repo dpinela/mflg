@@ -134,12 +134,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error entering raw mode:", err)
 		os.Exit(2)
 	}
-	win := window{w: os.Stdout, width: w, height: h, buf: buf}
+	win := window{w: os.Stdout, width: w, height: h, buf: buf, needsRedraw: true}
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
 	enterAlternateScreen()
 	defer exitAlternateScreen()
 	for {
-		gotoTop(os.Stdout)
 		if err := win.renderBuffer(); err != nil {
 			panic(err)
 		}

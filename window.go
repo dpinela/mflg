@@ -17,6 +17,9 @@ type window struct {
 	cursorX, cursorY int //The cursor position relative to the top left corner of the window
 
 	dirty bool //Indicates whether the contents of the window's buffer have been modified
+	//Indicates whether the visible part of the window has changed since it was last
+	//drawn
+	needsRedraw bool
 
 	buf      *buffer.Buffer // The buffer being edited in the window
 	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
@@ -37,7 +40,14 @@ func displayLen(line []byte) int {
 	return n
 }
 
+// renderBuffer updates the screen to reflect the logical window contents.
 func (w *window) renderBuffer() error {
+	if !w.needsRedraw {
+		return nil
+	}
+	if _, err := w.w.Write(resetScreen); err != nil {
+		return err
+	}
 	lines := w.buf.SliceLines(w.topLine, w.topLine+w.height)
 	const gutterSize = 4
 	for i, line := range lines {
@@ -57,6 +67,7 @@ func (w *window) renderBuffer() error {
 			}
 		}
 	}
+	w.needsRedraw = false
 	return nil
 }
 
@@ -66,21 +77,18 @@ func (w *window) moveCursorDown() {
 		w.cursorY++
 	case w.topLine < w.buf.LineCount():
 		w.topLine++
-		/*default:
-		mustWrite(w.w, []byte("\a"))*/
+		w.needsRedraw = true
 	}
 	w.roundCursorPos()
 }
 
 func (w *window) moveCursorUp() {
-
 	switch {
 	case w.cursorY > 0:
 		w.cursorY--
 	case w.topLine > 0:
 		w.topLine--
-		/*default:
-		mustWrite(w.w, []byte("\a"))*/
+		w.needsRedraw = true
 	}
 	w.roundCursorPos()
 
@@ -88,6 +96,7 @@ func (w *window) moveCursorUp() {
 
 func (w *window) gotoLine(y int) {
 	w.topLine = y
+	w.needsRedraw = true
 	w.cursorY = 0
 	w.roundCursorPos()
 }
@@ -181,6 +190,7 @@ func (w *window) textCoordsToWindowCoords(ty, tx int) (wy, wx int) {
 
 func (w *window) typeText(text []byte) {
 	w.dirty = true
+	w.needsRedraw = true
 	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	switch text[0] {
 	case '\r':
@@ -200,6 +210,7 @@ func (w *window) typeText(text []byte) {
 
 func (w *window) backspace() {
 	w.dirty = true
+	w.needsRedraw = true
 	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	newX := 0
 	if y > 0 {
