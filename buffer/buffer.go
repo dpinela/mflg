@@ -14,10 +14,11 @@ type Buffer struct {
 	lines [][]byte
 }
 
-func New() *Buffer { return &Buffer{lines: nil} }
+func New() *Buffer { return &Buffer{lines: [][]byte{nil}} }
 
 // ReadFrom reads data from r until EOF, splicing it in at the current insertion point position.
 func (b *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
+	b.lines = nil
 	br := bufio.NewReader(r)
 	for {
 		var line []byte

@@ -112,18 +112,19 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
 		os.Exit(2)
 	}
+	buf := buffer.New()
 	fname := os.Args[1]
-	f, err := os.Open(fname)
-	if err != nil {
+	if f, err := os.Open(fname); err == nil {
+		_, err = buf.ReadFrom(f)
+		f.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error reading %s: %v", fname, err)
+			os.Exit(2)
+		}
+	} else if !os.IsNotExist(err) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	buf := buffer.New()
-	if _, err = buf.ReadFrom(f); err != nil {
-		fmt.Fprintf(os.Stderr, "error reading %s: %v", fname, err)
-		os.Exit(2)
-	}
-	f.Close()
 	w, h, err := terminal.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error finding terminal size:", err)
