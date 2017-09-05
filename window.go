@@ -154,37 +154,33 @@ func displayLenChar(char []byte) int {
 // Window coordinates: a (y, x) position within the window.
 // Text coordinates: a (line, column) position within the text.
 
+func scanLineUntil(line []byte, stopAt func(wx, tx int) bool) (wx, tx int) {
+	for len(line) != 0 && !stopAt(wx, tx) {
+		p := norm.NFC.NextBoundary(line, true)
+		if p == 1 && line[0] == '\n' {
+			break
+		}
+		wx += displayLenChar(line[:p])
+		tx++
+		line = line[p:]
+	}
+	return
+}
+
 func (w *window) windowCoordsToTextCoords(wy, wx int) (ty, tx int) {
 	ty = w.topLine + wy
 	if ty >= w.buf.LineCount() {
 		ty = w.buf.LineCount() - 1
 	}
-	line := w.buf.SliceLines(ty, ty+1)[0]
-	for n := 0; len(line) != 0 && n < wx; {
-		p := norm.NFC.NextBoundary(line, true)
-		if p == 1 && line[0] == '\n' {
-			break
-		} else {
-			n += displayLenChar(line[:p])
-		}
-		tx++
-		line = line[p:]
-	}
+	line := w.buf.Line(ty)
+	_, tx = scanLineUntil(line, func(n, _ int) bool { return n >= wx })
 	return ty, tx
 }
 
 func (w *window) textCoordsToWindowCoords(ty, tx int) (wy, wx int) {
 	wy = ty - w.topLine
 	line := w.buf.Line(ty)
-	for i := 0; len(line) != 0 && i < tx; {
-		p := norm.NFC.NextBoundary(line, true)
-		if p == 1 && line[0] == '\n' {
-			break
-		}
-		i++
-		wx += displayLenChar(line[:p])
-		line = line[p:]
-	}
+	wx, _ = scanLineUntil(line, func(_, i int) bool { return i >= tx })
 	return wy, wx
 }
 
