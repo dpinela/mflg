@@ -16,6 +16,8 @@ type window struct {
 	topLine          int //The index of the topmost line being displayed
 	cursorX, cursorY int //The cursor position relative to the top left corner of the window
 
+	window2TextY []int //A mapping from window y-coordinates to text y-coordinates
+
 	dirty bool //Indicates whether the contents of the window's buffer have been modified
 	//Indicates whether the visible part of the window has changed since it was last
 	//drawn
@@ -40,21 +42,56 @@ func displayLen(line []byte) int {
 	return n
 }
 
+func (w *window) gutterWidth() int {
+	return 4
+}
+
+func (w *window) textAreaWidth() int {
+	return w.width - w.gutterWidth() - 1
+}
+
 // renderBuffer updates the screen to reflect the logical window contents.
 func (w *window) renderBuffer() error {
 	if !w.needsRedraw {
-		return nil
+//		return nil
 	}
 	if _, err := w.w.Write(resetScreen); err != nil {
 		return err
 	}
+	w.window2TextY = w.window2TextY[:0]
 	lines := w.buf.SliceLines(w.topLine, w.topLine+w.height)
-	const gutterSize = 4
+	// We leave one space at the right end of the window so that we can always type
+	// at the end of lines
+	lineWidth := w.textAreaWidth()
+	y := 0
 	for i, line := range lines {
+		if y >= w.height {
+			break
+		}
 		if len(line) > 0 && line[len(line)-1] == '\n' {
 			line = line[:len(line)-1]
 		}
-		line = truncateToWidth(bytes.Replace(line, tab, fourSpaces, -1), w.width-gutterSize)
+		line = bytes.Replace(line, tab, fourSpaces, -1)
+		var rest []byte
+		for y < w.height {
+			line, rest = wrapLine(line, lineWidth)
+			ender := crlf
+			if y+1 >= w.height {
+				ender = nil
+			}
+			ty := w.topLine + i
+			if _, err := fmt.Fprintf(w.w, "%3d %s%s", ty+1, line, ender); err != nil {
+				return err
+			}
+			w.window2TextY = append(w.window2TextY, ty)
+			y++
+			if len(rest) == 0 {
+				break
+			}
+			line = rest
+		}
+		/*line, rest = wrapLine(line, w.width-gutterSize-2)
+		//line = truncateToWidth(bytes.Replace(line, tab, fourSpaces, -1), w.width-gutterSize)
 		if _, err := fmt.Fprintf(w.w, "%3d ", w.topLine+i+1); err != nil {
 			return err
 		}
@@ -65,10 +102,26 @@ func (w *window) renderBuffer() error {
 			if _, err := w.w.Write(crlf); err != nil {
 				return err
 			}
-		}
+		}*/
 	}
+	Ty, Tx := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
+	fmt.Fprintf(w.w, "\r\x1B[1mw: (%d, %d) t: (%d, %d)\x1B[0m", w.cursorY, w.cursorX,
+      Ty, Tx)
 	w.needsRedraw = false
 	return nil
+}
+
+func wrapLine(line []byte, width int) (first, rest []byte) {
+	x := 0
+	i := 0
+	for i < len(line) {
+		i += norm.NFC.NextBoundary(line[i:], true)
+		x++
+		if x == width {
+			return line[:i], line[i:]
+		}
+	}
+	return line, nil
 }
 
 func (w *window) moveCursorDown() {
@@ -91,7 +144,6 @@ func (w *window) moveCursorUp() {
 		w.needsRedraw = true
 	}
 	w.roundCursorPos()
-
 }
 
 func (w *window) gotoLine(y int) {
@@ -154,13 +206,18 @@ func displayLenChar(char []byte) int {
 // Window coordinates: a (y, x) position within the window.
 // Text coordinates: a (line, column) position within the text.
 
-func scanLineUntil(line []byte, stopAt func(wx, tx int) bool) (wx, tx int) {
-	for len(line) != 0 && !stopAt(wx, tx) {
+func (w *window) scanLineUntil(line []byte, stopAt func(wx, wy, tx int) bool) (wx, wy, tx int) {
+	lineWidth := w.textAreaWidth()
+	for len(line) != 0 && !stopAt(wx, wy, tx) {
 		p := norm.NFC.NextBoundary(line, true)
 		if p == 1 && line[0] == '\n' {
 			break
 		}
 		wx += displayLenChar(line[:p])
+		if wx >= lineWidth {
+			wy += wx / lineWidth
+			wx = wx % lineWidth
+		}
 		tx++
 		line = line[p:]
 	}
@@ -168,20 +225,30 @@ func scanLineUntil(line []byte, stopAt func(wx, tx int) bool) (wx, tx int) {
 }
 
 func (w *window) windowCoordsToTextCoords(wy, wx int) (ty, tx int) {
-	ty = w.topLine + wy
+	ty = w.window2TextY[wy]
+	baseWY := w.lineStartY(ty)
 	if ty >= w.buf.LineCount() {
 		ty = w.buf.LineCount() - 1
 	}
 	line := w.buf.Line(ty)
-	_, tx = scanLineUntil(line, func(n, _ int) bool { return n >= wx })
+	_, _, tx = w.scanLineUntil(line, func(x, y, _ int) bool {
+		return x >= wx && baseWY + y >= wy })
 	return ty, tx
 }
 
+func (w *window) lineStartY(ty int) (wy int) {
+	for wy, y := range w.window2TextY {
+		if y == ty {
+			return wy
+		}
+	}
+	return 0
+}
+
 func (w *window) textCoordsToWindowCoords(ty, tx int) (wy, wx int) {
-	wy = ty - w.topLine
 	line := w.buf.Line(ty)
-	wx, _ = scanLineUntil(line, func(_, i int) bool { return i >= tx })
-	return wy, wx
+	wx, wy, _ = w.scanLineUntil(line, func(_, _, i int) bool { return i >= tx })
+	return w.lineStartY(ty) + wy, wx
 }
 
 func (w *window) typeText(text []byte) {
