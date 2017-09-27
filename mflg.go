@@ -6,12 +6,14 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"unicode/utf8"
 
 	"github.com/dpinela/mflg/buffer"
 	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/sys/unix"
 )
 
 func enterAlternateScreen() {
@@ -89,21 +91,20 @@ func must(err error) {
 	}
 }
 
-func rawGetLine(in io.Reader, out io.Writer) (string, error) {
-	var b [8]byte
+func rawGetLine(in <-chan []byte, out io.Writer) (string, error) {
 	var line []byte
 	for {
-		n, err := in.Read(b[:])
-		if err != nil {
-			return string(line), err
-		}
-		if n == 1 && b[0] == '\r' {
+		c := <-in
+		if len(c) == 0 {
 			return string(line), nil
 		}
-		if _, err := out.Write(b[:n]); err != nil {
+		if len(c) == 1 && c[0] == '\r' {
+			return string(line), nil
+		}
+		if _, err := out.Write(c); err != nil {
 			return string(line), err
 		}
-		line = append(line, b[:n]...)
+		line = append(line, c...)
 	}
 }
 
@@ -139,31 +140,68 @@ func main() {
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
 	enterAlternateScreen()
 	defer exitAlternateScreen()
+	resizeCh := make(chan os.Signal, 32)
+	inputCh := make(chan []byte, 32)
+	go func() {
+		var b [8]byte
+		for {
+			if n, err := os.Stdin.Read(b[:]); err != nil {
+				inputCh <- nil
+			} else {
+				inputCh <- b[:n]
+			}
+		}
+	}()
+	signal.Notify(resizeCh, unix.SIGWINCH)
+	var c []byte
 	for {
 		if err := win.renderBuffer(); err != nil {
 			panic(err)
 		}
-		gotoPos(os.Stdout, win.cursorY, win.cursorX+4)
-		var b [8]byte
-		n, err := os.Stdin.Read(b[:])
-		if err != nil {
-			return
+		gotoPos(os.Stdout, win.cursorY, win.cursorX+win.gutterWidth())
+		select {
+			case c = <-inputCh:
+			case <-resizeCh:
+				// This can only fail if our terminal turns into a non-terminal
+				// during execution, or if we change os.Stdin for some reason
+				if w, h, err := terminal.GetSize(int(os.Stdin.Fd())); err != nil {
+					panic(err)
+				} else {
+					win.resize(h, w)
+				}
 		}
 		switch {
-		case bytes.Equal(b[:n], upKey):
+		case bytes.Equal(c, upKey):
 			win.moveCursorUp()
-		case bytes.Equal(b[:n], downKey):
+		case bytes.Equal(c, downKey):
 			win.moveCursorDown()
-		case bytes.Equal(b[:n], leftKey):
+		case bytes.Equal(c, leftKey):
 			win.moveCursorLeft()
-		case bytes.Equal(b[:n], rightKey):
+		case bytes.Equal(c, rightKey):
 			win.moveCursorRight()
-		case n == 1 && b[0] == '\x11':
+		case len(c) == 1 && c[0] == '\x11':
 			if !win.dirty {
 				return
 			}
 			must(win.printAtBottom("[S]ave/[D]iscard changes/[C]ancel? "))
-			if m, err := os.Stdin.Read(b[:]); err == nil {
+			c = <-inputCh
+			if len(c) == 1 {
+				switch c[0] {
+					case 's', 'S':
+						if err := saveBuffer(fname, buf); err != nil {
+							must(win.printAtBottom(err.Error()))
+						} else {
+							return
+						}
+					case 'd', 'D':
+						return
+					default:
+						win.needsRedraw = true
+				}
+			} else {
+				win.needsRedraw = true
+			}
+			/*if m, err := os.Stdin.Read(b[:]); err == nil {
 				if m == 1 {
 					switch b[0] {
 					case 's', 'S':
@@ -174,22 +212,24 @@ func main() {
 						}
 					case 'd', 'D':
 						return
+					default:
+						win.needsRedraw = true
 					}
 				}
-			}
-		case n == 1 && b[0] == '\x7f':
+			}*/
+		case len(c) == 1 && c[0] == '\x7f':
 			win.backspace()
-		case n == 1 && b[0] == '\f':
+		case len(c) == 1 && c[0] == '\f':
 			must(win.printAtBottom("Go to line: "))
-			lineStr, err := rawGetLine(os.Stdin, win.w)
+			lineStr, err := rawGetLine(inputCh, win.w)
 			must(err)
 			y, err := strconv.ParseInt(lineStr, 10, 32)
 			if err == nil {
 				win.gotoLine(int(y - 1))
 			}
-		case n == 1 && b[0] == 6:
+		case len(c) == 1 && c[0] == 6:
 			must(win.printAtBottom("Search: "))
-			reText, err := rawGetLine(os.Stdin, win.w)
+			reText, err := rawGetLine(inputCh, win.w)
 			must(err)
 			re, err := regexp.Compile(reText)
 			if err != nil {
@@ -197,8 +237,8 @@ func main() {
 			} else {
 				win.searchRegexp(re)
 			}
-		case n > 0 && (b[0] >= ' ' || b[0] == '\r' || b[0] == '\t'):
-			win.typeText(b[:n])
+		case len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t'):
+			win.typeText(c)
 		}
 	}
 }
