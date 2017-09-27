@@ -27,6 +27,22 @@ type window struct {
 	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
 }
 
+// resize sets the window's height and width, then updates the layout
+// and cursor position accordingly.
+func (w *window) resize(newHeight, newWidth int) {
+	gw := w.gutterWidth()
+	if w.cursorX + gw >= newWidth {
+		w.cursorX = newWidth - gw - 1
+	}
+	if w.cursorY >= newHeight {
+		w.cursorY = newHeight - 1
+	}
+	w.width = newWidth
+	w.height = newHeight
+	w.needsRedraw = true
+	w.w.Write([]byte("\a"))
+}
+
 // Returns the length of line, as visually seen on the console.
 func displayLen(line []byte) int {
 	n := 0
@@ -64,7 +80,7 @@ func (w *window) renderBuffer() error {
 	// at the end of lines
 	lineWidth := w.textAreaWidth()
 	var rest []byte
-	for ty, wy := w.topLine, 0; wy < w.height; ty++ {
+	for ty, wy := w.topLine, 0; ty < w.buf.LineCount() && wy < w.height; ty++ {
 		line := w.buf.Line(ty)
 		if len(line) > 0 && line[len(line)-1] == '\n' {
 			line = line[:len(line)-1]
