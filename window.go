@@ -53,60 +53,52 @@ func (w *window) textAreaWidth() int {
 // renderBuffer updates the screen to reflect the logical window contents.
 func (w *window) renderBuffer() error {
 	if !w.needsRedraw {
-//		return nil
+		//		return nil
 	}
 	if _, err := w.w.Write(resetScreen); err != nil {
 		return err
 	}
 	w.window2TextY = w.window2TextY[:0]
-	lines := w.buf.SliceLines(w.topLine, w.topLine+w.height)
+	//lines := w.buf.SliceLines(w.topLine, w.topLine+w.height)
 	// We leave one space at the right end of the window so that we can always type
 	// at the end of lines
 	lineWidth := w.textAreaWidth()
-	y := 0
-	for i, line := range lines {
-		if y >= w.height {
-			break
-		}
+	var rest []byte
+	for ty, wy := w.topLine, 0; wy < w.height; ty++ {
+		line := w.buf.Line(ty)
 		if len(line) > 0 && line[len(line)-1] == '\n' {
 			line = line[:len(line)-1]
 		}
 		line = bytes.Replace(line, tab, fourSpaces, -1)
-		var rest []byte
-		for y < w.height {
+		for wy < w.height {
 			line, rest = wrapLine(line, lineWidth)
 			ender := crlf
-			if y+1 >= w.height {
+			if wy+1 >= w.height {
 				ender = nil
 			}
-			ty := w.topLine + i
 			if _, err := fmt.Fprintf(w.w, "%3d %s%s", ty+1, line, ender); err != nil {
 				return err
 			}
 			w.window2TextY = append(w.window2TextY, ty)
-			y++
+			wy++
 			if len(rest) == 0 {
 				break
 			}
 			line = rest
 		}
-		/*line, rest = wrapLine(line, w.width-gutterSize-2)
-		//line = truncateToWidth(bytes.Replace(line, tab, fourSpaces, -1), w.width-gutterSize)
-		if _, err := fmt.Fprintf(w.w, "%3d ", w.topLine+i+1); err != nil {
-			return err
+		if len(rest) > 0 {
+			w.window2TextY = append(w.window2TextY, ty)
 		}
-		if _, err := w.w.Write(line); err != nil {
-			return err
-		}
-		if i+1 < w.height {
-			if _, err := w.w.Write(crlf); err != nil {
-				return err
-			}
-		}*/
 	}
+	if len(rest) == 0 {
+		p := &w.window2TextY
+		*p = append(*p, (*p)[len(*p)-1]+1)
+	}
+	// Keep an extra entry in the table so that we can convert positions one line past the bottom of the window
+
 	Ty, Tx := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	fmt.Fprintf(w.w, "\r\x1B[1mw: (%d, %d) t: (%d, %d)\x1B[0m", w.cursorY, w.cursorX,
-      Ty, Tx)
+		Ty, Tx)
 	w.needsRedraw = false
 	return nil
 }
@@ -162,10 +154,10 @@ func (w *window) moveCursorLeft() {
 	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	if x > 0 {
 		w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x-1)
-	} else {
+	} else if y > 0 {
 		w.moveCursorUp()
-		y, _ := w.windowCoordsToTextCoords(w.cursorY, 0)
-		w.cursorX = displayLen(w.buf.Line(y))
+		w.cursorX = w.textAreaWidth() - 1
+		w.roundCursorPos()
 	}
 	/*if w.cursorX > 0 {
 		w.cursorX--
@@ -209,14 +201,18 @@ func displayLenChar(char []byte) int {
 func (w *window) scanLineUntil(line []byte, stopAt func(wx, wy, tx int) bool) (wx, wy, tx int) {
 	lineWidth := w.textAreaWidth()
 	for len(line) != 0 && !stopAt(wx, wy, tx) {
+		// Allow (y, 0) to map to the first character of a wrapped line's continuation
+		/*if wx == lineWidth && stopAt(0, wy + 1, tx) {
+			return 0, wy + 1, tx
+		}*/
 		p := norm.NFC.NextBoundary(line, true)
 		if p == 1 && line[0] == '\n' {
 			break
 		}
 		wx += displayLenChar(line[:p])
-		if wx >= lineWidth {
-			wy += wx / lineWidth
-			wx = wx % lineWidth
+		for wx >= lineWidth+1 {
+			wy++
+			wx -= lineWidth
 		}
 		tx++
 		line = line[p:]
@@ -232,7 +228,8 @@ func (w *window) windowCoordsToTextCoords(wy, wx int) (ty, tx int) {
 	}
 	line := w.buf.Line(ty)
 	_, _, tx = w.scanLineUntil(line, func(x, y, _ int) bool {
-		return x >= wx && baseWY + y >= wy })
+		return x >= wx && baseWY+y >= wy
+	})
 	return ty, tx
 }
 
