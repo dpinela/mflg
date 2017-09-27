@@ -53,7 +53,7 @@ func (w *window) textAreaWidth() int {
 // renderBuffer updates the screen to reflect the logical window contents.
 func (w *window) renderBuffer() error {
 	if !w.needsRedraw {
-		//		return nil
+		return nil
 	}
 	if _, err := w.w.Write(resetScreen); err != nil {
 		return err
@@ -96,9 +96,9 @@ func (w *window) renderBuffer() error {
 	}
 	// Keep an extra entry in the table so that we can convert positions one line past the bottom of the window
 
-	Ty, Tx := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
+/*	Ty, Tx := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 	fmt.Fprintf(w.w, "\r\x1B[1mw: (%d, %d) t: (%d, %d)\x1B[0m", w.cursorY, w.cursorX,
-		Ty, Tx)
+		Ty, Tx)*/
 	w.needsRedraw = false
 	return nil
 }
