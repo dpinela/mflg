@@ -169,6 +169,7 @@ func main() {
 				} else {
 					win.resize(h, w)
 				}
+				continue
 		}
 		switch {
 		case bytes.Equal(c, upKey):
