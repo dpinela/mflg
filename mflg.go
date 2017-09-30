@@ -160,16 +160,16 @@ func main() {
 		}
 		gotoPos(os.Stdout, win.cursorY, win.cursorX+win.gutterWidth())
 		select {
-			case c = <-inputCh:
-			case <-resizeCh:
-				// This can only fail if our terminal turns into a non-terminal
-				// during execution, or if we change os.Stdin for some reason
-				if w, h, err := terminal.GetSize(int(os.Stdin.Fd())); err != nil {
-					panic(err)
-				} else {
-					win.resize(h, w)
-				}
-				continue
+		case c = <-inputCh:
+		case <-resizeCh:
+			// This can only fail if our terminal turns into a non-terminal
+			// during execution, or if we change os.Stdin for some reason
+			if w, h, err := terminal.GetSize(int(os.Stdin.Fd())); err != nil {
+				panic(err)
+			} else {
+				win.resize(h, w)
+			}
+			continue
 		}
 		switch {
 		case bytes.Equal(c, upKey):
@@ -188,16 +188,16 @@ func main() {
 			c = <-inputCh
 			if len(c) == 1 {
 				switch c[0] {
-					case 's', 'S':
-						if err := saveBuffer(fname, buf); err != nil {
-							must(win.printAtBottom(err.Error()))
-						} else {
-							return
-						}
-					case 'd', 'D':
+				case 's', 'S':
+					if err := saveBuffer(fname, buf); err != nil {
+						must(win.printAtBottom(err.Error()))
+					} else {
 						return
-					default:
-						win.needsRedraw = true
+					}
+				case 'd', 'D':
+					return
+				default:
+					win.needsRedraw = true
 				}
 			} else {
 				win.needsRedraw = true
