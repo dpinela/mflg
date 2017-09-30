@@ -40,7 +40,6 @@ func (w *window) resize(newHeight, newWidth int) {
 	w.width = newWidth
 	w.height = newHeight
 	w.needsRedraw = true
-	w.w.Write([]byte("\a"))
 }
 
 // Returns the length of line, as visually seen on the console.
