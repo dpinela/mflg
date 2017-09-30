@@ -31,7 +31,7 @@ type window struct {
 // and cursor position accordingly.
 func (w *window) resize(newHeight, newWidth int) {
 	gw := w.gutterWidth()
-	if w.cursorX + gw >= newWidth {
+	if w.cursorX+gw >= newWidth {
 		w.cursorX = newWidth - gw - 1
 	}
 	if w.cursorY >= newHeight {
@@ -109,11 +109,14 @@ func (w *window) renderBuffer() error {
 		p := &w.window2TextY
 		*p = append(*p, (*p)[len(*p)-1]+1)
 	}
+	w.roundCursorPos()
 	// Keep an extra entry in the table so that we can convert positions one line past the bottom of the window
+	// We don't need the converse at the top end because right now the line past
+	// the top is always the previous line
 
-/*	Ty, Tx := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
-	fmt.Fprintf(w.w, "\r\x1B[1mw: (%d, %d) t: (%d, %d)\x1B[0m", w.cursorY, w.cursorX,
-		Ty, Tx)*/
+	/*	Ty, Tx := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
+		fmt.Fprintf(w.w, "\r\x1B[1mw: (%d, %d) t: (%d, %d)\x1B[0m", w.cursorY, w.cursorX,
+			Ty, Tx)*/
 	w.needsRedraw = false
 	return nil
 }
@@ -132,32 +135,33 @@ func wrapLine(line []byte, width int) (first, rest []byte) {
 }
 
 func (w *window) moveCursorDown() {
-	switch {
-	case w.cursorY < w.height-1:
+	if w.window2TextY[w.cursorY+1] >= w.buf.LineCount() {
+		return
+	}
+	if w.cursorY < w.height-1 {
 		w.cursorY++
-	case w.topLine < w.buf.LineCount():
+		w.roundCursorPos()
+	} else {
 		w.topLine++
 		w.needsRedraw = true
 	}
-	w.roundCursorPos()
 }
 
 func (w *window) moveCursorUp() {
 	switch {
 	case w.cursorY > 0:
 		w.cursorY--
+		w.roundCursorPos()
 	case w.topLine > 0:
 		w.topLine--
 		w.needsRedraw = true
 	}
-	w.roundCursorPos()
 }
 
 func (w *window) gotoLine(y int) {
 	w.topLine = y
 	w.needsRedraw = true
 	w.cursorY = 0
-	w.roundCursorPos()
 }
 
 func (w *window) roundCursorPos() {
@@ -237,10 +241,10 @@ func (w *window) scanLineUntil(line []byte, stopAt func(wx, wy, tx int) bool) (w
 
 func (w *window) windowCoordsToTextCoords(wy, wx int) (ty, tx int) {
 	ty = w.window2TextY[wy]
-	baseWY := w.lineStartY(ty)
 	if ty >= w.buf.LineCount() {
 		ty = w.buf.LineCount() - 1
 	}
+	baseWY := w.lineStartY(ty)
 	line := w.buf.Line(ty)
 	_, _, tx = w.scanLineUntil(line, func(x, y, _ int) bool {
 		return x >= wx && baseWY+y >= wy
