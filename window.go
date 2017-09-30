@@ -160,6 +160,9 @@ func (w *window) moveCursorUp() {
 
 func (w *window) gotoLine(y int) {
 	w.topLine = y
+	if w.topLine >= w.buf.LineCount() {
+		w.topLine = w.buf.LineCount() - 1
+	}
 	w.needsRedraw = true
 	w.cursorY = 0
 }
