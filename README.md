@@ -20,5 +20,9 @@ In other words, more like an advanced nano and less like vi or emacs.
 ## Commands
 
 - **Quit**: Control-Q
+
+### Movement
+
 - **Go to Line**: Control-L
 - **Find**: Control-F
+- **Move cursor**: arrow keys (hold down/press repeatedly to move faster)

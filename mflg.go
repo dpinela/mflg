@@ -136,7 +136,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error entering raw mode:", err)
 		os.Exit(2)
 	}
-	win := window{w: os.Stdout, width: w, height: h, buf: buf, needsRedraw: true}
+	win := newWindow(os.Stdout, w, h, buf)
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
 	enterAlternateScreen()
 	defer exitAlternateScreen()
@@ -155,7 +155,7 @@ func main() {
 	signal.Notify(resizeCh, unix.SIGWINCH)
 	var c []byte
 	for {
-		if err := win.renderBuffer(); err != nil {
+		if err := win.redraw(true); err != nil {
 			panic(err)
 		}
 		gotoPos(os.Stdout, win.cursorY, win.cursorX+win.gutterWidth())
@@ -173,13 +173,13 @@ func main() {
 		}
 		switch {
 		case bytes.Equal(c, upKey):
-			win.moveCursorUp()
+			win.repeatMove(win.moveCursorUp)
 		case bytes.Equal(c, downKey):
-			win.moveCursorDown()
+			win.repeatMove(win.moveCursorDown)
 		case bytes.Equal(c, leftKey):
-			win.moveCursorLeft()
+			win.repeatMove(win.moveCursorLeft)
 		case bytes.Equal(c, rightKey):
-			win.moveCursorRight()
+			win.repeatMove(win.moveCursorRight)
 		case len(c) == 1 && c[0] == '\x11':
 			if !win.dirty {
 				return

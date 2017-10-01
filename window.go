@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"time"
 
 	"github.com/dpinela/mflg/buffer"
+	"github.com/dpinela/mflg/internal/streak"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -18,6 +20,8 @@ type window struct {
 
 	window2TextY []int //A mapping from window y-coordinates to text y-coordinates
 
+	moveTicker streak.Tracker
+
 	dirty bool //Indicates whether the contents of the window's buffer have been modified
 	//Indicates whether the visible part of the window has changed since it was last
 	//drawn
@@ -25,6 +29,13 @@ type window struct {
 
 	buf      *buffer.Buffer // The buffer being edited in the window
 	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
+}
+
+func newWindow(console io.Writer, width, height int, buf *buffer.Buffer) *window {
+	return &window{
+		w: console, width: width, height: height,
+		buf: buf, needsRedraw: true, moveTicker: streak.Tracker{Interval: time.Second / 3},
+	}
 }
 
 // resize sets the window's height and width, then updates the layout
@@ -65,13 +76,16 @@ func (w *window) textAreaWidth() int {
 	return w.width - w.gutterWidth() - 1
 }
 
-// renderBuffer updates the screen to reflect the logical window contents.
-func (w *window) renderBuffer() error {
+// redraw updates the screen to reflect the logical window contents.
+// If shouldDraw is false, it only updates the layout.
+func (w *window) redraw(shouldDraw bool) error {
 	if !w.needsRedraw {
 		return nil
 	}
-	if _, err := w.w.Write(resetScreen); err != nil {
-		return err
+	if shouldDraw {
+		if _, err := w.w.Write(resetScreen); err != nil {
+			return err
+		}
 	}
 	w.window2TextY = w.window2TextY[:0]
 	//lines := w.buf.SliceLines(w.topLine, w.topLine+w.height)
@@ -91,8 +105,10 @@ func (w *window) renderBuffer() error {
 			if wy+1 >= w.height {
 				ender = nil
 			}
-			if _, err := fmt.Fprintf(w.w, "%3d %s%s", ty+1, line, ender); err != nil {
-				return err
+			if shouldDraw {
+				if _, err := fmt.Fprintf(w.w, "%3d %s%s", ty+1, line, ender); err != nil {
+					return err
+				}
 			}
 			w.window2TextY = append(w.window2TextY, ty)
 			wy++
@@ -117,7 +133,7 @@ func (w *window) renderBuffer() error {
 	/*	Ty, Tx := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
 		fmt.Fprintf(w.w, "\r\x1B[1mw: (%d, %d) t: (%d, %d)\x1B[0m", w.cursorY, w.cursorX,
 			Ty, Tx)*/
-	w.needsRedraw = false
+	w.needsRedraw = !shouldDraw
 	return nil
 }
 
@@ -134,6 +150,26 @@ func wrapLine(line []byte, width int) (first, rest []byte) {
 	return line, nil
 }
 
+// updateMoveSpeed updates the arrow key streak count and returns the corresponding
+// cursor movement speed.
+func (w *window) updateMoveSpeed() int {
+	const (
+		accelThreshold = 4
+		accelMoveSpeed = 5
+	)
+	if w.moveTicker.Tick() >= accelThreshold {
+		return accelMoveSpeed
+	}
+	return 1
+}
+
+func (w *window) repeatMove(move func()) {
+	n := w.updateMoveSpeed()
+	for i := 0; i < n; i++ {
+		move()
+	}
+}
+
 func (w *window) moveCursorDown() {
 	if w.window2TextY[w.cursorY+1] >= w.buf.LineCount() {
 		return
@@ -144,6 +180,7 @@ func (w *window) moveCursorDown() {
 	} else {
 		w.topLine++
 		w.needsRedraw = true
+		w.redraw(false)
 	}
 }
 
@@ -155,6 +192,7 @@ func (w *window) moveCursorUp() {
 	case w.topLine > 0:
 		w.topLine--
 		w.needsRedraw = true
+		w.redraw(false)
 	}
 }
 
@@ -163,8 +201,9 @@ func (w *window) gotoLine(y int) {
 	if w.topLine >= w.buf.LineCount() {
 		w.topLine = w.buf.LineCount() - 1
 	}
-	w.needsRedraw = true
 	w.cursorY = 0
+	w.needsRedraw = true
+	w.redraw(false)
 }
 
 func (w *window) roundCursorPos() {
