@@ -108,6 +108,10 @@ func rawGetLine(in <-chan []byte, out io.Writer) (string, error) {
 	}
 }
 
+func equalsByte(b []byte, x byte) bool {
+	return len(b) == 1 && b[0] == x
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
@@ -177,10 +181,10 @@ func main() {
 		case bytes.Equal(c, downKey):
 			win.repeatMove(win.moveCursorDown)
 		case bytes.Equal(c, leftKey):
-			win.repeatMove(win.moveCursorLeft)
+			win.moveCursorLeft()
 		case bytes.Equal(c, rightKey):
-			win.repeatMove(win.moveCursorRight)
-		case len(c) == 1 && c[0] == '\x11':
+			win.moveCursorRight()
+		case equalsByte(c, 17):
 			if !win.dirty {
 				return
 			}
@@ -218,9 +222,9 @@ func main() {
 					}
 				}
 			}*/
-		case len(c) == 1 && c[0] == '\x7f':
+		case equalsByte(c, '\x7f') || equalsByte(c, '\b'):
 			win.backspace()
-		case len(c) == 1 && c[0] == '\f':
+		case equalsByte(c, 12):
 			must(win.printAtBottom("Go to line: "))
 			lineStr, err := rawGetLine(inputCh, win.w)
 			must(err)
@@ -228,7 +232,7 @@ func main() {
 			if err == nil {
 				win.gotoLine(int(y - 1))
 			}
-		case len(c) == 1 && c[0] == 6:
+		case equalsByte(c, 6):
 			must(win.printAtBottom("Search: "))
 			reText, err := rawGetLine(inputCh, win.w)
 			must(err)
