@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/dpinela/mflg/buffer"
+	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/termesc"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/sys/unix"
