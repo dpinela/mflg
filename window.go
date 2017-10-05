@@ -9,6 +9,7 @@ import (
 
 	"github.com/dpinela/mflg/buffer"
 	"github.com/dpinela/mflg/internal/streak"
+	"github.com/dpinela/mflg/internal/termesc"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -83,12 +84,11 @@ func (w *window) redraw(shouldDraw bool) error {
 		return nil
 	}
 	if shouldDraw {
-		if _, err := w.w.Write(resetScreen); err != nil {
+		if _, err := fmt.Fprint(w.w, termesc.SetCursorPos(1, 1), termesc.ClearScreen); err != nil {
 			return err
 		}
 	}
 	w.window2TextY = w.window2TextY[:0]
-	//lines := w.buf.SliceLines(w.topLine, w.topLine+w.height)
 	// We leave one space at the right end of the window so that we can always type
 	// at the end of lines
 	lineWidth := w.textAreaWidth()
@@ -347,12 +347,7 @@ func (w *window) backspace() {
 	}
 }
 
-var gotoBottomAndClear = []byte("\033[2000;1H\033[K")
-
 func (w *window) printAtBottom(text string) error {
-	if _, err := w.w.Write(gotoBottomAndClear); err != nil {
-		return err
-	}
-	_, err := w.w.Write([]byte(text))
+	_, err := fmt.Fprintf(w.w, "%s%s%s", termesc.SetCursorPos(2000, 1), termesc.ClearLine, text)
 	return err
 }

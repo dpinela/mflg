@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -9,20 +8,12 @@ import (
 	"os/signal"
 	"regexp"
 	"strconv"
-	"unicode/utf8"
 
 	"github.com/dpinela/mflg/buffer"
+	"github.com/dpinela/mflg/internal/termesc"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/sys/unix"
 )
-
-func enterAlternateScreen() {
-	os.Stdout.WriteString("\033[?1049h")
-}
-
-func exitAlternateScreen() {
-	os.Stdout.WriteString("\033[?1049l")
-}
 
 func mustWrite(w io.Writer, b []byte) {
 	if _, err := w.Write(b); err != nil {
@@ -30,38 +21,11 @@ func mustWrite(w io.Writer, b []byte) {
 	}
 }
 
-func gotoTop(w io.Writer) {
-	mustWrite(w, resetScreen)
-}
-
-func gotoPos(w io.Writer, row, col int) {
-	if _, err := fmt.Fprintf(w, "\033[%d;%dH", row+1, col+1); err != nil {
-		panic(err)
-	}
-}
-
-// Returns buf truncated to the first n runes.
-func truncateToWidth(buf []byte, n int) []byte {
-	j := 0
-	for i := 0; i < n && len(buf[j:]) > 0; i++ {
-		_, n := utf8.DecodeRune(buf[j:])
-		j += n
-	}
-	return buf[:j]
-}
-
 // Predefined []byte strings to avoid allocations.
 var (
-	resetScreen = []byte("\033[;H\033[;2J")
-
 	crlf       = []byte("\r\n")
 	tab        = []byte("\t")
 	fourSpaces = []byte("    ")
-
-	upKey    = []byte("\033[A")
-	downKey  = []byte("\033[B")
-	leftKey  = []byte("\033[D")
-	rightKey = []byte("\033[C")
 )
 
 func saveBuffer(fname string, buf *buffer.Buffer) error {
@@ -91,7 +55,7 @@ func must(err error) {
 	}
 }
 
-func rawGetLine(in <-chan []byte, out io.Writer) (string, error) {
+func rawGetLine(in <-chan string, out io.Writer) (string, error) {
 	var line []byte
 	for {
 		c := <-in
@@ -101,15 +65,11 @@ func rawGetLine(in <-chan []byte, out io.Writer) (string, error) {
 		if len(c) == 1 && c[0] == '\r' {
 			return string(line), nil
 		}
-		if _, err := out.Write(c); err != nil {
+		if _, err := fmt.Fprint(out, c); err != nil {
 			return string(line), err
 		}
 		line = append(line, c...)
 	}
-}
-
-func equalsByte(b []byte, x byte) bool {
-	return len(b) == 1 && b[0] == x
 }
 
 func main() {
@@ -142,29 +102,36 @@ func main() {
 	}
 	win := newWindow(os.Stdout, w, h, buf)
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
-	enterAlternateScreen()
-	defer exitAlternateScreen()
+	os.Stdout.WriteString(termesc.EnterAlternateScreen)
+	defer os.Stdout.WriteString(termesc.ExitAlternateScreen)
 	resizeCh := make(chan os.Signal, 32)
-	inputCh := make(chan []byte, 32)
+	inputCh := make(chan string, 32)
 	go func() {
 		var b [8]byte
 		for {
 			if n, err := os.Stdin.Read(b[:]); err != nil {
-				inputCh <- nil
+				close(inputCh)
+				return
 			} else {
-				inputCh <- b[:n]
+				// We need to make a copy here since after the main goroutine reads this,
+				// this one may overwrite the buffer with a new input
+				inputCh <- string(b[:n])
 			}
 		}
 	}()
 	signal.Notify(resizeCh, unix.SIGWINCH)
-	var c []byte
+	var c string
 	for {
 		if err := win.redraw(true); err != nil {
 			panic(err)
 		}
-		gotoPos(os.Stdout, win.cursorY, win.cursorX+win.gutterWidth())
+		fmt.Fprint(win.w, termesc.SetCursorPos(win.cursorY+1, win.cursorX+win.gutterWidth()+1))
 		select {
-		case c = <-inputCh:
+		case k, ok := <-inputCh:
+			if !ok {
+				panic("console input closed")
+			}
+			c = k
 		case <-resizeCh:
 			// This can only fail if our terminal turns into a non-terminal
 			// during execution, or if we change os.Stdin for some reason
@@ -175,16 +142,16 @@ func main() {
 			}
 			continue
 		}
-		switch {
-		case bytes.Equal(c, upKey):
+		switch c {
+		case termesc.UpKey:
 			win.repeatMove(win.moveCursorUp)
-		case bytes.Equal(c, downKey):
+		case termesc.DownKey:
 			win.repeatMove(win.moveCursorDown)
-		case bytes.Equal(c, leftKey):
+		case termesc.LeftKey:
 			win.moveCursorLeft()
-		case bytes.Equal(c, rightKey):
+		case termesc.RightKey:
 			win.moveCursorRight()
-		case equalsByte(c, 17):
+		case "\x11":
 			if !win.dirty {
 				return
 			}
@@ -222,9 +189,9 @@ func main() {
 					}
 				}
 			}*/
-		case equalsByte(c, '\x7f') || equalsByte(c, '\b'):
+		case "\x7f", "\b":
 			win.backspace()
-		case equalsByte(c, 12):
+		case "\x0c":
 			must(win.printAtBottom("Go to line: "))
 			lineStr, err := rawGetLine(inputCh, win.w)
 			must(err)
@@ -232,7 +199,7 @@ func main() {
 			if err == nil {
 				win.gotoLine(int(y - 1))
 			}
-		case equalsByte(c, 6):
+		case "\x06":
 			must(win.printAtBottom("Search: "))
 			reText, err := rawGetLine(inputCh, win.w)
 			must(err)
@@ -242,8 +209,10 @@ func main() {
 			} else {
 				win.searchRegexp(re)
 			}
-		case len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t'):
-			win.typeText(c)
+		default:
+			if len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t') {
+				win.typeText([]byte(c))
+			}
 		}
 	}
 }
