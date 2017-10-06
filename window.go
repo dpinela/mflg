@@ -13,11 +13,19 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
+type point struct {
+	x, y int
+}
+
+type textRange struct {
+	start, end point
+}
+
 type window struct {
-	w                io.Writer
-	width, height    int
-	topLine          int //The index of the topmost line being displayed
-	cursorX, cursorY int //The cursor position relative to the top left corner of the window
+	w             io.Writer
+	width, height int
+	topLine       int   //The index of the topmost line being displayed
+	cursorPos     point //The cursor position relative to the top left corner of the window
 
 	window2TextY []int //A mapping from window y-coordinates to text y-coordinates
 
@@ -43,11 +51,11 @@ func newWindow(console io.Writer, width, height int, buf *buffer.Buffer) *window
 // and cursor position accordingly.
 func (w *window) resize(newHeight, newWidth int) {
 	gw := w.gutterWidth()
-	if w.cursorX+gw >= newWidth {
-		w.cursorX = newWidth - gw - 1
+	if w.cursorPos.x+gw >= newWidth {
+		w.cursorPos.x = newWidth - gw - 1
 	}
-	if w.cursorY >= newHeight {
-		w.cursorY = newHeight - 1
+	if w.cursorPos.y >= newHeight {
+		w.cursorPos.y = newHeight - 1
 	}
 	w.width = newWidth
 	w.height = newHeight
@@ -171,11 +179,11 @@ func (w *window) repeatMove(move func()) {
 }
 
 func (w *window) moveCursorDown() {
-	if w.window2TextY[w.cursorY+1] >= w.buf.LineCount() {
+	if w.window2TextY[w.cursorPos.y+1] >= w.buf.LineCount() {
 		return
 	}
-	if w.cursorY < w.height-1 {
-		w.cursorY++
+	if w.cursorPos.y < w.height-1 {
+		w.cursorPos.y++
 		w.roundCursorPos()
 	} else {
 		w.topLine++
@@ -186,8 +194,8 @@ func (w *window) moveCursorDown() {
 
 func (w *window) moveCursorUp() {
 	switch {
-	case w.cursorY > 0:
-		w.cursorY--
+	case w.cursorPos.y > 0:
+		w.cursorPos.y--
 		w.roundCursorPos()
 	case w.topLine > 0:
 		w.topLine--
@@ -201,23 +209,22 @@ func (w *window) gotoLine(y int) {
 	if w.topLine >= w.buf.LineCount() {
 		w.topLine = w.buf.LineCount() - 1
 	}
-	w.cursorY = 0
+	w.cursorPos.y = 0
 	w.needsRedraw = true
 	w.redraw(false)
 }
 
 func (w *window) roundCursorPos() {
-	w.cursorY, w.cursorX = w.textCoordsToWindowCoords(w.windowCoordsToTextCoords(
-		w.cursorY, w.cursorX))
+	w.cursorPos = w.textCoordsToWindowCoords(w.windowCoordsToTextCoords(w.cursorPos))
 }
 
 func (w *window) moveCursorLeft() {
-	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
-	if x > 0 {
-		w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x-1)
-	} else if y > 0 {
+	tp := w.windowCoordsToTextCoords(w.cursorPos)
+	if tp.x > 0 {
+		w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x - 1})
+	} else if tp.y > 0 {
 		w.moveCursorUp()
-		w.cursorX = w.textAreaWidth() - 1
+		w.cursorPos.x = w.textAreaWidth() - 1
 		w.roundCursorPos()
 	}
 	/*if w.cursorX > 0 {
@@ -227,15 +234,15 @@ func (w *window) moveCursorLeft() {
 }
 
 func (w *window) moveCursorRight() {
-	oldY, oldX := w.cursorY, w.cursorX
-	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
-	w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x+1)
-	if w.cursorX == oldX && w.cursorY == oldY {
-		w.cursorX = 0
+	oldWp := w.cursorPos
+	tp := w.windowCoordsToTextCoords(w.cursorPos)
+	w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x + 1})
+	if w.cursorPos == oldWp {
+		w.cursorPos.x = 0
 		w.moveCursorDown()
 	}
-	if w.cursorX >= w.width {
-		w.cursorX = w.width
+	if w.cursorPos.x >= w.width {
+		w.cursorPos.x = w.width
 	}
 }
 
@@ -281,17 +288,17 @@ func (w *window) scanLineUntil(line []byte, stopAt func(wx, wy, tx int) bool) (w
 	return
 }
 
-func (w *window) windowCoordsToTextCoords(wy, wx int) (ty, tx int) {
-	ty = w.window2TextY[wy]
+func (w *window) windowCoordsToTextCoords(wp point) (tp point) {
+	ty := w.window2TextY[wp.y]
 	if ty >= w.buf.LineCount() {
 		ty = w.buf.LineCount() - 1
 	}
 	baseWY := w.lineStartY(ty)
 	line := w.buf.Line(ty)
-	_, _, tx = w.scanLineUntil(line, func(x, y, _ int) bool {
-		return x >= wx && baseWY+y >= wy
+	_, _, tx := w.scanLineUntil(line, func(x, y, _ int) bool {
+		return x >= wp.x && baseWY+y >= wp.y
 	})
-	return ty, tx
+	return point{y: ty, x: tx}
 }
 
 func (w *window) lineStartY(ty int) (wy int) {
@@ -303,23 +310,23 @@ func (w *window) lineStartY(ty int) (wy int) {
 	return 0
 }
 
-func (w *window) textCoordsToWindowCoords(ty, tx int) (wy, wx int) {
-	line := w.buf.Line(ty)
-	wx, wy, _ = w.scanLineUntil(line, func(_, _, i int) bool { return i >= tx })
-	return w.lineStartY(ty) + wy, wx
+func (w *window) textCoordsToWindowCoords(tp point) (wp point) {
+	line := w.buf.Line(tp.y)
+	wx, wy, _ := w.scanLineUntil(line, func(_, _, i int) bool { return i >= tp.x })
+	return point{y: w.lineStartY(tp.y) + wy, x: wx}
 }
 
 func (w *window) typeText(text []byte) {
 	w.dirty = true
 	w.needsRedraw = true
-	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
+	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	switch text[0] {
 	case '\r':
-		w.buf.InsertLineBreak(y, x)
+		w.buf.InsertLineBreak(tp.y, tp.x)
 		w.moveCursorDown()
-		w.cursorX = 0
+		w.cursorPos.x = 0
 	default:
-		w.buf.Insert(text, y, x)
+		w.buf.Insert(text, tp.y, tp.x)
 		w.moveCursorRight()
 		/*n := displayLen(text)
 		for i := 0; i < n; i++ {
@@ -332,18 +339,18 @@ func (w *window) typeText(text []byte) {
 func (w *window) backspace() {
 	w.dirty = true
 	w.needsRedraw = true
-	y, x := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
+	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	newX := 0
-	if y > 0 {
-		newX = displayLen(w.buf.SliceLines(y-1, y)[0])
+	if tp.y > 0 {
+		newX = displayLen(w.buf.Line(tp.y - 1))
 	}
-	w.buf.DeleteChar(y, x)
-	if w.cursorX == 0 {
+	w.buf.DeleteChar(tp.y, tp.x)
+	if w.cursorPos.x == 0 {
 		w.moveCursorUp()
-		w.cursorX = newX
+		w.cursorPos.x = newX
 		w.roundCursorPos()
 	} else {
-		w.cursorY, w.cursorX = w.textCoordsToWindowCoords(y, x-1)
+		w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x - 1})
 	}
 }
 

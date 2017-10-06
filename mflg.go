@@ -125,7 +125,7 @@ func main() {
 		if err := win.redraw(true); err != nil {
 			panic(err)
 		}
-		fmt.Fprint(win.w, termesc.SetCursorPos(win.cursorY+1, win.cursorX+win.gutterWidth()+1))
+		fmt.Fprint(win.w, termesc.SetCursorPos(win.cursorPos.y+1, win.cursorPos.x+win.gutterWidth()+1))
 		select {
 		case k, ok := <-inputCh:
 			if !ok {
