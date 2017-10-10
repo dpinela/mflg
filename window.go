@@ -316,15 +316,23 @@ func (w *window) textCoordsToWindowCoords(tp point) (wp point) {
 	return point{y: w.lineStartY(tp.y) + wy, x: wx}
 }
 
+func prefixUntil(text []byte, pred func(rune) bool) []byte {
+	if p := bytes.IndexFunc(text, pred); p != -1 {
+		return text[:p]
+	}
+	return text
+}
+
 func (w *window) typeText(text []byte) {
 	w.dirty = true
 	w.needsRedraw = true
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	switch text[0] {
 	case '\r':
+		indent := prefixUntil(w.buf.Line(tp.y), func(c rune) bool { return !(c == '\t' || c == ' ') })
 		w.buf.InsertLineBreak(tp.y, tp.x)
+		w.buf.Insert(indent, tp.y+1, 0)
 		w.moveCursorDown()
-		w.cursorPos.x = 0
 	default:
 		w.buf.Insert(text, tp.y, tp.x)
 		w.moveCursorRight()
