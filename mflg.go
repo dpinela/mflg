@@ -90,12 +90,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	w, h, err := terminal.GetSize(int(os.Stdin.Fd()))
+	w, h, err := terminal.GetSize(0)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error finding terminal size:", err)
 		os.Exit(2)
 	}
-	oldMode, err := terminal.MakeRaw(int(os.Stdin.Fd()))
+	oldMode, err := terminal.MakeRaw(0)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error entering raw mode:", err)
 		os.Exit(2)
@@ -107,15 +107,12 @@ func main() {
 	resizeCh := make(chan os.Signal, 32)
 	inputCh := make(chan string, 32)
 	go func() {
-		var b [8]byte
+		con := termesc.NewConsoleReader(os.Stdin)
 		for {
-			if n, err := os.Stdin.Read(b[:]); err != nil {
+			if s, err := con.ReadToken(); err != nil {
 				close(inputCh)
-				return
 			} else {
-				// We need to make a copy here since after the main goroutine reads this,
-				// this one may overwrite the buffer with a new input
-				inputCh <- string(b[:n])
+				inputCh <- s
 			}
 		}
 	}()
