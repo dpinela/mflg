@@ -17,6 +17,9 @@ const (
 	EnterAlternateScreen = csi + "?1049h" // Switches to the alternate screen
 	ExitAlternateScreen  = csi + "?1049l" // Switches from the alternate screen to the regular one
 
+	EnableMouseReporting  = csi + "?1000h" + csi + "?1015h" // Causes mouse escape sequences to be sent to the application when mouse events occur
+	DisableMouseReporting = csi + "?1015l" + csi + "?1000l" // Restores the console's default mouse handling
+
 	UpKey    = csi + "A"
 	DownKey  = csi + "B"
 	LeftKey  = csi + "D"
