@@ -102,8 +102,8 @@ func main() {
 	}
 	win := newWindow(os.Stdout, w, h, buf)
 	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
-	os.Stdout.WriteString(termesc.EnterAlternateScreen)
-	defer os.Stdout.WriteString(termesc.ExitAlternateScreen)
+	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
+	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
 	inputCh := make(chan string, 32)
 	go func() {
@@ -207,7 +207,9 @@ func main() {
 				win.searchRegexp(re)
 			}
 		default:
-			if len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t') {
+			if ev, err := termesc.ParseMouseEvent(c); err == nil {
+				win.handleMouseEvent(ev)
+			} else if len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t') {
 				win.typeText([]byte(c))
 			}
 		}
