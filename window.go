@@ -362,6 +362,25 @@ func (w *window) backspace() {
 	}
 }
 
+func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
+	switch ev.Button {
+	case termesc.ReleaseButton:
+		w.cursorPos.x = ev.X - w.gutterWidth()
+		w.cursorPos.y = ev.Y
+		w.roundCursorPos()
+	case termesc.ScrollUpButton:
+		if w.topLine > 0 {
+			w.topLine--
+			w.needsRedraw = true
+		}
+	case termesc.ScrollDownButton:
+		if w.topLine < w.buf.LineCount()-1 {
+			w.topLine++
+			w.needsRedraw = true
+		}
+	}
+}
+
 func (w *window) printAtBottom(text string) error {
 	_, err := fmt.Fprintf(w.w, "%s%s%s", termesc.SetCursorPos(2000, 1), termesc.ClearLine, text)
 	return err
