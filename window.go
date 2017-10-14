@@ -363,10 +363,21 @@ func (w *window) backspace() {
 }
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
-	if ev.Button == termesc.ReleaseButton {
+	switch ev.Button {
+	case termesc.ReleaseButton:
 		w.cursorPos.x = ev.X - w.gutterWidth()
 		w.cursorPos.y = ev.Y
 		w.roundCursorPos()
+	case termesc.ScrollUpButton:
+		if w.topLine > 0 {
+			w.topLine--
+			w.needsRedraw = true
+		}
+	case termesc.ScrollDownButton:
+		if w.topLine < w.buf.LineCount()-1 {
+			w.topLine++
+			w.needsRedraw = true
+		}
 	}
 }
 
