@@ -301,6 +301,9 @@ func (w *window) scanLineUntil(line []byte, stopAt func(wx, wy, tx int) bool) (w
 }
 
 func (w *window) windowCoordsToTextCoords(wp point) (tp point) {
+	if wp.y >= len(w.window2TextY)-1 {
+		wp.y = len(w.window2TextY) - 1
+	}
 	ty := w.window2TextY[wp.y]
 	if ty >= w.buf.LineCount() {
 		ty = w.buf.LineCount() - 1
