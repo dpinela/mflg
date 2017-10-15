@@ -43,7 +43,7 @@ type window struct {
 func newWindow(console io.Writer, width, height int, buf *buffer.Buffer) *window {
 	return &window{
 		w: console, width: width, height: height,
-		buf: buf, needsRedraw: true, moveTicker: streak.Tracker{Interval: time.Second / 3},
+		buf: buf, needsRedraw: true, moveTicker: streak.Tracker{Interval: time.Second / 5},
 	}
 }
 
@@ -174,7 +174,7 @@ func wrapLine(line []byte, width int) (first, rest []byte) {
 // cursor movement speed.
 func (w *window) updateMoveSpeed() int {
 	const (
-		accelThreshold = 4
+		accelThreshold = 6
 		accelMoveSpeed = 5
 	)
 	if w.moveTicker.Tick() >= accelThreshold {
