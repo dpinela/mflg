@@ -101,7 +101,7 @@ func main() {
 		os.Exit(2)
 	}
 	win := newWindow(os.Stdout, w, h, buf)
-	defer terminal.Restore(int(os.Stdin.Fd()), oldMode)
+	defer terminal.Restore(0, oldMode)
 	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
 	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
@@ -131,8 +131,8 @@ func main() {
 			c = k
 		case <-resizeCh:
 			// This can only fail if our terminal turns into a non-terminal
-			// during execution, or if we change os.Stdin for some reason
-			if w, h, err := terminal.GetSize(int(os.Stdin.Fd())); err != nil {
+			// during execution, which is highly unlikely.
+			if w, h, err := terminal.GetSize(0); err != nil {
 				panic(err)
 			} else {
 				win.resize(h, w)
