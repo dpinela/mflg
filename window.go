@@ -77,8 +77,20 @@ func displayLen(line []byte) int {
 	return n
 }
 
+func ndigits(x int) int {
+	if x == 0 {
+		return 1
+	}
+	n := 0
+	for x > 0 {
+		x /= 10
+		n++
+	}
+	return n
+}
+
 func (w *window) gutterWidth() int {
-	return 4
+	return ndigits(w.buf.LineCount()) + 1
 }
 
 func (w *window) textAreaWidth() int {
@@ -114,7 +126,7 @@ func (w *window) redraw(shouldDraw bool) error {
 				ender = nil
 			}
 			if shouldDraw {
-				if _, err := fmt.Fprintf(w.w, "%3d %s%s", ty+1, line, ender); err != nil {
+				if _, err := fmt.Fprintf(w.w, "%*d %s%s", w.gutterWidth()-1, ty+1, line, ender); err != nil {
 					return err
 				}
 			}
