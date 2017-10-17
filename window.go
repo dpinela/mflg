@@ -89,6 +89,10 @@ func ndigits(x int) int {
 	return n
 }
 
+// This is here mainly so tests don't break when we introduce configurable
+// tab widths.
+func (w *window) tabWidth() int { return 4 }
+
 func (w *window) gutterWidth() int {
 	return ndigits(w.buf.LineCount()) + 1
 }
