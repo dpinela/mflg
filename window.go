@@ -351,7 +351,8 @@ func (w *window) typeText(text []byte) {
 		indent := prefixUntil(w.buf.Line(tp.y), func(c rune) bool { return !(c == '\t' || c == ' ') })
 		w.buf.InsertLineBreak(tp.y, tp.x)
 		w.buf.Insert(indent, tp.y+1, 0)
-		w.moveCursorDown()
+		w.moveCursorDown() // Needed to ensure scrolling if necessary
+		w.cursorPos = w.textCoordsToWindowCoords(point{len(indent), tp.y+1})
 	default:
 		w.buf.Insert(text, tp.y, tp.x)
 		w.moveCursorRight()
