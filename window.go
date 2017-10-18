@@ -253,7 +253,7 @@ func (w *window) moveCursorRight() {
 	oldWp := w.cursorPos
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x + 1})
-	if w.cursorPos == oldWp {
+	if w.cursorPos == oldWp && tp.y + 1 < w.buf.LineCount() {
 		w.cursorPos.x = 0
 		w.moveCursorDown()
 	}
