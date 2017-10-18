@@ -130,6 +130,15 @@ func TestScrolling(t *testing.T) {
 
 func TestTextInput(t *testing.T) {
 	w := newTestWindowA(t)
+	w.cursorPos = point{1, 4}
+	w.typeText([]byte("€"))
+	checkLineContent(t, 1, w, 4, "á€met consectetur(adìpiscing, elit vestibulum) {")
+	checkCursorPos(t, 1, w, point{2, 4})
+	w.cursorPos = point{9, 9}
+	w.typeText([]byte("$"))
+	checkLineContent(t, 2, w, 8, "\t\tullamcorper nunc a(\"henderit magna: donec est mi, viverra in aliquet quis\");$")
+	checkCursorPos(t, 2, w, point{10, 9})
+	/*
 	checkLineContent(t, 0, w, 0, "#lorem ipsum")
 	w.typeText([]byte("#"))
 	checkLineContent(t, 1, w, 0, "##lorem ipsum")
@@ -141,7 +150,7 @@ func TestTextInput(t *testing.T) {
 	checkLineContent(t, 3, w, 0, "#€🇦🇶#lorem ipsum")
 	checkCursorPos(t, 3, w, point{3, 0})
 	w.typeText([]byte("a"))
-	checkLineContent(t, 3, w, 0, "#€🇦🇶a#lorem ipsum")
+	checkLineContent(t, 3, w, 0, "#€🇦🇶a#lorem ipsum")*/
 }
 
 func TestLineBreakInput(t *testing.T) {
