@@ -134,10 +134,11 @@ func TestTextInput(t *testing.T) {
 	w.typeText([]byte("€"))
 	checkLineContent(t, 1, w, 4, "á€met consectetur(adìpiscing, elit vestibulum) {")
 	checkCursorPos(t, 1, w, point{2, 4})
-	w.cursorPos = point{9, 9}
+	w.cursorPos = point{8, 9}
 	w.typeText([]byte("$"))
 	checkLineContent(t, 2, w, 8, "\t\tullamcorper nunc a(\"henderit magna: donec est mi, viverra in aliquet quis\");$")
-	checkCursorPos(t, 2, w, point{10, 9})
+	checkCursorPos(t, 2, w, point{9, 9})
+	checkTopLine(t, 2, w, 0)
 	/*
 	checkLineContent(t, 0, w, 0, "#lorem ipsum")
 	w.typeText([]byte("#"))
@@ -179,9 +180,21 @@ func TestAutoIndent(t *testing.T) {
 	tab := w.tabWidth()
 	w.typeText([]byte("\t"))
 	checkCursorPos(t, 0, w, point{tab, 0})
-	w.typeText([]byte("\n"))
+	w.typeText([]byte("\r"))
 	w.redraw(false)
+	//The redraws are needed because the code relies on layout being redone
+	//after every input; this is not ideal and should change, but we'll
+	//leave it this way for now.
 	checkLineContent(t, 1, w, 0, "\t")
 	checkLineContent(t, 1, w, 1, "\t")
 	checkCursorPos(t, 1, w, point{tab, 1})
+	for i := 0; i < 3; i++ {
+		w.typeText([]byte(" "))
+	}
+	w.typeText([]byte("\r"))
+	w.redraw(false)
+	checkLineContent(t, 2, w, 0, "\t")
+	checkLineContent(t, 2, w, 1, "\t   ")
+	checkLineContent(t, 2, w, 2, "\t   ")
+	checkCursorPos(t, 2, w, point{tab + 3, 2})
 }

@@ -154,9 +154,8 @@ func (w *window) redraw(shouldDraw bool) error {
 	// We don't need the converse at the top end because right now the line past
 	// the top is always the previous line
 
-	/*	Ty, Tx := w.windowCoordsToTextCoords(w.cursorY, w.cursorX)
-		fmt.Fprintf(w.w, "\r\x1B[1mw: (%d, %d) t: (%d, %d)\x1B[0m", w.cursorY, w.cursorX,
-			Ty, Tx)*/
+		/*tp := w.windowCoordsToTextCoords(w.cursorPos)
+		fmt.Fprintf(w.w, "\r\x1B[1mw: %v t: %v\x1B[0m", w.cursorPos, tp)*/
 	w.needsRedraw = !shouldDraw
 	return nil
 }
@@ -290,6 +289,7 @@ func (w *window) scanLineUntil(line []byte, stopAt func(wx, wy, tx int) bool) (w
 			return 0, wy + 1, tx
 		}*/
 		p := norm.NFC.NextBoundary(line, true)
+		// Don't count the final newline if there is one
 		if p == 1 && line[0] == '\n' {
 			break
 		}
