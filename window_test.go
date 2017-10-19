@@ -175,6 +175,30 @@ func TestLineBreakInput(t *testing.T) {
 	checkCursorPos(t, 3, w, point{0, 2})
 }
 
+func TestBackspace(t *testing.T) {
+	const (
+		line2 = "dolor sit[10];"
+		truncLine4 = "met consectetur(adìpiscing, elit vestibulum) {"
+		line5 = "\ttincidunt luctus = sapien + a + porttitor;"
+	)
+
+	w := newTestWindowA(t)
+	w.cursorPos = point{1, 4}
+	w.backspace()
+	checkLineContent(t, 1, w, 4, truncLine4)
+	checkLineContent(t, 1, w, 3, "")
+	checkCursorPos(t, 1, w, point{0, 4})
+	w.backspace()
+	checkCursorPos(t, 2, w, point{0, 3})
+	checkLineContent(t, 2, w, 2, line2)
+	checkLineContent(t, 2, w, 3, truncLine4)
+	checkLineContent(t, 2, w, 4, line5)
+	w.backspace()
+	checkCursorPos(t, 3, w, point{len(line2), 2})
+	checkLineContent(t, 3, w, 2, line2 + truncLine4)
+	checkLineContent(t, 3, w, 3, line5) 
+}
+
 func TestAutoIndent(t *testing.T) {
 	w := newTestWindowEmpty(t)
 	tab := w.tabWidth()
@@ -183,6 +207,7 @@ func TestAutoIndent(t *testing.T) {
 	w.typeText([]byte("\r"))
 	w.redraw(false)
 	//The redraws are needed because the code relies on layout being redone
+	// (usually done in the main input loop)
 	//after every input; this is not ideal and should change, but we'll
 	//leave it this way for now.
 	checkLineContent(t, 1, w, 0, "\t")
