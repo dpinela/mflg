@@ -246,3 +246,16 @@ func TestAutoIndent(t *testing.T) {
 	checkLineContent(t, 2, w, 2, "\t   ")
 	checkCursorPos(t, 2, w, point{tab + 3, 2})
 }
+
+func TestKeyboardSelection(t *testing.T) {
+	wantSelection := textRange{point{0, 2}, point{5, 2}}
+
+	w := newTestWindowA(t)
+	w.cursorPos = point{0, 2}
+	w.markSelectionBound()
+	w.cursorPos = point{5, 2}
+	w.markSelectionBound()
+	if !(w.selection != nil && *w.selection == wantSelection) {
+		t.Errorf("got selection %+v, want %+v", *w.selection, wantSelection)
+	}
+}

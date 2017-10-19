@@ -17,6 +17,7 @@ In other words, more like an advanced nano and less like vi or emacs.
   - Autocompletion
   - Inline compile errors/warnings
 - First-class mouse support
+
 ## Commands
 
 - **Quit**: Control-Q
@@ -26,3 +27,9 @@ In other words, more like an advanced nano and less like vi or emacs.
 - **Go to Line**: Control-L
 - **Find**: Control-F
 - **Move cursor**: arrow keys (hold down/press repeatedly to move faster)
+
+### Selection
+
+To select a range of text, use **Anchor** at each end of the range consecutively, in any order.
+
+- **Anchor**: Control-A

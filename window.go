@@ -17,6 +17,18 @@ type point struct {
 	x, y int
 }
 
+// Less returns true if p is lexicographically ordered before q,
+// considering the y-coordinate first.
+func (p point) Less(q point) bool {
+	if p.y < q.y {
+		return true
+	}
+	if p.y > q.y {
+		return false
+	}
+	return p.x < q.x
+}
+
 type textRange struct {
 	start, end point
 }
@@ -26,6 +38,9 @@ type window struct {
 	width, height int
 	topLine       int   //The index of the topmost line being displayed
 	cursorPos     point //The cursor position relative to the top left corner of the window
+
+	selectionAnchor *point // The last point marked as an initial selection bound
+	selection       *textRange
 
 	window2TextY []int //A mapping from window y-coordinates to text y-coordinates
 
@@ -379,6 +394,31 @@ func (w *window) backspace() {
 		w.roundCursorPos()
 	} else {
 		w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x - 1})
+	}
+}
+
+func (w *window) markSelectionBound() {
+	// A window may be in one of three states of a cycle, regarding selection:
+	// 0. No selection, no point marked (the initial state)
+	// 1. One bound marked
+	// 2. Two bounds marked (selection complete)
+	// Each call to this method advances the cycle by one step.
+	if w.selectionAnchor != nil {
+		tp := w.windowCoordsToTextCoords(w.cursorPos)
+		// Prevent empty selections. (This skips step 2 in the cycle)
+		if tp == *w.selectionAnchor {
+			w.selection = nil
+			w.selectionAnchor = nil
+			return
+		}
+		if tp.Less(*w.selectionAnchor) {
+			tp, *w.selectionAnchor = *w.selectionAnchor, tp
+		}
+		w.selection = &textRange{*w.selectionAnchor, tp}
+	} else {
+		w.selection = nil
+		tp := w.windowCoordsToTextCoords(w.cursorPos)
+		w.selectionAnchor = &tp
 	}
 }
 

@@ -206,6 +206,8 @@ func main() {
 			} else {
 				win.searchRegexp(re)
 			}
+		case "\x01":
+			win.markSelectionBound()
 		default:
 			if ev, err := termesc.ParseMouseEvent(c); err == nil {
 				win.handleMouseEvent(ev)
