@@ -121,3 +121,28 @@ func (b *Buffer) DeleteChar(row, col int) {
 		b.lines[row] = line[:len(line)-n]
 	}
 }
+
+// DeleteRange deletes all characters in the given range, including line breaks.
+// The range is treated as a half-open range.
+func (b *Buffer) DeleteRange(rowStart, colStart, rowEnd, colEnd int) {
+	if rowEnd < rowStart || (rowStart == rowEnd && colEnd < colStart) {
+		rowStart, rowEnd = rowEnd, rowStart
+		colStart, colEnd = colEnd, colStart
+	}
+	p := bufIndexForColumn(b.lines[rowStart], colStart)
+	q := bufIndexForColumn(b.lines[rowEnd], colEnd)
+	if rowStart == rowEnd {
+		line := b.lines[rowStart]
+		copy(line[p:], line[q:])
+		b.lines[rowStart] = line[:len(line)-(q-p)]
+	} else {
+		lineStart := b.lines[rowStart]
+		lineEnd := b.lines[rowEnd]
+		b.lines[rowStart] = append(lineStart[:p], lineEnd[q:]...)
+		// Delete all the lines entirely between the start and the end point;
+		// the line where the end point lies is deleted too, since it was
+		// merged into the start line.
+		copy(b.lines[rowStart+1:], b.lines[rowEnd+1:])
+		b.lines = b.lines[:len(b.lines)-(rowEnd-rowStart)]
+	}
+}

@@ -30,7 +30,7 @@ func (p point) Less(q point) bool {
 }
 
 type textRange struct {
-	start, end point
+	begin, end point
 }
 
 type window struct {
@@ -379,9 +379,29 @@ func (w *window) typeText(text []byte) {
 	}
 }
 
+func (w *window) visibleTextEnd() point {
+	lastLineWY := len(w.window2TextY) - 2
+	ty := w.window2TextY[lastLineWY]
+	_, _, tx := w.scanLineUntil(w.buf.Line(ty), func(_, y, _ int) bool { return lastLineWY+y >= w.height })
+	return point{tx, ty}
+}
+
+func (w *window) isTextPointOnscreen(tp point) bool {
+	return tp.y >= w.topLine && !w.visibleTextEnd().Less(tp)
+}
+
 func (w *window) backspace() {
 	w.dirty = true
 	w.needsRedraw = true
+	if w.selection != nil {
+		w.buf.DeleteRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x)
+		if !w.isTextPointOnscreen(w.selection.begin) {
+			w.gotoLine(w.selection.begin.y)
+		}
+		w.cursorPos = w.textCoordsToWindowCoords(w.selection.begin)
+		w.selection = nil
+		return
+	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	newX := 0
 	if tp.y > 0 {
@@ -415,6 +435,7 @@ func (w *window) markSelectionBound() {
 			tp, *w.selectionAnchor = *w.selectionAnchor, tp
 		}
 		w.selection = &textRange{*w.selectionAnchor, tp}
+		w.selectionAnchor = nil
 	} else {
 		w.selection = nil
 		tp := w.windowCoordsToTextCoords(w.cursorPos)
