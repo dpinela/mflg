@@ -154,8 +154,8 @@ func (w *window) redraw(shouldDraw bool) error {
 	// We don't need the converse at the top end because right now the line past
 	// the top is always the previous line
 
-		/*tp := w.windowCoordsToTextCoords(w.cursorPos)
-		fmt.Fprintf(w.w, "\r\x1B[1mw: %v t: %v\x1B[0m", w.cursorPos, tp)*/
+	/*tp := w.windowCoordsToTextCoords(w.cursorPos)
+	fmt.Fprintf(w.w, "\r\x1B[1mw: %v t: %v\x1B[0m", w.cursorPos, tp)*/
 	w.needsRedraw = !shouldDraw
 	return nil
 }
@@ -252,7 +252,7 @@ func (w *window) moveCursorRight() {
 	oldWp := w.cursorPos
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x + 1})
-	if w.cursorPos == oldWp && tp.y + 1 < w.buf.LineCount() {
+	if w.cursorPos == oldWp && tp.y+1 < w.buf.LineCount() {
 		w.cursorPos.x = 0
 		w.moveCursorDown()
 	}
@@ -352,7 +352,7 @@ func (w *window) typeText(text []byte) {
 		w.buf.InsertLineBreak(tp.y, tp.x)
 		w.buf.Insert(indent, tp.y+1, 0)
 		w.moveCursorDown() // Needed to ensure scrolling if necessary
-		w.cursorPos = w.textCoordsToWindowCoords(point{len(indent), tp.y+1})
+		w.cursorPos = w.textCoordsToWindowCoords(point{len(indent), tp.y + 1})
 	default:
 		w.buf.Insert(text, tp.y, tp.x)
 		w.moveCursorRight()

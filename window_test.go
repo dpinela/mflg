@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/dpinela/mflg/internal/buffer"
+	"github.com/dpinela/mflg/internal/termesc"
 
 	"io/ioutil"
 	"strings"
@@ -62,6 +63,7 @@ func checkLineContent(t *testing.T, stepN int, w *window, line int, text string)
 		t.Errorf("step %d: line %d contains %q, want %q", stepN, line, got, text)
 	}
 }
+
 // This test is written in such a way that it passes regardless of what
 // the tab width is, because calculating the correct results might get
 // complicated in some cases.
@@ -97,6 +99,27 @@ func TestArrowKeyNavigation(t *testing.T) {
 	w.moveCursorRight()
 	w.moveCursorDown()
 	checkCursorPos(t, 9, w, point{2 * tab, 9})
+}
+
+func TestMouseNavigation(t *testing.T) {
+	w := newTestWindow(t, 80, 50, testDocument)
+	var mouseNavTests = []struct {
+		ev      termesc.MouseEvent
+		wantPos point
+	}{
+		{ev: termesc.MouseEvent{X: 16, Y: 2, Button: termesc.ReleaseButton}, wantPos: point{13, 2}},
+		// Tests for out of bounds clicks
+		{ev: termesc.MouseEvent{X: 50, Y: 0, Button: termesc.ReleaseButton}, wantPos: point{12, 0}},
+		{ev: termesc.MouseEvent{X: 45, Y: 22, Button: termesc.ReleaseButton}, wantPos: point{1, 14}},
+		// Click inside a tab
+		{ev: termesc.MouseEvent{X: 4, Y: 5, Button: termesc.ReleaseButton}, wantPos: point{w.tabWidth(), 5}},
+	}
+	for _, tt := range mouseNavTests {
+		w.handleMouseEvent(tt.ev)
+		if w.cursorPos != tt.wantPos {
+			t.Errorf("click at (%d, %d): got cursor at %v, want %v", tt.ev.X, tt.ev.Y, w.cursorPos, tt.wantPos)
+		}
+	}
 }
 
 func TestScrolling(t *testing.T) {
@@ -140,18 +163,18 @@ func TestTextInput(t *testing.T) {
 	checkCursorPos(t, 2, w, point{9, 9})
 	checkTopLine(t, 2, w, 0)
 	/*
-	checkLineContent(t, 0, w, 0, "#lorem ipsum")
-	w.typeText([]byte("#"))
-	checkLineContent(t, 1, w, 0, "##lorem ipsum")
-	checkCursorPos(t, 1, w, point{1, 0})
-	w.typeText([]byte("€"))
-	checkLineContent(t, 2, w, 0, "#€#lorem ipsum")
-	checkCursorPos(t, 2, w, point{2, 0})
-	w.typeText([]byte("🇦🇶"))
-	checkLineContent(t, 3, w, 0, "#€🇦🇶#lorem ipsum")
-	checkCursorPos(t, 3, w, point{3, 0})
-	w.typeText([]byte("a"))
-	checkLineContent(t, 3, w, 0, "#€🇦🇶a#lorem ipsum")*/
+		checkLineContent(t, 0, w, 0, "#lorem ipsum")
+		w.typeText([]byte("#"))
+		checkLineContent(t, 1, w, 0, "##lorem ipsum")
+		checkCursorPos(t, 1, w, point{1, 0})
+		w.typeText([]byte("€"))
+		checkLineContent(t, 2, w, 0, "#€#lorem ipsum")
+		checkCursorPos(t, 2, w, point{2, 0})
+		w.typeText([]byte("🇦🇶"))
+		checkLineContent(t, 3, w, 0, "#€🇦🇶#lorem ipsum")
+		checkCursorPos(t, 3, w, point{3, 0})
+		w.typeText([]byte("a"))
+		checkLineContent(t, 3, w, 0, "#€🇦🇶a#lorem ipsum")*/
 }
 
 func TestLineBreakInput(t *testing.T) {
@@ -177,9 +200,9 @@ func TestLineBreakInput(t *testing.T) {
 
 func TestBackspace(t *testing.T) {
 	const (
-		line2 = "dolor sit[10];"
+		line2      = "dolor sit[10];"
 		truncLine4 = "met consectetur(adìpiscing, elit vestibulum) {"
-		line5 = "\ttincidunt luctus = sapien + a + porttitor;"
+		line5      = "\ttincidunt luctus = sapien + a + porttitor;"
 	)
 
 	w := newTestWindowA(t)
@@ -195,8 +218,8 @@ func TestBackspace(t *testing.T) {
 	checkLineContent(t, 2, w, 4, line5)
 	w.backspace()
 	checkCursorPos(t, 3, w, point{len(line2), 2})
-	checkLineContent(t, 3, w, 2, line2 + truncLine4)
-	checkLineContent(t, 3, w, 3, line5) 
+	checkLineContent(t, 3, w, 2, line2+truncLine4)
+	checkLineContent(t, 3, w, 3, line5)
 }
 
 func TestAutoIndent(t *testing.T) {
