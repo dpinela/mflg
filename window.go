@@ -130,37 +130,25 @@ func (w *window) redraw(shouldDraw bool) error {
 	w.window2TextY = w.window2TextY[:0]
 	// We leave one space at the right end of the window so that we can always type
 	// at the end of lines
-	lineWidth := w.textAreaWidth()
-	var rest []byte
-	for ty, wy := w.topLine, 0; ty < w.buf.LineCount() && wy < w.height; ty++ {
-		line := w.buf.Line(ty)
-		if len(line) > 0 && line[len(line)-1] == '\n' {
-			line = line[:len(line)-1]
+	tf := textFormatter{tp: point{0, w.topLine}, src: w.buf, lineWidth: w.textAreaWidth(),
+		invertedRegion: w.selection}
+	for wy := 0; wy < w.height; wy++ {
+		ty := tf.tp.y
+		line := tf.formatNextLine()
+		ender := crlf
+		if wy+1 >= w.height {
+			ender = nil
 		}
-		line = bytes.Replace(line, tab, fourSpaces, -1)
-		for wy < w.height {
-			line, rest = wrapLine(line, lineWidth)
-			ender := crlf
-			if wy+1 >= w.height {
-				ender = nil
+		if shouldDraw {
+			if _, err := fmt.Fprintf(w.w, "%*d %s%s", w.gutterWidth()-1, ty+1, line, ender); err != nil {
+				return err
 			}
-			if shouldDraw {
-				if _, err := fmt.Fprintf(w.w, "%*d %s%s", w.gutterWidth()-1, ty+1, line, ender); err != nil {
-					return err
-				}
-			}
-			w.window2TextY = append(w.window2TextY, ty)
-			wy++
-			if len(rest) == 0 {
-				break
-			}
-			line = rest
 		}
-		if len(rest) > 0 {
-			w.window2TextY = append(w.window2TextY, ty)
-		}
+		w.window2TextY = append(w.window2TextY, ty)
 	}
-	if len(rest) == 0 {
+	if len(tf.curLine) > 0 {
+		w.window2TextY = append(w.window2TextY, tf.tp.y)
+	} else {
 		p := &w.window2TextY
 		*p = append(*p, (*p)[len(*p)-1]+1)
 	}
@@ -175,17 +163,76 @@ func (w *window) redraw(shouldDraw bool) error {
 	return nil
 }
 
-func wrapLine(line []byte, width int) (first, rest []byte) {
-	x := 0
-	i := 0
-	for i < len(line) {
-		i += norm.NFC.NextBoundary(line[i:], true)
-		x++
-		if x == width {
-			return line[:i], line[i:]
+type textFormatter struct {
+	tp             point
+	src            *buffer.Buffer
+	lineWidth      int
+	invertedRegion *textRange
+	curLine, buf   []byte
+	spacesCarry    int
+}
+
+const tabWidth = 4
+
+func (tf *textFormatter) formatNextLine() []byte {
+	if len(tf.curLine) == 0 {
+		tf.curLine = tf.src.Line(tf.tp.y)
+	}
+	inInvertedLine := tf.invertedRegion != nil && tf.tp.y > tf.invertedRegion.begin.y && tf.tp.y < tf.invertedRegion.end.y
+	totalW := tf.spacesCarry
+	tf.buf = tf.buf[:0]
+	if inInvertedLine {
+		tf.buf = append(tf.buf, termesc.ReverseVideo...)
+	}
+	tf.appendSpaces(tf.spacesCarry)
+	tf.spacesCarry = 0
+	for len(tf.curLine) > 0 {
+		if tf.invertedRegion != nil && tf.invertedRegion.begin.y == tf.tp.y {
+			if tf.invertedRegion.begin.x == tf.tp.x {
+				tf.buf = append(tf.buf, termesc.ReverseVideo...)
+			}
+			if tf.invertedRegion.end.x == tf.tp.x {
+				tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
+			}
+		}
+		n := norm.NFC.NextBoundary(tf.curLine, true)
+		if n == 1 && tf.curLine[0] == '\t' {
+			w := min(tf.lineWidth-totalW, tabWidth)
+			totalW += w
+			tf.appendSpaces(w)
+			tf.spacesCarry = tabWidth - w
+		} else if !(n == 1 && tf.curLine[0] == '\n') {
+			tf.buf = append(tf.buf, tf.curLine[:n]...)
+			totalW++
+		}
+		tf.curLine = tf.curLine[n:]
+		tf.tp.x++
+		if totalW == tf.lineWidth {
+			break
 		}
 	}
-	return line, nil
+	if inInvertedLine || (tf.invertedRegion != nil && tf.invertedRegion.end == tf.tp) {
+		tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
+	}
+	//panic(fmt.Errorf("leftovers: %q", tf.curLine))
+	if len(tf.curLine) == 0 {
+		tf.tp.y++
+		tf.tp.x = 0
+	}
+	return tf.buf
+}
+
+func (tf *textFormatter) appendSpaces(n int) {
+	for i := 0; i < n; i++ {
+		tf.buf = append(tf.buf, ' ')
+	}
+}
+
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
 }
 
 // updateMoveSpeed updates the arrow key streak count and returns the corresponding
@@ -436,7 +483,11 @@ func (w *window) markSelectionBound() {
 		}
 		w.selection = &textRange{*w.selectionAnchor, tp}
 		w.selectionAnchor = nil
+		w.needsRedraw = true
 	} else {
+		if w.selection != nil {
+			w.needsRedraw = true
+		}
 		w.selection = nil
 		tp := w.windowCoordsToTextCoords(w.cursorPos)
 		w.selectionAnchor = &tp
