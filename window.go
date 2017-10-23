@@ -53,6 +53,8 @@ type window struct {
 
 	buf      *buffer.Buffer // The buffer being edited in the window
 	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
+
+	inMouseSelection bool // True if the mouse has been pressed, but not released
 }
 
 func newWindow(console io.Writer, width, height int, buf *buffer.Buffer) *window {
@@ -508,10 +510,17 @@ func (w *window) clearSelection() {
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	switch ev.Button {
+	case termesc.LeftButton:
+		w.setCursorPosFromMouse(ev)
+		w.clearSelection()
+		w.markSelectionBound()
+		w.inMouseSelection = true
 	case termesc.ReleaseButton:
-		w.cursorPos.x = ev.X - w.gutterWidth()
-		w.cursorPos.y = ev.Y
-		w.roundCursorPos()
+		w.setCursorPosFromMouse(ev)
+		if w.inMouseSelection {
+			w.markSelectionBound()
+		}
+		w.inMouseSelection = false
 	case termesc.ScrollUpButton:
 		if w.topLine > 0 {
 			w.topLine--
@@ -523,6 +532,12 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 			w.needsRedraw = true
 		}
 	}
+}
+
+func (w *window) setCursorPosFromMouse(ev termesc.MouseEvent) {
+	w.cursorPos.x = ev.X - w.gutterWidth()
+	w.cursorPos.y = ev.Y
+	w.roundCursorPos()
 }
 
 func (w *window) printAtBottom(text string) error {
