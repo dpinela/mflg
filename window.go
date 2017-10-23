@@ -178,20 +178,19 @@ func (tf *textFormatter) formatNextLine() []byte {
 	if len(tf.curLine) == 0 {
 		tf.curLine = tf.src.Line(tf.tp.y)
 	}
-	inInvertedLine := tf.invertedRegion != nil && tf.tp.y > tf.invertedRegion.begin.y && tf.tp.y < tf.invertedRegion.end.y
 	totalW := tf.spacesCarry
 	tf.buf = tf.buf[:0]
-	if inInvertedLine {
+	if tf.invertedRegion != nil && tf.tp.y > tf.invertedRegion.begin.y && tf.tp.y <= tf.invertedRegion.end.y {
 		tf.buf = append(tf.buf, termesc.ReverseVideo...)
 	}
 	tf.appendSpaces(tf.spacesCarry)
 	tf.spacesCarry = 0
 	for len(tf.curLine) > 0 {
-		if tf.invertedRegion != nil && tf.invertedRegion.begin.y == tf.tp.y {
-			if tf.invertedRegion.begin.x == tf.tp.x {
+		if tf.invertedRegion != nil {
+			switch tf.tp {
+			case tf.invertedRegion.begin:
 				tf.buf = append(tf.buf, termesc.ReverseVideo...)
-			}
-			if tf.invertedRegion.end.x == tf.tp.x {
+			case tf.invertedRegion.end:
 				tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
 			}
 		}
@@ -211,7 +210,7 @@ func (tf *textFormatter) formatNextLine() []byte {
 			break
 		}
 	}
-	if inInvertedLine || (tf.invertedRegion != nil && tf.invertedRegion.end == tf.tp) {
+	if tf.invertedRegion != nil && ((tf.tp.y >= tf.invertedRegion.begin.y && tf.tp.y < tf.invertedRegion.end.y) || tf.invertedRegion.end == tf.tp) {
 		tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
 	}
 	//panic(fmt.Errorf("leftovers: %q", tf.curLine))
