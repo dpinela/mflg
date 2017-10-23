@@ -410,6 +410,9 @@ func prefixUntil(text []byte, pred func(rune) bool) []byte {
 }
 
 func (w *window) typeText(text []byte) {
+	if w.selection != nil {
+		w.backspace()
+	}
 	w.dirty = true
 	w.needsRedraw = true
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
