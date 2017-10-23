@@ -134,7 +134,10 @@ func (w *window) redraw(shouldDraw bool) error {
 		invertedRegion: w.selection}
 	for wy := 0; wy < w.height; wy++ {
 		ty := tf.tp.y
-		line := tf.formatNextLine()
+		line, ok := tf.formatNextLine()
+		if !ok {
+			break
+		}
 		ender := crlf
 		if wy+1 >= w.height {
 			ender = nil
@@ -174,8 +177,11 @@ type textFormatter struct {
 
 const tabWidth = 4
 
-func (tf *textFormatter) formatNextLine() []byte {
+func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 	if len(tf.curLine) == 0 {
+		if tf.tp.y >= tf.src.LineCount() {
+			return nil, false
+		}
 		tf.curLine = tf.src.Line(tf.tp.y)
 	}
 	totalW := tf.spacesCarry
@@ -218,7 +224,7 @@ func (tf *textFormatter) formatNextLine() []byte {
 		tf.tp.y++
 		tf.tp.x = 0
 	}
-	return tf.buf
+	return tf.buf, true
 }
 
 func (tf *textFormatter) appendSpaces(n int) {
