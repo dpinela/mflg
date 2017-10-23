@@ -208,6 +208,8 @@ func main() {
 			}
 		case "\x01":
 			win.markSelectionBound()
+		case "\x18":
+			win.clearSelection()
 		default:
 			if ev, err := termesc.ParseMouseEvent(c); err == nil {
 				win.handleMouseEvent(ev)

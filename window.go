@@ -484,13 +484,17 @@ func (w *window) markSelectionBound() {
 		w.selectionAnchor = nil
 		w.needsRedraw = true
 	} else {
-		if w.selection != nil {
-			w.needsRedraw = true
-		}
-		w.selection = nil
+		w.clearSelection()
 		tp := w.windowCoordsToTextCoords(w.cursorPos)
 		w.selectionAnchor = &tp
 	}
+}
+
+func (w *window) clearSelection() {
+	if w.selection != nil {
+		w.needsRedraw = true
+	}
+	w.selection = nil
 }
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
