@@ -31,6 +31,7 @@ In other words, more like an advanced nano and less like vi or emacs.
 ### Selection
 
 To select a range of text, use **Anchor** at each end of the range consecutively, in any order.
+Alternatively, you may click and drag the mouse to select, like in a GUI editor.
 
 - **Anchor**: Control-A
-- **Clear Selection**: Control-X
+- **Clear Selection**: Control-X (cancels any in-progress selection as well)
