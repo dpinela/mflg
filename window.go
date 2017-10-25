@@ -492,10 +492,7 @@ func (w *window) selectToCursorPos(anchor **point) {
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	// Prevent empty selections (and if using the mouse, also clear the selection when clicking)
 	if tp == **anchor {
-		if w.selection != nil {
-			w.needsRedraw = true
-		}
-		w.selection = nil
+		w.clearSelection()
 		*anchor = nil
 		return
 	}
@@ -507,12 +504,19 @@ func (w *window) selectToCursorPos(anchor **point) {
 	w.needsRedraw = true
 }
 
+// resetSelectionState deselects whatever text is currently selected and also removes any bounds marked.
+// In other words, it puts the window back in state 0 of the selection cycle.
+func (w *window) resetSelectionState() {
+	w.clearSelection()
+	w.selectionAnchor = nil
+	w.mouseSelectionAnchor = nil
+}
+
 func (w *window) clearSelection() {
 	if w.selection != nil {
 		w.needsRedraw = true
 	}
 	w.selection = nil
-	w.selectionAnchor = nil
 }
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {

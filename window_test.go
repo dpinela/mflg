@@ -273,6 +273,16 @@ func TestMouseSelectionOverride(t *testing.T) {
 	testMouseSelection(t, w)
 }
 
+func TestCancelMouseSelection(t *testing.T) {
+	w := newTestWindowA(t)
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
+	w.resetSelectionState()
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})
+	if w.selection != nil {
+		t.Errorf("got selection %+v, want nil", w.selection)
+	}
+}
+
 var testSelection = textRange{point{0, 2}, point{5, 2}}
 
 func testMouseSelection(t *testing.T, w *window) {
