@@ -492,6 +492,9 @@ func (w *window) selectToCursorPos(anchor **point) {
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	// Prevent empty selections (and if using the mouse, also clear the selection when clicking)
 	if tp == **anchor {
+		if w.selection != nil {
+			w.needsRedraw = true
+		}
 		w.selection = nil
 		*anchor = nil
 		return
@@ -509,6 +512,7 @@ func (w *window) clearSelection() {
 		w.needsRedraw = true
 	}
 	w.selection = nil
+	w.selectionAnchor = nil
 }
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
