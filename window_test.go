@@ -198,11 +198,12 @@ func TestLineBreakInput(t *testing.T) {
 	checkCursorPos(t, 3, w, point{0, 2})
 }
 
+const line5 = "\ttincidunt luctus = sapien + a + porttitor;"
+
 func TestBackspace(t *testing.T) {
 	const (
 		line2      = "dolor sit[10];"
 		truncLine4 = "met consectetur(adìpiscing, elit vestibulum) {"
-		line5      = "\ttincidunt luctus = sapien + a + porttitor;"
 	)
 
 	w := newTestWindowA(t)
@@ -256,6 +257,59 @@ func TestKeyboardSelection(t *testing.T) {
 	w.cursorPos = point{5, 2}
 	w.markSelectionBound()
 	if !(w.selection != nil && *w.selection == wantSelection) {
-		t.Errorf("got selection %+v, want %+v", *w.selection, wantSelection)
+		t.Errorf("got selection %+v, want %+v", w.selection, wantSelection)
 	}
+}
+
+func TestMouseSelection(t *testing.T) {
+	w := newTestWindowA(t)
+	testMouseSelection(t, w)
+}
+
+func TestMouseSelectionOverride(t *testing.T) {
+	w := newTestWindowA(t)
+	w.cursorPos = point{8, 6}
+	w.markSelectionBound()
+	testMouseSelection(t, w)
+}
+
+var testSelection = textRange{point{0, 2}, point{5, 2}}
+	
+func testMouseSelection(t *testing.T, w *window) {
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})
+	if !(w.selection != nil && *w.selection == testSelection) {
+		t.Errorf("got selection %+v, want %+v", w.selection, testSelection)
+	}
+}
+
+func TestHybridSelection(t *testing.T) {
+	w := newTestWindowA(t)
+	w.cursorPos = point{0, 2}
+	w.markSelectionBound()
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 8, Y: 2})
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})
+	w.markSelectionBound()
+	if !(w.selection != nil && *w.selection == testSelection) {
+		t.Errorf("got selection %+v, want %+v", w.selection, testSelection)
+	}
+}
+
+func TestBackspaceSelection(t *testing.T) {
+	w := newTestWindowA(t)
+	w.selection = &textRange{point{0, 2}, point{5, 2}}
+	w.backspace()
+	checkLineContent(t, 1, w, 1, "")
+	checkLineContent(t, 1, w, 2, " sit[10];")
+	w.selection = &textRange{point{0, 0}, point{5, 4}}
+	w.backspace()
+	checkLineContent(t, 2, w, 0, "consectetur(adìpiscing, elit vestibulum) {")
+	checkLineContent(t, 2, w, 1, line5)
+}
+
+func TestOverwriteSelection(t *testing.T) {
+	w := newTestWindowA(t)
+	w.selection = &textRange{point{1, 0}, point{7, 0}}
+	w.typeText([]byte("#"))
+	checkLineContent(t, 1, w, 0, "##ipsum")
 }
