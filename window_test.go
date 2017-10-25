@@ -274,7 +274,7 @@ func TestMouseSelectionOverride(t *testing.T) {
 }
 
 var testSelection = textRange{point{0, 2}, point{5, 2}}
-	
+
 func testMouseSelection(t *testing.T, w *window) {
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})

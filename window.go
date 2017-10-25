@@ -39,8 +39,9 @@ type window struct {
 	topLine       int   //The index of the topmost line being displayed
 	cursorPos     point //The cursor position relative to the top left corner of the window
 
-	selectionAnchor *point // The last point marked as an initial selection bound
-	selection       *textRange
+	selectionAnchor      *point // The last point marked as an initial selection bound by keyboard
+	mouseSelectionAnchor *point // Same, but using the mouse
+	selection            *textRange
 
 	window2TextY []int //A mapping from window y-coordinates to text y-coordinates
 
@@ -53,8 +54,6 @@ type window struct {
 
 	buf      *buffer.Buffer // The buffer being edited in the window
 	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
-
-	inMouseSelection bool // True if the mouse has been pressed, but not released
 }
 
 func newWindow(console io.Writer, width, height int, buf *buffer.Buffer) *window {
@@ -481,24 +480,28 @@ func (w *window) markSelectionBound() {
 	// 2. Two bounds marked (selection complete)
 	// Each call to this method advances the cycle by one step.
 	if w.selectionAnchor != nil {
-		tp := w.windowCoordsToTextCoords(w.cursorPos)
-		// Prevent empty selections. (This skips step 2 in the cycle)
-		if tp == *w.selectionAnchor {
-			w.selection = nil
-			w.selectionAnchor = nil
-			return
-		}
-		if tp.Less(*w.selectionAnchor) {
-			tp, *w.selectionAnchor = *w.selectionAnchor, tp
-		}
-		w.selection = &textRange{*w.selectionAnchor, tp}
-		w.selectionAnchor = nil
-		w.needsRedraw = true
+		w.selectToCursorPos(&w.selectionAnchor)
 	} else {
 		w.clearSelection()
 		tp := w.windowCoordsToTextCoords(w.cursorPos)
 		w.selectionAnchor = &tp
 	}
+}
+
+func (w *window) selectToCursorPos(anchor **point) {
+	tp := w.windowCoordsToTextCoords(w.cursorPos)
+	// Prevent empty selections (and if using the mouse, also clear the selection when clicking)
+	if tp == **anchor {
+		w.selection = nil
+		*anchor = nil
+		return
+	}
+	if tp.Less(**anchor) {
+		tp, **anchor = **anchor, tp
+	}
+	w.selection = &textRange{**anchor, tp}
+	*anchor = nil
+	w.needsRedraw = true
 }
 
 func (w *window) clearSelection() {
@@ -512,15 +515,13 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	switch ev.Button {
 	case termesc.LeftButton:
 		w.setCursorPosFromMouse(ev)
-		w.clearSelection()
-		w.markSelectionBound()
-		w.inMouseSelection = true
+		tp := w.windowCoordsToTextCoords(w.cursorPos)
+		w.mouseSelectionAnchor = &tp
 	case termesc.ReleaseButton:
 		w.setCursorPosFromMouse(ev)
-		if w.inMouseSelection {
-			w.markSelectionBound()
+		if w.mouseSelectionAnchor != nil {
+			w.selectToCursorPos(&w.mouseSelectionAnchor)
 		}
-		w.inMouseSelection = false
 	case termesc.ScrollUpButton:
 		if w.topLine > 0 {
 			w.topLine--
@@ -532,6 +533,10 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 			w.needsRedraw = true
 		}
 	}
+}
+
+func (w *window) inMouseSelection() bool {
+	return w.mouseSelectionAnchor != nil
 }
 
 func (w *window) setCursorPosFromMouse(ev termesc.MouseEvent) {

@@ -207,7 +207,7 @@ func main() {
 				win.searchRegexp(re)
 			}
 		case "\x01":
-			if !win.inMouseSelection {
+			if !win.inMouseSelection() {
 				win.markSelectionBound()
 			}
 		case "\x18":
