@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
@@ -22,6 +28,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e9b866240ebba39abb449d4364951fc1abc08e71a554aebb7eb0980b59ff6fd4"
+  inputs-digest = "dc01f6862e149c835ffda6b8bfda296b4ada7d2cca32d2d67eb2d08b57dac215"
   solver-name = "gps-cdcl"
   solver-version = 1

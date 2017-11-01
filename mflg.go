@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"regexp"
 	"strconv"
 
+	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/termesc"
 	"golang.org/x/crypto/ssh/terminal"
@@ -29,24 +29,7 @@ var (
 )
 
 func saveBuffer(fname string, buf *buffer.Buffer) error {
-	tf, err := ioutil.TempFile("", "mflg-tmp-")
-	if err != nil {
-		return err
-	}
-	if _, err := buf.WriteTo(tf); err != nil {
-		return err
-	}
-	if err = tf.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tf.Name(), fname)
-	/*if _, err := f.Seek(0, os.SEEK_SET); err != nil {
-		return err
-	}
-	if _, err := buf.WriteTo(f); err != nil {
-		return err
-	}
-	return nil*/
+	return atomicwrite.Write(fname, func(w io.Writer) error { _, err := buf.WriteTo(w); return err })
 }
 
 func must(err error) {
