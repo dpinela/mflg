@@ -183,7 +183,7 @@ func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 		if tf.tp.y >= tf.src.LineCount() {
 			return nil, false
 		}
-		tf.curLine = tf.src.Line(tf.tp.y)
+		tf.curLine = trimNewline(tf.src.Line(tf.tp.y))
 	}
 	totalW := tf.spacesCarry
 	tf.buf = tf.buf[:0]
@@ -232,6 +232,13 @@ func (tf *textFormatter) appendSpaces(n int) {
 	for i := 0; i < n; i++ {
 		tf.buf = append(tf.buf, ' ')
 	}
+}
+
+func trimNewline(line []byte) []byte {
+	if len(line) > 0 && line[len(line)-1] == '\n' {
+		return line[:len(line)-1]
+	}
+	return line
 }
 
 func min(x, y int) int {

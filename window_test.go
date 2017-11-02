@@ -323,3 +323,9 @@ func TestOverwriteSelection(t *testing.T) {
 	w.typeText([]byte("#"))
 	checkLineContent(t, 1, w, 0, "##ipsum")
 }
+
+func TestDownFromFullLine(t *testing.T) {
+	w := newTestWindow(t, 16, 5, testDocument)
+	w.moveCursorDown()
+	checkCursorPos(t, 1, w, point{0, 1})
+}
