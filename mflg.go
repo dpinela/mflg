@@ -153,22 +153,6 @@ func main() {
 			} else {
 				win.needsRedraw = true
 			}
-			/*if m, err := os.Stdin.Read(b[:]); err == nil {
-				if m == 1 {
-					switch b[0] {
-					case 's', 'S':
-						if err := saveBuffer(fname, buf); err != nil {
-							must(win.printAtBottom(err.Error()))
-						} else {
-							return
-						}
-					case 'd', 'D':
-						return
-					default:
-						win.needsRedraw = true
-					}
-				}
-			}*/
 		case "\x7f", "\b":
 			win.backspace()
 		case "\x0c":

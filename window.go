@@ -220,7 +220,6 @@ func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 	if tf.invertedRegion != nil && ((tf.tp.y >= tf.invertedRegion.begin.y && tf.tp.y < tf.invertedRegion.end.y) || tf.invertedRegion.end == tf.tp) {
 		tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
 	}
-	//panic(fmt.Errorf("leftovers: %q", tf.curLine))
 	if len(tf.curLine) == 0 {
 		tf.tp.y++
 		tf.tp.x = 0
@@ -317,9 +316,6 @@ func (w *window) moveCursorLeft() {
 		w.cursorPos.x = w.textAreaWidth() - 1
 		w.roundCursorPos()
 	}
-	/*if w.cursorX > 0 {
-		w.cursorX--
-	} else if w.cursorY > 0 || w.topLine > 0 {*/
 
 }
 
@@ -359,10 +355,6 @@ func displayLenChar(char []byte) int {
 func (w *window) scanLineUntil(line []byte, stopAt func(wx, wy, tx int) bool) (wx, wy, tx int) {
 	lineWidth := w.textAreaWidth()
 	for len(line) != 0 && !stopAt(wx, wy, tx) {
-		// Allow (y, 0) to map to the first character of a wrapped line's continuation
-		/*if wx == lineWidth && stopAt(0, wy + 1, tx) {
-			return 0, wy + 1, tx
-		}*/
 		p := norm.NFC.NextBoundary(line, true)
 		// Don't count the final newline if there is one
 		if p == 1 && line[0] == '\n' {
@@ -434,11 +426,6 @@ func (w *window) typeText(text []byte) {
 	default:
 		w.buf.Insert(text, tp.y, tp.x)
 		w.moveCursorRight()
-		/*n := displayLen(text)
-		for i := 0; i < n; i++ {
-			w.moveCursorRight()
-		}*/
-
 	}
 }
 
