@@ -446,10 +446,7 @@ func (w *window) backspace() {
 	w.needsRedraw = true
 	if w.selection != nil {
 		w.buf.DeleteRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x)
-		if !w.isTextPointOnscreen(w.selection.begin) {
-			w.gotoLine(w.selection.begin.y)
-		}
-		w.cursorPos = w.textCoordsToWindowCoords(w.selection.begin)
+		w.gotoTextPos(w.selection.begin)
 		w.selection = nil
 		return
 	}
@@ -466,6 +463,13 @@ func (w *window) backspace() {
 	} else {
 		w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x - 1})
 	}
+}
+
+func (w *window) gotoTextPos(tp point) {
+	if !w.isTextPointOnscreen(tp) {
+		w.gotoLine(tp.y)
+	}
+	w.cursorPos = w.textCoordsToWindowCoords(tp)
 }
 
 func (w *window) markSelectionBound() {
@@ -531,7 +535,22 @@ func (w *window) paste() {
 	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.buf.Insert(data, tp.y, tp.x)
+	w.gotoTextPos(posAfterInsertion(tp, data))
 	w.needsRedraw = true
+}
+
+func posAfterInsertion(tp point, data []byte) point {
+	for len(data) > 0 {
+		n := norm.NFC.NextBoundary(data, true)
+		if n == 1 && data[0] == '\n' {
+			tp.y++
+			tp.x = 0
+		} else {
+			tp.x++
+		}
+		data = data[n:]
+	}
+	return tp
 }
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
