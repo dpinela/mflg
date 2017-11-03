@@ -20,6 +20,8 @@ In other words, more like an advanced nano and less like vi or emacs.
 
 ## Commands
 
+- **Copy**: Control-C
+- **Paste**: Control-V
 - **Quit**: Control-Q
 
 ### Movement
