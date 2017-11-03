@@ -179,6 +179,10 @@ func main() {
 			}
 		case "\x18":
 			win.resetSelectionState()
+		case "\x03":
+			win.copySelection()
+		case "\x16":
+			win.paste()
 		default:
 			if ev, err := termesc.ParseMouseEvent(c); err == nil {
 				win.handleMouseEvent(ev)

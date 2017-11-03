@@ -3,6 +3,7 @@ package buffer
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 
 	"golang.org/x/text/unicode/norm"
@@ -76,13 +77,42 @@ func bufIndexForColumn(line []byte, col int) int {
 	return p
 }
 
+var nl = []byte{'\n'}
+
 func (b *Buffer) Insert(text []byte, row, col int) {
 	line := b.lines[row]
 	insPoint := bufIndexForColumn(line, col)
+	numNewLines := bytes.Count(text, nl)
+	if numNewLines > 0 {
+		b.lines = append(b.lines, make([][]byte, numNewLines)...)
+		copy(b.lines[row+1+numNewLines:], b.lines[row+1:])
+		p := bytes.IndexByte(text, '\n')
+		carry := dup(line[insPoint:])
+		b.lines[row] = append(line[:insPoint], text[:p+1]...)
+		text = text[p+1:]
+		for i := row + 1; p != -1; i++ {
+			newLine := text
+			q := bytes.IndexByte(text, '\n')
+			if q != -1 {
+				q = q + 1
+				newLine, text = text[:q], text[q:]
+			}
+			b.lines[i] = dup(newLine)
+			p = q
+		}
+		b.lines[row+numNewLines] = append(b.lines[row+numNewLines], carry...)
+		return
+	}
 	line = append(line, make([]byte, len(text))...)
 	copy(line[insPoint+len(text):], line[insPoint:])
 	copy(line[insPoint:], text)
 	b.lines[row] = line
+}
+
+func dup(b []byte) []byte {
+	c := make([]byte, len(b))
+	copy(c, b)
+	return c
 }
 
 // Returns a copy of b with a newline added at the end.
@@ -145,4 +175,19 @@ func (b *Buffer) DeleteRange(rowStart, colStart, rowEnd, colEnd int) {
 		copy(b.lines[rowStart+1:], b.lines[rowEnd+1:])
 		b.lines = b.lines[:len(b.lines)-(rowEnd-rowStart)]
 	}
+}
+
+// CopyRange returns a copy of the characters in the given range, as a
+// contiguous slice.
+func (b *Buffer) CopyRange(rowStart, colStart, rowEnd, colEnd int) []byte {
+	p := bufIndexForColumn(b.lines[rowStart], colStart)
+	q := bufIndexForColumn(b.lines[rowEnd], colEnd)
+	if rowStart == rowEnd {
+		return dup(b.lines[rowStart][p:q])
+	}
+	out := dup(b.lines[rowStart][p:])
+	for i := rowStart + 1; i < rowEnd; i++ {
+		out = append(out, b.lines[i]...)
+	}
+	return append(out, b.lines[rowEnd][:q]...)
 }

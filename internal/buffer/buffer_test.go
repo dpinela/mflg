@@ -13,6 +13,18 @@ var multilineTestData = []byte(
 consecutur adipiscing elit.
 Sed id volutpat purus.`)
 
+var multilineDataAfterInsert = []byte(
+	`LoremDING
+TEXT
+FOO ipsum dolor sit amet,
+consecutur adipiscing elit.
+Sed id volutpat purus.`)
+
+var multilineDataAfterInsertSL = []byte(
+	`LoremDING ipsum dolor sit amet,
+consecutur adipiscing elit.
+Sed id volutpat purus.`)
+
 func bufFromData(t *testing.T, data []byte) *Buffer {
 	buf := New()
 	if _, err := buf.ReadFrom(bytes.NewReader(data)); err != nil {
@@ -22,7 +34,10 @@ func bufFromData(t *testing.T, data []byte) *Buffer {
 }
 
 func testRoundTrip(t *testing.T, data []byte) {
-	buf := bufFromData(t, data)
+	testContent(t, bufFromData(t, data), data)
+}
+
+func testContent(t *testing.T, buf *Buffer, data []byte) {
 	var outBuf bytes.Buffer
 	if _, err := buf.WriteTo(&outBuf); err != nil {
 		t.Fatal(err)
@@ -52,4 +67,21 @@ func TestSliceLines(t *testing.T) {
 			t.Errorf("SliceLines(%d, %d) = %q, want %q", tt.start, tt.end, lines, tt.want)
 		}
 	}
+}
+
+func TestInsertMultiLine(t *testing.T) {
+	buf := bufFromData(t, multilineTestData)
+	n := buf.LineCount()
+	wantN := n + 2
+	buf.Insert([]byte("DING\nTEXT\nFOO"), 0, 5)
+	testContent(t, buf, multilineDataAfterInsert)
+	if buf.LineCount() != wantN {
+		t.Errorf("after insert: got %d lines, want %d", buf.LineCount(), wantN)
+	}
+}
+
+func TestInsertSingleLine(t *testing.T) {
+	buf := bufFromData(t, multilineTestData)
+	buf.Insert([]byte("DING"), 0, 5)
+	testContent(t, buf, multilineDataAfterInsertSL)
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dpinela/mflg/internal/buffer"
+	"github.com/dpinela/mflg/internal/clipboard"
 	"github.com/dpinela/mflg/internal/streak"
 	"github.com/dpinela/mflg/internal/termesc"
 	"golang.org/x/text/unicode/norm"
@@ -511,6 +512,26 @@ func (w *window) clearSelection() {
 		w.needsRedraw = true
 	}
 	w.selection = nil
+}
+
+func (w *window) copySelection() {
+	if w.selection == nil {
+		return
+	}
+	go clipboard.Copy(w.buf.CopyRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x))
+}
+
+func (w *window) paste() {
+	data, err := clipboard.Paste()
+	if err != nil || len(data) == 0 {
+		return
+	}
+	if w.selection != nil {
+		w.backspace()
+	}
+	tp := w.windowCoordsToTextCoords(w.cursorPos)
+	w.buf.Insert(data, tp.y, tp.x)
+	w.needsRedraw = true
 }
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
