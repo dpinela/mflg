@@ -83,8 +83,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error entering raw mode:", err)
 		os.Exit(2)
 	}
-	win := newWindow(os.Stdout, w, h, buf)
 	defer terminal.Restore(0, oldMode)
+	win := newWindow(os.Stdout, w, h, buf)
 	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
 	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
