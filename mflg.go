@@ -135,23 +135,18 @@ func main() {
 			if !win.dirty {
 				return
 			}
-			must(win.printAtBottom("[S]ave/[D]iscard changes/[C]ancel? "))
-			c = <-inputCh
-			if len(c) == 1 {
-				switch c[0] {
-				case 's', 'S':
-					if err := saveBuffer(fname, buf); err != nil {
-						must(win.printAtBottom(err.Error()))
-					} else {
-						return
-					}
-				case 'd', 'D':
-					return
-				default:
-					win.needsRedraw = true
-				}
+			must(win.printAtBottom("Discard changes [y/N]? "))
+			if c = <-inputCh; len(c) == 1 && (c[0] == 'y' || c[0] == 'Y') {
+				return
+			}
+		case "\x13":
+			if !win.dirty {
+				continue
+			}
+			if err := saveBuffer(fname, buf); err != nil {
+				must(win.printAtBottom(err.Error()))
 			} else {
-				win.needsRedraw = true
+				win.dirty = false
 			}
 		case "\x7f", "\b":
 			win.backspace()

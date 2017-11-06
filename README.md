@@ -11,8 +11,8 @@ In other words, more like an advanced nano and less like vi or emacs.
   - If you want a file browser, use your OS's file browser
 - Have as few configuration options as possible - instead, favor doing the right thing
   automatically
-- Have a small, easy-to-use command set (i.e. no 4 ways to quit)
-- Support extensibility only for language-specific features:
+- Have a small, easy-to-use, orthogonal command set
+- Support extensibility only for language-specific features that make sense in an editor:
   - Syntax highlighting
   - Autocompletion
   - Inline compile errors/warnings
@@ -22,6 +22,7 @@ In other words, more like an advanced nano and less like vi or emacs.
 
 - **Copy**: Control-C
 - **Paste**: Control-V
+- **Save**: Control-S
 - **Quit**: Control-Q
 
 ### Movement
