@@ -248,14 +248,14 @@ func TestAutoIndent(t *testing.T) {
 }
 
 func TestKeyboardSelection(t *testing.T) {
-	wantSelection := textRange{point{0, 2}, point{5, 2}}
+	wantSelection := optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true}
 
 	w := newTestWindowA(t)
 	w.cursorPos = point{0, 2}
 	w.markSelectionBound()
 	w.cursorPos = point{5, 2}
 	w.markSelectionBound()
-	if !(w.selection != nil && *w.selection == wantSelection) {
+	if w.selection != wantSelection {
 		t.Errorf("got selection %+v, want %+v", w.selection, wantSelection)
 	}
 }
@@ -277,17 +277,17 @@ func TestCancelMouseSelection(t *testing.T) {
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
 	w.resetSelectionState()
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})
-	if w.selection != nil {
+	if w.selection.Set {
 		t.Errorf("got selection %+v, want nil", w.selection)
 	}
 }
 
-var testSelection = textRange{point{0, 2}, point{5, 2}}
+var testSelection = optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true}
 
 func testMouseSelection(t *testing.T, w *window) {
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})
-	if !(w.selection != nil && *w.selection == testSelection) {
+	if w.selection != testSelection {
 		t.Errorf("got selection %+v, want %+v", w.selection, testSelection)
 	}
 }
@@ -299,18 +299,18 @@ func TestHybridSelection(t *testing.T) {
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 8, Y: 2})
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})
 	w.markSelectionBound()
-	if !(w.selection != nil && *w.selection == testSelection) {
+	if w.selection != testSelection {
 		t.Errorf("got selection %+v, want %+v", w.selection, testSelection)
 	}
 }
 
 func TestBackspaceSelection(t *testing.T) {
 	w := newTestWindowA(t)
-	w.selection = &textRange{point{0, 2}, point{5, 2}}
+	w.selection.Put(textRange{point{0, 2}, point{5, 2}})
 	w.backspace()
 	checkLineContent(t, 1, w, 1, "")
 	checkLineContent(t, 1, w, 2, " sit[10];")
-	w.selection = &textRange{point{0, 0}, point{5, 4}}
+	w.selection.Put(textRange{point{0, 0}, point{5, 4}})
 	w.backspace()
 	checkLineContent(t, 2, w, 0, "consectetur(adìpiscing, elit vestibulum) {")
 	checkLineContent(t, 2, w, 1, line5)
@@ -318,7 +318,7 @@ func TestBackspaceSelection(t *testing.T) {
 
 func TestOverwriteSelection(t *testing.T) {
 	w := newTestWindowA(t)
-	w.selection = &textRange{point{1, 0}, point{7, 0}}
+	w.selection.Put(textRange{point{1, 0}, point{7, 0}})
 	w.typeText("#")
 	checkLineContent(t, 1, w, 0, "##ipsum")
 }

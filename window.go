@@ -39,9 +39,9 @@ type window struct {
 	topLine       int   //The index of the topmost line being displayed
 	cursorPos     point //The cursor position relative to the top left corner of the window
 
-	selectionAnchor      *point // The last point marked as an initial selection bound by keyboard
-	mouseSelectionAnchor *point // Same, but using the mouse
-	selection            *textRange
+	selectionAnchor      optionalPoint // The last point marked as an initial selection bound by keyboard
+	mouseSelectionAnchor optionalPoint // Same, but using the mouse
+	selection            optionalTextRange
 
 	window2TextY []int //A mapping from window y-coordinates to text y-coordinates
 
@@ -54,6 +54,26 @@ type window struct {
 
 	buf      *buffer.Buffer // The buffer being edited in the window
 	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
+}
+
+type optionalPoint struct {
+	point
+	Set bool
+}
+
+func (op *optionalPoint) Put(p point) {
+	op.point = p
+	op.Set = true
+}
+
+type optionalTextRange struct {
+	textRange
+	Set bool
+}
+
+func (otr *optionalTextRange) Put(tr textRange) {
+	otr.textRange = tr
+	otr.Set = true
 }
 
 func newWindow(width, height int, buf *buffer.Buffer) *window {
@@ -171,7 +191,7 @@ type textFormatter struct {
 	tp             point
 	src            *buffer.Buffer
 	lineWidth      int
-	invertedRegion *textRange
+	invertedRegion optionalTextRange
 	curLine        string
 	buf            []byte
 	spacesCarry    int
@@ -188,13 +208,13 @@ func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 	}
 	totalW := tf.spacesCarry
 	tf.buf = tf.buf[:0]
-	if tf.invertedRegion != nil && tf.tp.y > tf.invertedRegion.begin.y && tf.tp.y <= tf.invertedRegion.end.y {
+	if tf.invertedRegion.Set && tf.tp.y > tf.invertedRegion.begin.y && tf.tp.y <= tf.invertedRegion.end.y {
 		tf.buf = append(tf.buf, termesc.ReverseVideo...)
 	}
 	tf.appendSpaces(tf.spacesCarry)
 	tf.spacesCarry = 0
 	for len(tf.curLine) > 0 {
-		if tf.invertedRegion != nil {
+		if tf.invertedRegion.Set {
 			switch tf.tp {
 			case tf.invertedRegion.begin:
 				tf.buf = append(tf.buf, termesc.ReverseVideo...)
@@ -218,7 +238,7 @@ func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 			break
 		}
 	}
-	if tf.invertedRegion != nil && ((tf.tp.y >= tf.invertedRegion.begin.y && tf.tp.y < tf.invertedRegion.end.y) || tf.invertedRegion.end == tf.tp) {
+	if tf.invertedRegion.Set && ((tf.tp.y >= tf.invertedRegion.begin.y && tf.tp.y < tf.invertedRegion.end.y) || tf.invertedRegion.end == tf.tp) {
 		tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
 	}
 	if len(tf.curLine) == 0 {
@@ -411,7 +431,7 @@ func prefixUntil(text string, pred func(rune) bool) string {
 }
 
 func (w *window) typeText(text string) {
-	if w.selection != nil {
+	if w.selection.Set {
 		w.backspace()
 	}
 	w.dirty = true
@@ -444,10 +464,10 @@ func (w *window) isTextPointOnscreen(tp point) bool {
 func (w *window) backspace() {
 	w.dirty = true
 	w.needsRedraw = true
-	if w.selection != nil {
+	if w.selection.Set {
 		w.buf.DeleteRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x)
 		w.gotoTextPos(w.selection.begin)
-		w.selection = nil
+		w.selection = optionalTextRange{}
 		return
 	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
@@ -478,28 +498,27 @@ func (w *window) markSelectionBound() {
 	// 1. One bound marked
 	// 2. Two bounds marked (selection complete)
 	// Each call to this method advances the cycle by one step.
-	if w.selectionAnchor != nil {
+	if w.selectionAnchor.Set {
 		w.selectToCursorPos(&w.selectionAnchor)
 	} else {
 		w.clearSelection()
-		tp := w.windowCoordsToTextCoords(w.cursorPos)
-		w.selectionAnchor = &tp
+		w.selectionAnchor.Put(w.windowCoordsToTextCoords(w.cursorPos))
 	}
 }
 
-func (w *window) selectToCursorPos(anchor **point) {
+func (w *window) selectToCursorPos(anchor *optionalPoint) {
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	// Prevent empty selections (and if using the mouse, also clear the selection when clicking)
-	if tp == **anchor {
+	if anchor.Set && tp == anchor.point {
 		w.clearSelection()
-		*anchor = nil
+		*anchor = optionalPoint{}
 		return
 	}
-	if tp.Less(**anchor) {
-		tp, **anchor = **anchor, tp
+	if tp.Less(anchor.point) {
+		tp, anchor.point = anchor.point, tp
 	}
-	w.selection = &textRange{**anchor, tp}
-	*anchor = nil
+	w.selection.Put(textRange{anchor.point, tp})
+	*anchor = optionalPoint{}
 	w.needsRedraw = true
 }
 
@@ -507,22 +526,21 @@ func (w *window) selectToCursorPos(anchor **point) {
 // In other words, it puts the window back in state 0 of the selection cycle.
 func (w *window) resetSelectionState() {
 	w.clearSelection()
-	w.selectionAnchor = nil
-	w.mouseSelectionAnchor = nil
+	w.selectionAnchor = optionalPoint{}
+	w.mouseSelectionAnchor = optionalPoint{}
 }
 
 func (w *window) clearSelection() {
-	if w.selection != nil {
+	if w.selection.Set {
 		w.needsRedraw = true
 	}
-	w.selection = nil
+	w.selection = optionalTextRange{}
 }
 
 func (w *window) copySelection() {
-	if w.selection == nil {
-		return
+	if w.selection.Set {
+		go clipboard.Copy(w.buf.CopyRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x))
 	}
-	go clipboard.Copy(w.buf.CopyRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x))
 }
 
 func (w *window) paste() {
@@ -530,7 +548,7 @@ func (w *window) paste() {
 	if err != nil || len(data) == 0 {
 		return
 	}
-	if w.selection != nil {
+	if w.selection.Set {
 		w.backspace()
 	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
@@ -557,11 +575,10 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	switch ev.Button {
 	case termesc.LeftButton:
 		w.setCursorPosFromMouse(ev)
-		tp := w.windowCoordsToTextCoords(w.cursorPos)
-		w.mouseSelectionAnchor = &tp
+		w.mouseSelectionAnchor.Put(w.windowCoordsToTextCoords(w.cursorPos))
 	case termesc.ReleaseButton:
 		w.setCursorPosFromMouse(ev)
-		if w.mouseSelectionAnchor != nil {
+		if w.mouseSelectionAnchor.Set {
 			w.selectToCursorPos(&w.mouseSelectionAnchor)
 		}
 	case termesc.ScrollUpButton:
@@ -578,7 +595,7 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 }
 
 func (w *window) inMouseSelection() bool {
-	return w.mouseSelectionAnchor != nil
+	return w.mouseSelectionAnchor.Set
 }
 
 func (w *window) setCursorPosFromMouse(ev termesc.MouseEvent) {
