@@ -52,12 +52,12 @@ func TestRoundTripMultiline(t *testing.T) { testRoundTrip(t, multilineTestData) 
 
 var sliceLinesTests = []struct {
 	start, end int
-	want       [][]byte
+	want       []string
 }{
-	{start: 1, end: 1, want: [][]byte{}},
-	{start: 1, end: 2, want: [][]byte{[]byte("consecutur adipiscing elit.\n")}},
-	{start: 0, end: 20, want: [][]byte{[]byte("Lorem ipsum dolor sit amet,\n"),
-		[]byte("consecutur adipiscing elit.\n"), []byte("Sed id volutpat purus.")}},
+	{start: 1, end: 1, want: []string{}},
+	{start: 1, end: 2, want: []string{"consecutur adipiscing elit.\n"}},
+	{start: 0, end: 20, want: []string{"Lorem ipsum dolor sit amet,\n",
+		"consecutur adipiscing elit.\n", "Sed id volutpat purus."}},
 }
 
 func TestSliceLines(t *testing.T) {
@@ -73,7 +73,7 @@ func TestInsertMultiLine(t *testing.T) {
 	buf := bufFromData(t, multilineTestData)
 	n := buf.LineCount()
 	wantN := n + 2
-	buf.Insert([]byte("DING\nTEXT\nFOO"), 0, 5)
+	buf.Insert("DING\nTEXT\nFOO", 0, 5)
 	testContent(t, buf, multilineDataAfterInsert)
 	if buf.LineCount() != wantN {
 		t.Errorf("after insert: got %d lines, want %d", buf.LineCount(), wantN)
@@ -82,6 +82,6 @@ func TestInsertMultiLine(t *testing.T) {
 
 func TestInsertSingleLine(t *testing.T) {
 	buf := bufFromData(t, multilineTestData)
-	buf.Insert([]byte("DING"), 0, 5)
+	buf.Insert("DING", 0, 5)
 	testContent(t, buf, multilineDataAfterInsertSL)
 }

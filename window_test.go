@@ -154,11 +154,11 @@ func TestScrolling(t *testing.T) {
 func TestTextInput(t *testing.T) {
 	w := newTestWindowA(t)
 	w.cursorPos = point{1, 4}
-	w.typeText([]byte("€"))
+	w.typeText("€")
 	checkLineContent(t, 1, w, 4, "á€met consectetur(adìpiscing, elit vestibulum) {")
 	checkCursorPos(t, 1, w, point{2, 4})
 	w.cursorPos = point{8, 9}
-	w.typeText([]byte("$"))
+	w.typeText("$")
 	checkLineContent(t, 2, w, 8, "\t\tullamcorper nunc a(\"henderit magna: donec est mi, viverra in aliquet quis\");$")
 	checkCursorPos(t, 2, w, point{9, 9})
 	checkTopLine(t, 2, w, 0)
@@ -179,19 +179,19 @@ func TestTextInput(t *testing.T) {
 
 func TestLineBreakInput(t *testing.T) {
 	w := newTestWindowA(t)
-	w.typeText([]byte("\r"))
+	w.typeText("\r")
 	checkLineContent(t, 1, w, 0, "")
 	checkLineContent(t, 1, w, 1, "#lorem ipsum")
 	checkCursorPos(t, 1, w, point{0, 1})
 	for i := 0; i < 6; i++ {
 		w.moveCursorRight()
 	}
-	w.typeText([]byte("\r"))
+	w.typeText("\r")
 	checkLineContent(t, 2, w, 1, "#lorem")
 	checkLineContent(t, 2, w, 2, " ipsum")
 	checkCursorPos(t, 2, w, point{0, 2})
 	w.moveCursorLeft()
-	w.typeText([]byte("\r"))
+	w.typeText("\r")
 	checkLineContent(t, 3, w, 1, "#lorem")
 	checkLineContent(t, 3, w, 2, "")
 	checkLineContent(t, 3, w, 3, " ipsum")
@@ -226,9 +226,9 @@ func TestBackspace(t *testing.T) {
 func TestAutoIndent(t *testing.T) {
 	w := newTestWindowEmpty(t)
 	tab := w.tabWidth()
-	w.typeText([]byte("\t"))
+	w.typeText("\t")
 	checkCursorPos(t, 0, w, point{tab, 0})
-	w.typeText([]byte("\r"))
+	w.typeText("\r")
 	w.redraw(false)
 	//The redraws are needed because the code relies on layout being redone
 	// (usually done in the main input loop)
@@ -238,9 +238,9 @@ func TestAutoIndent(t *testing.T) {
 	checkLineContent(t, 1, w, 1, "\t")
 	checkCursorPos(t, 1, w, point{tab, 1})
 	for i := 0; i < 3; i++ {
-		w.typeText([]byte(" "))
+		w.typeText(" ")
 	}
-	w.typeText([]byte("\r"))
+	w.typeText("\r")
 	w.redraw(false)
 	checkLineContent(t, 2, w, 0, "\t")
 	checkLineContent(t, 2, w, 1, "\t   ")
@@ -320,7 +320,7 @@ func TestBackspaceSelection(t *testing.T) {
 func TestOverwriteSelection(t *testing.T) {
 	w := newTestWindowA(t)
 	w.selection = &textRange{point{1, 0}, point{7, 0}}
-	w.typeText([]byte("#"))
+	w.typeText("#")
 	checkLineContent(t, 1, w, 0, "##ipsum")
 }
 

@@ -182,7 +182,7 @@ func main() {
 			if ev, err := termesc.ParseMouseEvent(c); err == nil {
 				win.handleMouseEvent(ev)
 			} else if len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t') {
-				win.typeText([]byte(c))
+				win.typeText(c)
 			}
 		}
 	}

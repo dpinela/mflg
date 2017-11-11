@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/dpinela/mflg/internal/buffer"
@@ -80,10 +80,10 @@ func (w *window) resize(newHeight, newWidth int) {
 }
 
 // Returns the length of line, as visually seen on the console.
-func displayLen(line []byte) int {
+func displayLen(line string) int {
 	n := 0
 	for i := 0; i < len(line); {
-		p := norm.NFC.NextBoundary(line, true)
+		p := norm.NFC.NextBoundaryInString(line, true)
 		if p == 1 && line[0] == '\n' {
 			break
 		} else {
@@ -173,7 +173,8 @@ type textFormatter struct {
 	src            *buffer.Buffer
 	lineWidth      int
 	invertedRegion *textRange
-	curLine, buf   []byte
+	curLine        string
+	buf            []byte
 	spacesCarry    int
 }
 
@@ -202,7 +203,7 @@ func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 				tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
 			}
 		}
-		n := norm.NFC.NextBoundary(tf.curLine, true)
+		n := norm.NFC.NextBoundaryInString(tf.curLine, true)
 		if n == 1 && tf.curLine[0] == '\t' {
 			w := min(tf.lineWidth-totalW, tabWidth)
 			totalW += w
@@ -234,7 +235,7 @@ func (tf *textFormatter) appendSpaces(n int) {
 	}
 }
 
-func trimNewline(line []byte) []byte {
+func trimNewline(line string) string {
 	if len(line) > 0 && line[len(line)-1] == '\n' {
 		return line[:len(line)-1]
 	}
@@ -336,14 +337,14 @@ func (w *window) moveCursorRight() {
 func (w *window) searchRegexp(re *regexp.Regexp) {
 	w.searchRE = re
 	for i, line := range w.buf.SliceLines(0, w.buf.LineCount()) {
-		if re.Match(line) {
+		if re.MatchString(line) {
 			w.gotoLine(i)
 			return
 		}
 	}
 }
 
-func displayLenChar(char []byte) int {
+func displayLenChar(char string) int {
 	if len(char) == 1 && char[0] == '\t' {
 		return 4
 	}
@@ -353,10 +354,10 @@ func displayLenChar(char []byte) int {
 // Window coordinates: a (y, x) position within the window.
 // Text coordinates: a (line, column) position within the text.
 
-func (w *window) scanLineUntil(line []byte, stopAt func(wx, wy, tx int) bool) (wx, wy, tx int) {
+func (w *window) scanLineUntil(line string, stopAt func(wx, wy, tx int) bool) (wx, wy, tx int) {
 	lineWidth := w.textAreaWidth()
 	for len(line) != 0 && !stopAt(wx, wy, tx) {
-		p := norm.NFC.NextBoundary(line, true)
+		p := norm.NFC.NextBoundaryInString(line, true)
 		// Don't count the final newline if there is one
 		if p == 1 && line[0] == '\n' {
 			break
@@ -403,14 +404,14 @@ func (w *window) textCoordsToWindowCoords(tp point) (wp point) {
 	return point{y: w.lineStartY(tp.y) + wy, x: wx}
 }
 
-func prefixUntil(text []byte, pred func(rune) bool) []byte {
-	if p := bytes.IndexFunc(text, pred); p != -1 {
+func prefixUntil(text string, pred func(rune) bool) string {
+	if p := strings.IndexFunc(text, pred); p != -1 {
 		return text[:p]
 	}
 	return text
 }
 
-func (w *window) typeText(text []byte) {
+func (w *window) typeText(text string) {
 	if w.selection != nil {
 		w.backspace()
 	}
@@ -534,7 +535,7 @@ func (w *window) paste() {
 		w.backspace()
 	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	w.buf.Insert(data, tp.y, tp.x)
+	w.buf.Insert(string(data), tp.y, tp.x)
 	w.gotoTextPos(posAfterInsertion(tp, data))
 	w.needsRedraw = true
 }
