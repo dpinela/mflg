@@ -35,7 +35,6 @@ type textRange struct {
 }
 
 type window struct {
-	w             io.Writer
 	width, height int
 	topLine       int   //The index of the topmost line being displayed
 	cursorPos     point //The cursor position relative to the top left corner of the window
@@ -57,9 +56,9 @@ type window struct {
 	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
 }
 
-func newWindow(console io.Writer, width, height int, buf *buffer.Buffer) *window {
+func newWindow(width, height int, buf *buffer.Buffer) *window {
 	return &window{
-		w: console, width: width, height: height,
+		width: width, height: height,
 		buf: buf, needsRedraw: true, moveTicker: streak.Tracker{Interval: time.Second / 5},
 	}
 }
@@ -118,14 +117,14 @@ func (w *window) textAreaWidth() int {
 	return w.width - w.gutterWidth() - 1
 }
 
-// redraw updates the screen to reflect the logical window contents.
-// If shouldDraw is false, it only updates the layout.
-func (w *window) redraw(shouldDraw bool) error {
+// redraw renders the window's contents onto a console.
+// If the console is nil, it only updates the window's layout.
+func (w *window) redraw(console io.Writer) error {
 	if !w.needsRedraw {
 		return nil
 	}
-	if shouldDraw {
-		if _, err := fmt.Fprint(w.w, termesc.SetCursorPos(1, 1), termesc.ClearScreen); err != nil {
+	if console != nil {
+		if _, err := fmt.Fprint(console, termesc.SetCursorPos(1, 1), termesc.ClearScreen); err != nil {
 			return err
 		}
 	}
@@ -144,8 +143,8 @@ func (w *window) redraw(shouldDraw bool) error {
 		if wy+1 >= w.height {
 			ender = nil
 		}
-		if shouldDraw {
-			if _, err := fmt.Fprintf(w.w, "%*d %s%s", w.gutterWidth()-1, ty+1, line, ender); err != nil {
+		if console != nil {
+			if _, err := fmt.Fprintf(console, "%*d %s%s", w.gutterWidth()-1, ty+1, line, ender); err != nil {
 				return err
 			}
 		}
@@ -164,7 +163,7 @@ func (w *window) redraw(shouldDraw bool) error {
 
 	/*tp := w.windowCoordsToTextCoords(w.cursorPos)
 	fmt.Fprintf(w.w, "\r\x1B[1mw: %v t: %v\x1B[0m", w.cursorPos, tp)*/
-	w.needsRedraw = !shouldDraw
+	w.needsRedraw = console == nil
 	return nil
 }
 
@@ -279,7 +278,7 @@ func (w *window) moveCursorDown() {
 	} else {
 		w.topLine++
 		w.needsRedraw = true
-		w.redraw(false)
+		w.redraw(nil)
 	}
 }
 
@@ -291,7 +290,7 @@ func (w *window) moveCursorUp() {
 	case w.topLine > 0:
 		w.topLine--
 		w.needsRedraw = true
-		w.redraw(false)
+		w.redraw(nil)
 	}
 }
 
@@ -302,7 +301,7 @@ func (w *window) gotoLine(y int) {
 	}
 	w.cursorPos.y = 0
 	w.needsRedraw = true
-	w.redraw(false)
+	w.redraw(nil)
 }
 
 func (w *window) roundCursorPos() {
@@ -586,9 +585,4 @@ func (w *window) setCursorPosFromMouse(ev termesc.MouseEvent) {
 	w.cursorPos.x = ev.X - w.gutterWidth()
 	w.cursorPos.y = ev.Y
 	w.roundCursorPos()
-}
-
-func (w *window) printAtBottom(text string) error {
-	_, err := fmt.Fprintf(w.w, "%s%s%s", termesc.SetCursorPos(2000, 1), termesc.ClearLine, text)
-	return err
 }

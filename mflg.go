@@ -55,6 +55,11 @@ func rawGetLine(in <-chan string, out io.Writer) (string, error) {
 	}
 }
 
+func printAtBottom(text string) error {
+	_, err := fmt.Printf("%s%s%s", termesc.SetCursorPos(2000, 1), termesc.ClearLine, text)
+	return err
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
@@ -84,7 +89,7 @@ func main() {
 		os.Exit(2)
 	}
 	defer terminal.Restore(0, oldMode)
-	win := newWindow(os.Stdout, w, h, buf)
+	win := newWindow(w, h, buf)
 	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
 	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
@@ -102,10 +107,10 @@ func main() {
 	signal.Notify(resizeCh, unix.SIGWINCH)
 	var c string
 	for {
-		if err := win.redraw(true); err != nil {
+		if err := win.redraw(os.Stdout); err != nil {
 			panic(err)
 		}
-		fmt.Fprint(win.w, termesc.SetCursorPos(win.cursorPos.y+1, win.cursorPos.x+win.gutterWidth()+1))
+		fmt.Print(termesc.SetCursorPos(win.cursorPos.y+1, win.cursorPos.x+win.gutterWidth()+1))
 		select {
 		case k, ok := <-inputCh:
 			if !ok {
@@ -135,7 +140,7 @@ func main() {
 			if !win.dirty {
 				return
 			}
-			must(win.printAtBottom("Discard changes [y/N]? "))
+			must(printAtBottom("Discard changes [y/N]? "))
 			if c = <-inputCh; len(c) == 1 && (c[0] == 'y' || c[0] == 'Y') {
 				return
 			}
@@ -144,27 +149,27 @@ func main() {
 				continue
 			}
 			if err := saveBuffer(fname, buf); err != nil {
-				must(win.printAtBottom(err.Error()))
+				must(printAtBottom(err.Error()))
 			} else {
 				win.dirty = false
 			}
 		case "\x7f", "\b":
 			win.backspace()
 		case "\x0c":
-			must(win.printAtBottom("Go to line: "))
-			lineStr, err := rawGetLine(inputCh, win.w)
+			must(printAtBottom("Go to line: "))
+			lineStr, err := rawGetLine(inputCh, os.Stdout)
 			must(err)
 			y, err := strconv.ParseInt(lineStr, 10, 32)
 			if err == nil {
 				win.gotoLine(int(y - 1))
 			}
 		case "\x06":
-			must(win.printAtBottom("Search: "))
-			reText, err := rawGetLine(inputCh, win.w)
+			must(printAtBottom("Search: "))
+			reText, err := rawGetLine(inputCh, os.Stdout)
 			must(err)
 			re, err := regexp.Compile(reText)
 			if err != nil {
-				must(win.printAtBottom(err.Error()))
+				must(printAtBottom(err.Error()))
 			} else {
 				win.searchRegexp(re)
 			}
