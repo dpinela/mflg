@@ -363,6 +363,16 @@ func (w *window) searchRegexp(re *regexp.Regexp) {
 	}
 }
 
+func (w *window) searchReplace(re *regexp.Regexp, subText string) {
+	w.searchRE = re
+	lines := w.buf.SliceLines(0, w.buf.LineCount())
+	for i, line := range lines {
+		lines[i] = re.ReplaceAllString(line, subText)
+	}
+	w.needsRedraw = true
+	w.dirty = true
+}
+
 func displayLenChar(char string) int {
 	if len(char) == 1 && char[0] == '\t' {
 		return 4

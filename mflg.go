@@ -1,12 +1,14 @@
 package main
 
 import (
+	_ "encoding/gob"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/dpinela/mflg/internal/buffer"
@@ -94,6 +96,8 @@ func main() {
 	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
 	inputCh := make(chan string, 32)
+	saveTimer := time.NewTicker(10 * time.Second)
+	defer saveTimer.Stop()
 	go func() {
 		con := termesc.NewConsoleReader(os.Stdin)
 		for {
@@ -125,6 +129,14 @@ func main() {
 			} else {
 				win.resize(h, w)
 			}
+			continue
+		case <-saveTimer.C:
+			/*err := atomicwrite.Write(fname + ".mflg", func(w io.Writer) error {
+				return gob.NewEncoder(w).Encode(win)
+			})
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "error saving state:", err.Error())
+			}*/
 			continue
 		}
 		switch c {
@@ -173,6 +185,19 @@ func main() {
 			} else {
 				win.searchRegexp(re)
 			}
+		case "\x07":
+			must(printAtBottom("Search: "))
+			reText, err := rawGetLine(inputCh, os.Stdout)
+			must(err)
+			re, err := regexp.Compile(reText)
+			if err != nil {
+				must(printAtBottom(err.Error()))
+				continue
+			}
+			must(printAtBottom("Replace with: "))
+			subText, err := rawGetLine(inputCh, os.Stdout)
+			must(err)
+			win.searchReplace(re, subText)
 		case "\x01":
 			if !win.inMouseSelection() {
 				win.markSelectionBound()
