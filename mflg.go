@@ -103,24 +103,97 @@ func main() {
 		for {
 			if s, err := con.ReadToken(); err != nil {
 				close(inputCh)
+				return
 			} else {
 				inputCh <- s
 			}
 		}
 	}()
 	signal.Notify(resizeCh, unix.SIGWINCH)
-	var c string
 	for {
-		if err := win.redraw(os.Stdout); err != nil {
-			panic(err)
-		}
+		must(win.redraw(os.Stdout))
 		fmt.Print(termesc.SetCursorPos(win.cursorPos.y+1, win.cursorPos.x+win.gutterWidth()+1))
 		select {
-		case k, ok := <-inputCh:
+		case c, ok := <-inputCh:
 			if !ok {
 				panic("console input closed")
 			}
-			c = k
+			switch c {
+			case termesc.UpKey:
+				win.repeatMove(win.moveCursorUp)
+			case termesc.DownKey:
+				win.repeatMove(win.moveCursorDown)
+			case termesc.LeftKey:
+				win.moveCursorLeft()
+			case termesc.RightKey:
+				win.moveCursorRight()
+			case "\x11":
+				if !win.dirty {
+					return
+				}
+				must(printAtBottom("Discard changes [y/N]? "))
+				if c = <-inputCh; len(c) == 1 && (c[0] == 'y' || c[0] == 'Y') {
+					return
+				}
+			case "\x13":
+				if !win.dirty {
+					continue
+				}
+				if err := saveBuffer(fname, buf); err != nil {
+					must(printAtBottom(err.Error()))
+				} else {
+					win.dirty = false
+				}
+			case "\x7f", "\b":
+				win.backspace()
+			case "\x0c":
+				must(printAtBottom("Go to line: "))
+				lineStr, err := rawGetLine(inputCh, os.Stdout)
+				must(err)
+				y, err := strconv.ParseInt(lineStr, 10, 32)
+				if err == nil {
+					win.gotoLine(int(y - 1))
+				}
+			case "\x06":
+				must(printAtBottom("Search: "))
+				reText, err := rawGetLine(inputCh, os.Stdout)
+				must(err)
+				re, err := regexp.Compile(reText)
+				if err != nil {
+					must(printAtBottom(err.Error()))
+				} else {
+					win.searchRegexp(re)
+				}
+			case "\x07":
+				must(printAtBottom("Search: "))
+				reText, err := rawGetLine(inputCh, os.Stdout)
+				must(err)
+				re, err := regexp.Compile(reText)
+				if err != nil {
+					must(printAtBottom(err.Error()))
+					continue
+				}
+				must(printAtBottom("Replace with: "))
+				subText, err := rawGetLine(inputCh, os.Stdout)
+				must(err)
+				win.searchReplace(re, subText)
+			case "\x01":
+				if !win.inMouseSelection() {
+					win.markSelectionBound()
+				}
+			case "\x18":
+				win.resetSelectionState()
+			case "\x03":
+				win.copySelection()
+			case "\x16":
+				win.paste()
+			default:
+				if ev, err := termesc.ParseMouseEvent(c); err == nil {
+					win.handleMouseEvent(ev)
+				} else if len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t') {
+					win.typeText(c)
+				}
+			}
 		case <-resizeCh:
 			// This can only fail if our terminal turns into a non-terminal
 			// during execution, which is highly unlikely.
@@ -138,82 +211,6 @@ func main() {
 				fmt.Fprintln(os.Stderr, "error saving state:", err.Error())
 			}*/
 			continue
-		}
-		switch c {
-		case termesc.UpKey:
-			win.repeatMove(win.moveCursorUp)
-		case termesc.DownKey:
-			win.repeatMove(win.moveCursorDown)
-		case termesc.LeftKey:
-			win.moveCursorLeft()
-		case termesc.RightKey:
-			win.moveCursorRight()
-		case "\x11":
-			if !win.dirty {
-				return
-			}
-			must(printAtBottom("Discard changes [y/N]? "))
-			if c = <-inputCh; len(c) == 1 && (c[0] == 'y' || c[0] == 'Y') {
-				return
-			}
-		case "\x13":
-			if !win.dirty {
-				continue
-			}
-			if err := saveBuffer(fname, buf); err != nil {
-				must(printAtBottom(err.Error()))
-			} else {
-				win.dirty = false
-			}
-		case "\x7f", "\b":
-			win.backspace()
-		case "\x0c":
-			must(printAtBottom("Go to line: "))
-			lineStr, err := rawGetLine(inputCh, os.Stdout)
-			must(err)
-			y, err := strconv.ParseInt(lineStr, 10, 32)
-			if err == nil {
-				win.gotoLine(int(y - 1))
-			}
-		case "\x06":
-			must(printAtBottom("Search: "))
-			reText, err := rawGetLine(inputCh, os.Stdout)
-			must(err)
-			re, err := regexp.Compile(reText)
-			if err != nil {
-				must(printAtBottom(err.Error()))
-			} else {
-				win.searchRegexp(re)
-			}
-		case "\x07":
-			must(printAtBottom("Search: "))
-			reText, err := rawGetLine(inputCh, os.Stdout)
-			must(err)
-			re, err := regexp.Compile(reText)
-			if err != nil {
-				must(printAtBottom(err.Error()))
-				continue
-			}
-			must(printAtBottom("Replace with: "))
-			subText, err := rawGetLine(inputCh, os.Stdout)
-			must(err)
-			win.searchReplace(re, subText)
-		case "\x01":
-			if !win.inMouseSelection() {
-				win.markSelectionBound()
-			}
-		case "\x18":
-			win.resetSelectionState()
-		case "\x03":
-			win.copySelection()
-		case "\x16":
-			win.paste()
-		default:
-			if ev, err := termesc.ParseMouseEvent(c); err == nil {
-				win.handleMouseEvent(ev)
-			} else if len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t') {
-				win.typeText(c)
-			}
 		}
 	}
 }
