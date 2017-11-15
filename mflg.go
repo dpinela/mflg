@@ -151,7 +151,7 @@ func main() {
 				lineStr, err := rawGetLine(inputCh, os.Stdout)
 				must(err)
 				y, err := strconv.ParseInt(lineStr, 10, 32)
-				if err == nil {
+				if err == nil && y > 0 {
 					win.gotoLine(int(y - 1))
 				}
 			case "\x06":
