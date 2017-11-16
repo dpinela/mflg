@@ -457,6 +457,10 @@ func prefixUntil(text string, pred func(rune) bool) string {
 	return text
 }
 
+func leadingIndentation(text string) string {
+	return prefixUntil(text, func(c rune) bool { return !(c == '\t' || c == ' ') })
+}
+
 func (w *window) typeText(text string) {
 	if w.selection.Set {
 		w.backspace()
@@ -466,7 +470,7 @@ func (w *window) typeText(text string) {
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	switch text[0] {
 	case '\r':
-		indent := prefixUntil(w.buf.Line(tp.y), func(c rune) bool { return !(c == '\t' || c == ' ') })
+		indent := leadingIndentation(w.buf.Line(tp.y))
 		w.buf.InsertLineBreak(tp.y, tp.x)
 		w.buf.Insert(indent, tp.y+1, 0)
 		w.moveCursorDown() // Needed to ensure scrolling if necessary
@@ -581,15 +585,16 @@ func (w *window) paste() {
 	if w.selection.Set {
 		w.backspace()
 	}
+	s := string(data)
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	w.buf.Insert(string(data), tp.y, tp.x)
-	w.gotoTextPos(posAfterInsertion(tp, data))
+	w.buf.Insert(s, tp.y, tp.x)
+	w.gotoTextPos(posAfterInsertion(tp, s))
 	w.needsRedraw = true
 }
 
-func posAfterInsertion(tp point, data []byte) point {
+func posAfterInsertion(tp point, data string) point {
 	for len(data) > 0 {
-		n := norm.NFC.NextBoundary(data, true)
+		n := norm.NFC.NextBoundaryInString(data, true)
 		if n == 1 && data[0] == '\n' {
 			tp.y++
 			tp.x = 0

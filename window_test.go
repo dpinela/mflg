@@ -302,7 +302,7 @@ func TestPaste(t *testing.T) {
 	checkLineContent(t, 1, w, 0, "#lorem"+chunk+" ipsum")
 }
 
-func TestPasteMultiline(t *testing.T) {
+/*func TestPasteMultiline(t *testing.T) {
 	const chunk = "blub\nblub\nblub"
 	w := newTestWindow(t, 160, 20, testDocument)
 	w.cursorPos = point{w.tabWidth() + 2, 10}
@@ -314,7 +314,7 @@ func TestPasteMultiline(t *testing.T) {
 	checkLineContent(t, 1, w, 10, "\telblub")
 	checkLineContent(t, 1, w, 11, "\tblub")
 	checkLineContent(t, 1, w, 12, "\tblubeifend {")
-}
+}*/
 
 func TestKeyboardSelection(t *testing.T) {
 	wantSelection := optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true}
