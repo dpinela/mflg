@@ -2,10 +2,12 @@ package main
 
 import (
 	"github.com/dpinela/mflg/internal/buffer"
+	"github.com/dpinela/mflg/internal/clipboard"
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"strings"
 	"testing"
+	"time"
 )
 
 const testDocument = `#lorem ipsum
@@ -270,6 +272,48 @@ func main() {
 	w.backspace()
 	checkCursorPos(t, 2, w, point{1, 1})
 	checkLineContent(t, 2, w, 1, strings.Repeat(" ", M-1)+chunk)
+}
+
+func TestCopy(t *testing.T) {
+	const timeout = 100 * time.Millisecond
+	w := newTestWindowA(t)
+	w.selection.Put(textRange{point{0, 0}, point{5, 2}})
+	w.copySelection()
+	time.Sleep(timeout)
+	const wantData = "#lorem ipsum\n\ndolor"
+	data, err := clipboard.Paste()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != wantData {
+		t.Errorf("copy then paste after %v: got %q, want %q", timeout, data, wantData)
+	}
+}
+
+func TestPaste(t *testing.T) {
+	const chunk = "blub"
+	w := newTestWindowA(t)
+	w.cursorPos = point{6, 0}
+	if err := clipboard.Copy([]byte(chunk)); err != nil {
+		t.Fatal(err)
+	}
+	w.paste()
+	checkCursorPos(t, 1, w, point{10, 0})
+	checkLineContent(t, 1, w, 0, "#lorem"+chunk+" ipsum")
+}
+
+func TestPasteMultiline(t *testing.T) {
+	const chunk = "blub\nblub\nblub"
+	w := newTestWindow(t, 160, 20, testDocument)
+	w.cursorPos = point{w.tabWidth() + 2, 10}
+	if err := clipboard.Copy([]byte(chunk)); err != nil {
+		t.Fatal(err)
+	}
+	w.paste()
+	checkCursorPos(t, 1, w, point{w.tabWidth() + 4, 12})
+	checkLineContent(t, 1, w, 10, "\telblub")
+	checkLineContent(t, 1, w, 11, "\tblub")
+	checkLineContent(t, 1, w, 12, "\tblubeifend {")
 }
 
 func TestKeyboardSelection(t *testing.T) {
