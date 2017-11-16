@@ -52,7 +52,9 @@ type window struct {
 	//drawn
 	needsRedraw bool
 
-	buf      *buffer.Buffer // The buffer being edited in the window
+	buf       *buffer.Buffer // The buffer being edited in the window
+	tabString string         // The string that should be inserted when typing a tab
+
 	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
 }
 
@@ -79,8 +81,16 @@ func (otr *optionalTextRange) Put(tr textRange) {
 func newWindow(width, height int, buf *buffer.Buffer) *window {
 	return &window{
 		width: width, height: height,
-		buf: buf, needsRedraw: true, moveTicker: streak.Tracker{Interval: time.Second / 5},
+		buf: buf, tabString: tabString(buf.IndentType()),
+		needsRedraw: true, moveTicker: streak.Tracker{Interval: time.Second / 5},
 	}
+}
+
+func tabString(width int) string {
+	if width == buffer.IndentTabs {
+		return "\t"
+	}
+	return strings.Repeat(" ", width)
 }
 
 // resize sets the window's height and width, then updates the layout
@@ -127,7 +137,12 @@ func ndigits(x int) int {
 
 // This is here mainly so tests don't break when we introduce configurable
 // tab widths.
-func (w *window) tabWidth() int { return 4 }
+func (w *window) tabWidth() int {
+	if w.tabString == "\t" {
+		return 4
+	}
+	return len(w.tabString)
+}
 
 func (w *window) gutterWidth() int {
 	return ndigits(w.buf.LineCount()) + 1
@@ -340,10 +355,12 @@ func (w *window) moveCursorLeft() {
 
 }
 
-func (w *window) moveCursorRight() {
+func (w *window) moveCursorRight() { w.moveCursorRightBy(1) }
+
+func (w *window) moveCursorRightBy(n int) {
 	oldWp := w.cursorPos
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x + 1})
+	w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x + n})
 	if w.cursorPos == oldWp && tp.y+1 < w.buf.LineCount() {
 		w.cursorPos.x = 0
 		w.moveCursorDown()
@@ -391,7 +408,7 @@ func (w *window) scanLineUntil(line string, stopAt func(wx, wy, tx int) bool) (w
 		if p == 1 && line[0] == '\n' {
 			break
 		}
-		wx += displayLenChar(line[:p])
+		wx += displayLen(line[:p])
 		for wx >= lineWidth+1 {
 			wy++
 			wx -= lineWidth
@@ -454,6 +471,9 @@ func (w *window) typeText(text string) {
 		w.buf.Insert(indent, tp.y+1, 0)
 		w.moveCursorDown() // Needed to ensure scrolling if necessary
 		w.cursorPos = w.textCoordsToWindowCoords(point{len(indent), tp.y + 1})
+	case '\t':
+		w.buf.Insert(w.tabString, tp.y, tp.x)
+		w.moveCursorRightBy(len(w.tabString))
 	default:
 		w.buf.Insert(text, tp.y, tp.x)
 		w.moveCursorRight()

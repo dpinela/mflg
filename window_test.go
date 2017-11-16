@@ -247,6 +247,31 @@ func TestAutoIndent(t *testing.T) {
 	checkCursorPos(t, 2, w, point{tab + 3, 2})
 }
 
+func TestTabWidthDetection(t *testing.T) {
+	w := newTestWindow(t, 100, 100, `
+func main() {
+  if u := os.Getenv("USER"); u == "root" {
+    fmt.Println("Careful!")
+  } else {
+    fmt.Println("Hello," u)
+  }
+}`)
+	const (
+		M     = 2
+		chunk = "func main() {"
+	)
+	if n := w.tabWidth(); n != M {
+		t.Errorf("got tabWidth() = %d, want %d", n, M)
+	}
+	w.cursorPos = point{0, 1}
+	w.typeText("\t")
+	checkCursorPos(t, 1, w, point{M, 1})
+	checkLineContent(t, 1, w, 1, strings.Repeat(" ", M)+chunk)
+	w.backspace()
+	checkCursorPos(t, 2, w, point{1, 1})
+	checkLineContent(t, 2, w, 1, strings.Repeat(" ", M-1)+chunk)
+}
+
 func TestKeyboardSelection(t *testing.T) {
 	wantSelection := optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true}
 

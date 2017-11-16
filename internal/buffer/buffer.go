@@ -23,6 +23,62 @@ func (b *Buffer) Copy() *Buffer {
 	return &Buffer{lines: newLines}
 }
 
+// Indicates a buffer indented with tabs.
+const IndentTabs = 0
+
+// IndentType returns the number of spaces used for each leading indentation level in the
+// text, or IndentTabs if the text is indented using tabs.
+// If it cannot determine the indentation type, returns IndentTabs.
+func (b *Buffer) IndentType() int {
+	multiplesSeen := make([]int, 32)
+lineScan:
+	for _, line := range b.lines {
+		numSpaces := 0
+		hasTabs := false
+	prefixScan:
+		for i := range line {
+			switch line[i] {
+			case '\t':
+				if numSpaces > 0 {
+					// If we run into a line that mixes tabs and spaces, just ignore that line
+					// and hope to use the rest to find out what we need.
+					continue lineScan
+				}
+				hasTabs = true
+			case ' ':
+				if hasTabs {
+					continue lineScan
+				}
+				numSpaces++
+			default:
+				break prefixScan
+			}
+		}
+		switch {
+		case hasTabs:
+			multiplesSeen[0]++
+		case numSpaces > 0:
+			for i := 1; i < len(multiplesSeen); i++ {
+				if numSpaces%i == 0 {
+					multiplesSeen[i]++
+				}
+			}
+		}
+	}
+	best := IndentTabs
+	bestCount := 0
+	for i, n := range multiplesSeen {
+		if n >= bestCount {
+			best = i
+			bestCount = n
+		}
+	}
+	if bestCount > 0 {
+		return best
+	}
+	return IndentTabs
+}
+
 // ReadFrom reads data from r until EOF, splicing it in at the current insertion point position.
 func (b *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
 	b.lines = nil

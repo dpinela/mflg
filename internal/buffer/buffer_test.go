@@ -3,47 +3,46 @@ package buffer
 import (
 	"bytes"
 	"reflect"
+	"strings"
 	"testing"
 )
 
-var testData = []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed id volutpat purus. Cras suscipit, lorem id elementum varius, sem justo dignissim ligula, ac fermentum erat magna porttitor erat. Proin vitae scelerisque magna. Maecenas quis libero est. Praesent hendrerit luctus mi, eget lacinia lorem malesuada eu. Proin volutpat molestie tortor ac vestibulum. In hac habitasse platea dictumst. Sed luctus tempus fringilla. Phasellus a posuere velit. Praesent magna odio, efficitur vel pretium vel, venenatis id justo. Donec vestibulum luctus lorem. Phasellus aliquam pharetra justo vitae egestas. Donec luctus tincidunt purus vel scelerisque. Phasellus ut venenatis augue, ut consectetur nisl. Integer id magna.")
+var testData = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed id volutpat purus. Cras suscipit, lorem id elementum varius, sem justo dignissim ligula, ac fermentum erat magna porttitor erat. Proin vitae scelerisque magna. Maecenas quis libero est. Praesent hendrerit luctus mi, eget lacinia lorem malesuada eu. Proin volutpat molestie tortor ac vestibulum. In hac habitasse platea dictumst. Sed luctus tempus fringilla. Phasellus a posuere velit. Praesent magna odio, efficitur vel pretium vel, venenatis id justo. Donec vestibulum luctus lorem. Phasellus aliquam pharetra justo vitae egestas. Donec luctus tincidunt purus vel scelerisque. Phasellus ut venenatis augue, ut consectetur nisl. Integer id magna."
 
-var multilineTestData = []byte(
-	`Lorem ipsum dolor sit amet,
+var multilineTestData = `Lorem ipsum dolor sit amet,
 consecutur adipiscing elit.
-Sed id volutpat purus.`)
+Sed id volutpat purus.`
 
-var multilineDataAfterInsert = []byte(
-	`LoremDING
+var multilineDataAfterInsert = `LoremDING
 TEXT
 FOO ipsum dolor sit amet,
 consecutur adipiscing elit.
-Sed id volutpat purus.`)
+Sed id volutpat purus.`
 
-var multilineDataAfterInsertSL = []byte(
-	`LoremDING ipsum dolor sit amet,
+var multilineDataAfterInsertSL = `LoremDING ipsum dolor sit amet,
 consecutur adipiscing elit.
-Sed id volutpat purus.`)
+Sed id volutpat purus.`
 
-func bufFromData(t *testing.T, data []byte) *Buffer {
+func bufFromData(t *testing.T, data string) *Buffer {
+	t.Helper()
 	buf := New()
-	if _, err := buf.ReadFrom(bytes.NewReader(data)); err != nil {
+	if _, err := buf.ReadFrom(strings.NewReader(data)); err != nil {
 		t.Fatal(err)
 	}
 	return buf
 }
 
-func testRoundTrip(t *testing.T, data []byte) {
+func testRoundTrip(t *testing.T, data string) {
 	testContent(t, bufFromData(t, data), data)
 }
 
-func testContent(t *testing.T, buf *Buffer, data []byte) {
+func testContent(t *testing.T, buf *Buffer, data string) {
 	var outBuf bytes.Buffer
 	if _, err := buf.WriteTo(&outBuf); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(data, outBuf.Bytes()) {
-		t.Errorf("got %q, want %q", outBuf.Bytes(), data)
+	if s := outBuf.String(); data != s {
+		t.Errorf("got %q, want %q", s, data)
 	}
 }
 
@@ -84,4 +83,44 @@ func TestInsertSingleLine(t *testing.T) {
 	buf := bufFromData(t, multilineTestData)
 	buf.Insert("DING", 0, 5)
 	testContent(t, buf, multilineDataAfterInsertSL)
+}
+
+var indentTests = []struct {
+	name, in    string
+	indentLevel int
+}{
+	{name: "Empty", in: "", indentLevel: IndentTabs},
+	{name: "NoIndent", in: "foo\nbar\nblam\n", indentLevel: IndentTabs},
+	{name: "Tabs", in: `#include <stdio.h>
+int main() {
+	puts("OK.");
+	return 0;
+}`, indentLevel: IndentTabs},
+	{name: "Spaces", in: `import re
+def adder(x):
+  def f(y):
+    return x + y
+  return f
+  
+print(adder(9)(9))`, indentLevel: 2},
+	{name: "Mixed", in: `package badindent
+func A(x string) string {
+    if x == "dog" {
+    	return "cat"
+    }
+    if x == "dogs" {
+        return "cats"
+    }
+	return "dog"
+}`, indentLevel: 4},
+}
+
+func TestIndentAutodetect(t *testing.T) {
+	for _, tt := range indentTests {
+		t.Run(tt.name, func(t *testing.T) {
+			if level := bufFromData(t, tt.in).IndentType(); level != tt.indentLevel {
+				t.Errorf("got indent=%d, want=%d", level, tt.indentLevel)
+			}
+		})
+	}
 }
