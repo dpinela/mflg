@@ -356,11 +356,12 @@ func (w *window) moveCursorLeft() {
 		w.cursorPos.x = w.textAreaWidth() - 1
 		w.roundCursorPos()
 	}
-
 }
 
 func (w *window) moveCursorRight() { w.moveCursorRightBy(1) }
 
+// moveCursorRightBy moves the cursor n characters to the right, moving to the start of the next line if the
+// current line isn't long enough for that.
 func (w *window) moveCursorRightBy(n int) {
 	oldWp := w.cursorPos
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
@@ -407,12 +408,12 @@ func displayLenChar(char string) int {
 func (w *window) scanLineUntil(line string, stopAt func(wx, wy, tx int) bool) (wx, wy, tx int) {
 	lineWidth := w.textAreaWidth()
 	for len(line) != 0 && !stopAt(wx, wy, tx) {
-		p := norm.NFC.NextBoundaryInString(line, true)
+		p := buffer.NextCharBoundary(line)
 		// Don't count the final newline if there is one
 		if p == 1 && line[0] == '\n' {
 			break
 		}
-		wx += displayLen(line[:p])
+		wx += displayLenChar(line[:p])
 		for wx >= lineWidth+1 {
 			wy++
 			wx -= lineWidth
