@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -167,19 +168,15 @@ func (w *window) redraw(console io.Writer) error {
 	// We leave one space at the right end of the window so that we can always type
 	// at the end of lines
 	tf := textFormatter{tp: point{0, w.topLine}, src: w.buf, lineWidth: w.textAreaWidth(),
-		invertedRegion: w.selection}
+		invertedRegion: w.selection, gutterWidth: w.gutterWidth()}
 	for wy := 0; wy < w.height; wy++ {
 		ty := tf.tp.y
-		line, ok := tf.formatNextLine()
+		line, ok := tf.formatNextLine(wy+1 >= w.height)
 		if !ok {
 			break
 		}
-		ender := crlf
-		if wy+1 >= w.height {
-			ender = nil
-		}
 		if console != nil {
-			if _, err := fmt.Fprintf(console, "%*d %s%s", w.gutterWidth()-1, ty+1, line, ender); err != nil {
+			if _, err := console.Write(line); err != nil {
 				return err
 			}
 		}
@@ -210,11 +207,12 @@ type textFormatter struct {
 	curLine        string
 	buf            []byte
 	spacesCarry    int
+	gutterWidth    int
 }
 
 const tabWidth = 4
 
-func (tf *textFormatter) formatNextLine() ([]byte, bool) {
+func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	if len(tf.curLine) == 0 {
 		if tf.tp.y >= tf.src.LineCount() {
 			return nil, false
@@ -222,7 +220,10 @@ func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 		tf.curLine = trimNewline(tf.src.Line(tf.tp.y))
 	}
 	totalW := tf.spacesCarry
-	tf.buf = tf.buf[:0]
+	tf.buf = strconv.AppendInt(tf.buf[:0], int64(tf.tp.y)+1, 10)
+	for i := len(tf.buf); i < tf.gutterWidth; i++ {
+		tf.buf = append(tf.buf, ' ')
+	}
 	if tf.invertedRegion.Set && tf.tp.y > tf.invertedRegion.begin.y && tf.tp.y <= tf.invertedRegion.end.y {
 		tf.buf = append(tf.buf, termesc.ReverseVideo...)
 	}
@@ -259,6 +260,9 @@ func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 	if len(tf.curLine) == 0 {
 		tf.tp.y++
 		tf.tp.x = 0
+	}
+	if !last {
+		tf.buf = append(tf.buf, '\r', '\n')
 	}
 	return tf.buf, true
 }
