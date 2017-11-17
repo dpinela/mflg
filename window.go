@@ -237,7 +237,7 @@ func (tf *textFormatter) formatNextLine() ([]byte, bool) {
 				tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
 			}
 		}
-		n := norm.NFC.NextBoundaryInString(tf.curLine, true)
+		n := buffer.NextCharBoundary(tf.curLine)
 		if n == 1 && tf.curLine[0] == '\t' {
 			w := min(tf.lineWidth-totalW, tabWidth)
 			totalW += w

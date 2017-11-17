@@ -25,7 +25,7 @@ dolor sit[10];
 	}
 }`
 
-func newTestWindow(t *testing.T, width, height int, content string) *window {
+func newTestWindow(t testing.TB, width, height int, content string) *window {
 	buf := buffer.New()
 	if _, err := buf.ReadFrom(strings.NewReader(content)); err != nil {
 		t.Fatal(err)
