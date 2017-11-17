@@ -5,8 +5,6 @@ import (
 	"bufio"
 	"io"
 	"strings"
-
-	"golang.org/x/text/unicode/norm"
 )
 
 // Buffer is a text buffer that support efficient access to individual lines of text.
@@ -133,7 +131,7 @@ func bufIndexForColumn(line string, col int) int {
 	i := 0
 	p := 0
 	for p < len(line) && i < col {
-		p += norm.NFC.NextBoundaryInString(line[p:], true)
+		p += NextCharBoundary(line[p:])
 		i++
 	}
 	return p
@@ -205,7 +203,7 @@ func (b *Buffer) DeleteChar(row, col int) {
 	} else {
 		line := b.lines[row]
 		p := bufIndexForColumn(line, col-1)
-		n := norm.NFC.NextBoundaryInString(line[p:], true)
+		n := NextCharBoundary(line[p:])
 		b.lines[row] = line[:p] + line[p+n:]
 	}
 }

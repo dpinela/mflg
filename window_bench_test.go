@@ -19,7 +19,7 @@ func BenchmarkMoveCursor(b *testing.B) {
 	w := newTestWindow(b, 100, 30, testDocument)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if i % 80 == 0 {
+		if i%80 == 0 {
 			w.cursorPos = point{}
 		}
 		w.moveCursorRight()

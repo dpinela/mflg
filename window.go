@@ -12,7 +12,6 @@ import (
 	"github.com/dpinela/mflg/internal/clipboard"
 	"github.com/dpinela/mflg/internal/streak"
 	"github.com/dpinela/mflg/internal/termesc"
-	"golang.org/x/text/unicode/norm"
 )
 
 type point struct {
@@ -113,7 +112,7 @@ func (w *window) resize(newHeight, newWidth int) {
 func displayLen(line string) int {
 	n := 0
 	for i := 0; i < len(line); {
-		p := norm.NFC.NextBoundaryInString(line, true)
+		p := buffer.NextCharBoundary(line)
 		if p == 1 && line[0] == '\n' {
 			break
 		} else {
@@ -599,7 +598,7 @@ func (w *window) paste() {
 
 func posAfterInsertion(tp point, data string) point {
 	for len(data) > 0 {
-		n := norm.NFC.NextBoundaryInString(data, true)
+		n := buffer.NextCharBoundary(data)
 		if n == 1 && data[0] == '\n' {
 			tp.y++
 			tp.x = 0
