@@ -143,7 +143,7 @@ func main() {
 			case "\x7f", "\b":
 				win.backspace()
 			case "\x0c":
-				must(printAtBottom("Go to line: "))
+				must(printAtBottom(termesc.Bold + "Go to line: " + termesc.ResetGraphicAttributes))
 				lineStr, err := rawGetLine(inputCh, os.Stdout)
 				must(err)
 				y, err := strconv.ParseInt(lineStr, 10, 32)
@@ -151,7 +151,7 @@ func main() {
 					win.gotoLine(int(y - 1))
 				}
 			case "\x06":
-				must(printAtBottom("Search: "))
+				must(printAtBottom(termesc.Bold + "Search: " + termesc.ResetGraphicAttributes))
 				reText, err := rawGetLine(inputCh, os.Stdout)
 				must(err)
 				re, err := regexp.Compile(reText)
@@ -161,7 +161,7 @@ func main() {
 					win.searchRegexp(re)
 				}
 			case "\x07":
-				must(printAtBottom("Search: "))
+				must(printAtBottom(termesc.Bold + "Search: " + termesc.ResetGraphicAttributes))
 				reText, err := rawGetLine(inputCh, os.Stdout)
 				must(err)
 				re, err := regexp.Compile(reText)
@@ -169,7 +169,7 @@ func main() {
 					must(printAtBottom(err.Error()))
 					continue
 				}
-				must(printAtBottom("Replace with: "))
+				must(printAtBottom(termesc.Bold + "Replace with: " + termesc.ResetGraphicAttributes))
 				subText, err := rawGetLine(inputCh, os.Stdout)
 				must(err)
 				win.searchReplace(re, subText)

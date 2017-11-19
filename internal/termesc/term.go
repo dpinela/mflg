@@ -21,6 +21,7 @@ const (
 	DisableMouseReporting = csi + "?1015l" + csi + "?1000l" // Restores the console's default mouse handling
 
 	ResetGraphicAttributes = csi + "m"
+	Bold = csi + "1m"
 	ReverseVideo           = csi + "7m"
 
 	UpKey    = csi + "A"
