@@ -178,6 +178,15 @@ func TestTextInput(t *testing.T) {
 		checkLineContent(t, 3, w, 0, "#€🇦🇶a#lorem ipsum")*/
 }
 
+func TestWideCharNavigation(t *testing.T) {
+	w := newTestWindowEmpty(t)
+	w.typeText("ヲ")
+	checkCursorPos(t, 1, w, point{2, 0})
+	w.moveCursorLeft()
+	checkCursorPos(t, 2, w, point{0, 0})
+	w.moveCursorRight()
+}
+
 func TestLineBreakInput(t *testing.T) {
 	w := newTestWindowA(t)
 	w.typeText("\r")
@@ -300,6 +309,17 @@ func TestPaste(t *testing.T) {
 	w.paste()
 	checkCursorPos(t, 1, w, point{10, 0})
 	checkLineContent(t, 1, w, 0, "#lorem"+chunk+" ipsum")
+}
+
+func TestPasteWideChar(t *testing.T) {
+	const chunk = "漢字"
+	w := newTestWindowEmpty(t)
+	if err := clipboard.Copy([]byte(chunk)); err != nil {
+		t.Fatal(err)
+	}
+	w.paste()
+	checkCursorPos(t, 1, w, point{4, 0})
+	checkLineContent(t, 1, w, 0, chunk)
 }
 
 /*func TestPasteMultiline(t *testing.T) {

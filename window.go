@@ -12,6 +12,8 @@ import (
 	"github.com/dpinela/mflg/internal/clipboard"
 	"github.com/dpinela/mflg/internal/streak"
 	"github.com/dpinela/mflg/internal/termesc"
+
+	"github.com/mattn/go-runewidth"
 )
 
 type point struct {
@@ -238,18 +240,18 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 			}
 		}
 		n := buffer.NextCharBoundary(tf.curLine)
-		if n == 1 && tf.curLine[0] == '\t' {
+		if tf.curLine[:n] == "\t" {
 			w := min(tf.lineWidth-totalW, tabWidth)
 			totalW += w
 			tf.appendSpaces(w)
 			tf.spacesCarry = tabWidth - w
-		} else if !(n == 1 && tf.curLine[0] == '\n') {
+		} else if tf.curLine[:n] != "\n" {
 			tf.buf = append(tf.buf, tf.curLine[:n]...)
-			totalW++
+			totalW += runewidth.StringWidth(tf.curLine[:n])
 		}
 		tf.curLine = tf.curLine[n:]
 		tf.tp.x++
-		if totalW == tf.lineWidth {
+		if totalW >= tf.lineWidth {
 			break
 		}
 	}
@@ -395,10 +397,10 @@ func (w *window) searchReplace(re *regexp.Regexp, subText string) {
 }
 
 func displayLenChar(char string) int {
-	if len(char) == 1 && char[0] == '\t' {
+	if char == "\t" {
 		return 4
 	}
-	return 1
+	return runewidth.StringWidth(char)
 }
 
 // Window coordinates: a (y, x) position within the window.
@@ -599,7 +601,7 @@ func (w *window) paste() {
 func posAfterInsertion(tp point, data string) point {
 	for len(data) > 0 {
 		n := buffer.NextCharBoundary(data)
-		if n == 1 && data[0] == '\n' {
+		if data[:n] == "\n" {
 			tp.y++
 			tp.x = 0
 		} else {
