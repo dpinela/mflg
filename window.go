@@ -154,14 +154,16 @@ func (w *window) textAreaWidth() int {
 	return w.width - w.gutterWidth() - 1
 }
 
-// redraw renders the window's contents onto a console.
+func (w *window) redraw(console io.Writer) error { return w.redrawAtYOffset(console, 0) }
+
+// redrawAtYOffset renders the window's contents onto a console.
 // If the console is nil, it only updates the window's layout.
-func (w *window) redraw(console io.Writer) error {
+func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 	if !w.needsRedraw {
 		return nil
 	}
 	if console != nil {
-		if _, err := fmt.Fprint(console, termesc.SetCursorPos(1, 1), termesc.ClearScreen); err != nil {
+		if _, err := fmt.Fprint(console, termesc.SetCursorPos(yOffset+1, 1), termesc.ClearScreenForward); err != nil {
 			return err
 		}
 	}

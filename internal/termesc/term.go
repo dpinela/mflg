@@ -12,6 +12,7 @@ import (
 const csi = "\x1B["
 
 const (
+	ClearScreenForward   = csi + "J"      // Clears the visible area of the console ahead of the current cursor position
 	ClearScreen          = csi + "2J"     // Clears the entire visible area of the console
 	ClearLine            = csi + "2K"     // Clears the line the cursor is on
 	EnterAlternateScreen = csi + "?1049h" // Switches to the alternate screen
@@ -21,7 +22,7 @@ const (
 	DisableMouseReporting = csi + "?1015l" + csi + "?1000l" // Restores the console's default mouse handling
 
 	ResetGraphicAttributes = csi + "m"
-	Bold = csi + "1m"
+	Bold                   = csi + "1m"
 	ReverseVideo           = csi + "7m"
 
 	UpKey    = csi + "A"

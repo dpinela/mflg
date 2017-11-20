@@ -5,8 +5,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"regexp"
-	"strconv"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/dpinela/mflg/internal/buffer"
@@ -60,6 +58,13 @@ func printAtBottom(text string) error {
 	return err
 }
 
+// A mflg instance is made of three components:
+// - a main window, which handles text editing for the open file
+// - a prompt window, which provides the same functionality for the text entered in response
+//   to various command prompts.
+// - an application object, which coordinates rendering of these two windows, and distributes input
+//   between them as appropriate.
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
@@ -89,7 +94,8 @@ func main() {
 		os.Exit(2)
 	}
 	defer terminal.Restore(0, oldMode)
-	win := newWindow(w, h, buf)
+	app := application{mainWindow: newWindow(w, h, buf)}
+	app.resize(h, w)
 	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
 	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
@@ -107,8 +113,8 @@ func main() {
 	}()
 	signal.Notify(resizeCh, unix.SIGWINCH)
 	for {
-		must(win.redraw(os.Stdout))
-		fmt.Print(termesc.SetCursorPos(win.cursorPos.y+1, win.cursorPos.x+win.gutterWidth()+1))
+		must(app.redraw(os.Stdout))
+		aw := app.activeWindow()
 		select {
 		case c, ok := <-inputCh:
 			if !ok {
@@ -116,15 +122,15 @@ func main() {
 			}
 			switch c {
 			case termesc.UpKey:
-				win.repeatMove(win.moveCursorUp)
+				aw.repeatMove(aw.moveCursorUp)
 			case termesc.DownKey:
-				win.repeatMove(win.moveCursorDown)
+				aw.repeatMove(aw.moveCursorDown)
 			case termesc.LeftKey:
-				win.moveCursorLeft()
+				aw.moveCursorLeft()
 			case termesc.RightKey:
-				win.moveCursorRight()
+				aw.moveCursorRight()
 			case "\x11":
-				if !win.dirty {
+				if !app.mainWindow.dirty {
 					return
 				}
 				must(printAtBottom("Discard changes [y/N]? "))
@@ -132,62 +138,37 @@ func main() {
 					return
 				}
 			case "\x13":
-				if !win.dirty {
+				if !app.mainWindow.dirty {
 					continue
 				}
 				if err := saveBuffer(fname, buf); err != nil {
 					must(printAtBottom(err.Error()))
 				} else {
-					win.dirty = false
+					app.mainWindow.dirty = false
 				}
 			case "\x7f", "\b":
-				win.backspace()
+				aw.backspace()
 			case "\x0c":
-				must(printAtBottom(termesc.Bold + "Go to line: " + termesc.ResetGraphicAttributes))
-				lineStr, err := rawGetLine(inputCh, os.Stdout)
-				must(err)
-				y, err := strconv.ParseInt(lineStr, 10, 32)
-				if err == nil && y > 0 {
-					win.gotoLine(int(y - 1))
-				}
-			case "\x06":
-				must(printAtBottom(termesc.Bold + "Search: " + termesc.ResetGraphicAttributes))
-				reText, err := rawGetLine(inputCh, os.Stdout)
-				must(err)
-				re, err := regexp.Compile(reText)
-				if err != nil {
-					must(printAtBottom(err.Error()))
-				} else {
-					win.searchRegexp(re)
-				}
-			case "\x07":
-				must(printAtBottom(termesc.Bold + "Search: " + termesc.ResetGraphicAttributes))
-				reText, err := rawGetLine(inputCh, os.Stdout)
-				must(err)
-				re, err := regexp.Compile(reText)
-				if err != nil {
-					must(printAtBottom(err.Error()))
-					continue
-				}
-				must(printAtBottom(termesc.Bold + "Replace with: " + termesc.ResetGraphicAttributes))
-				subText, err := rawGetLine(inputCh, os.Stdout)
-				must(err)
-				win.searchReplace(re, subText)
+				app.openPrompt()
 			case "\x01":
-				if !win.inMouseSelection() {
-					win.markSelectionBound()
+				if !aw.inMouseSelection() {
+					aw.markSelectionBound()
 				}
 			case "\x18":
-				win.resetSelectionState()
+				aw.resetSelectionState()
 			case "\x03":
-				win.copySelection()
+				aw.copySelection()
 			case "\x16":
-				win.paste()
+				aw.paste()
 			default:
 				if ev, err := termesc.ParseMouseEvent(c); err == nil {
-					win.handleMouseEvent(ev)
-				} else if len(c) > 0 && (c[0] >= ' ' || c[0] == '\r' || c[0] == '\t') {
-					win.typeText(c)
+					app.handleMouseEvent(ev)
+				} else if c >= " " || c == "\r" || c == "\t" {
+					if app.promptWindow != nil && c == "\r" {
+						app.closePrompt()
+					} else {
+						aw.typeText(c)
+					}
 				}
 			}
 		case <-resizeCh:
@@ -196,7 +177,7 @@ func main() {
 			if w, h, err := terminal.GetSize(0); err != nil {
 				panic(err)
 			} else {
-				win.resize(h, w)
+				app.resize(h, w)
 			}
 			continue
 		}
