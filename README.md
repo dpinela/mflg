@@ -27,9 +27,12 @@ In other words, more like an advanced nano and less like vi or emacs.
 
 ### Movement
 
-- **Go to Line**: Control-L
-- **Find**: Control-F
+- **Go to Location**: Control-L
+  - Type line number to go to that line
+  - Type a regex to go to the first occurrence of that regex
 - **Move cursor**: arrow keys (hold down/press repeatedly to move faster)
+
+_Caveat_: Right now, it isn't possible to use the **Go to Location** command to find a number, because it will be interpreted as a line number. This may change at some point.
 
 ### Selection
 

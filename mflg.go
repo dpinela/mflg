@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"regexp"
 	"strconv"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
@@ -57,6 +58,15 @@ func rawGetLine(in <-chan string, out io.Writer) (string, error) {
 func printAtBottom(text string) error {
 	_, err := fmt.Printf("%s%s%s", termesc.SetCursorPos(2000, 1), termesc.ClearLine, text)
 	return err
+}
+
+func allASCIIDigits(s string) bool {
+	for i := range s {
+		if !(s[i] >= '0' && s[i] <= '9') {
+			return false
+		}
+	}
+	return true
 }
 
 // A mflg instance is made of three components:
@@ -151,13 +161,22 @@ func main() {
 				aw.backspace()
 			case "\x0c":
 				app.openPrompt("Go to:", func(response string) {
-					lineNum, err := strconv.ParseInt(response, 10, 64)
-					if err != nil {
-						must(printAtBottom(err.Error()))
-						return
-					}
-					if lineNum > 0 {
-						app.mainWindow.gotoLine(int(lineNum - 1))
+					if allASCIIDigits(response) {
+						lineNum, err := strconv.ParseInt(response, 10, 64)
+						if err != nil {
+							must(printAtBottom(err.Error()))
+							return
+						}
+						if lineNum > 0 {
+							app.mainWindow.gotoLine(int(lineNum - 1))
+						}
+					} else {
+						re, err := regexp.Compile(response)
+						if err != nil {
+							must(printAtBottom(err.Error()))
+							return
+						}
+						app.mainWindow.searchRegexp(re)
 					}
 				})
 			case "\x01":
