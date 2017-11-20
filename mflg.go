@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/dpinela/mflg/internal/buffer"
@@ -149,7 +150,16 @@ func main() {
 			case "\x7f", "\b":
 				aw.backspace()
 			case "\x0c":
-				app.openPrompt()
+				app.openPrompt("Go to:", func(response string) {
+					lineNum, err := strconv.ParseInt(response, 10, 64)
+					if err != nil {
+						must(printAtBottom(err.Error()))
+						return
+					}
+					if lineNum > 0 {
+						app.mainWindow.gotoLine(int(lineNum - 1))
+					}
+				})
 			case "\x01":
 				if !aw.inMouseSelection() {
 					aw.markSelectionBound()
@@ -160,12 +170,16 @@ func main() {
 				aw.copySelection()
 			case "\x16":
 				aw.paste()
+			case "\x1b":
+				if app.promptWindow != nil {
+					app.cancelPrompt()
+				}
 			default:
 				if ev, err := termesc.ParseMouseEvent(c); err == nil {
 					app.handleMouseEvent(ev)
 				} else if c >= " " || c == "\r" || c == "\t" {
 					if app.promptWindow != nil && c == "\r" {
-						app.closePrompt()
+						app.finishPrompt()
 					} else {
 						aw.typeText(c)
 					}

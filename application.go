@@ -8,9 +8,10 @@ import (
 )
 
 type application struct {
-	filename                 string // haha
+	filename                 string
 	mainWindow, promptWindow *window
 	width, height            int
+	promptHandler            func(string) // What to do with the prompt input when the user hits Enter
 }
 
 func (app *application) resize(height, width int) {
@@ -26,15 +27,23 @@ func (app *application) openFile(filename string) error {
 	return nil
 }
 
-func (app *application) openPrompt() {
+func (app *application) openPrompt(prompt string, whenDone func(string)) {
 	if app.promptWindow == nil {
 		app.promptWindow = newWindow(app.width, 1, buffer.New())
+		app.promptWindow.customGutterText = prompt
+		app.promptHandler = whenDone
 	}
 }
 
-func (app *application) closePrompt() {
+func (app *application) cancelPrompt() {
 	app.mainWindow.needsRedraw = true
 	app.promptWindow = nil
+	app.promptHandler = nil
+}
+
+func (app *application) finishPrompt() {
+	app.promptHandler(app.promptWindow.buf.Line(1))
+	app.cancelPrompt()
 }
 
 func (app *application) activeWindow() *window {

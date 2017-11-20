@@ -45,7 +45,8 @@ type window struct {
 	mouseSelectionAnchor optionalPoint // Same, but using the mouse
 	selection            optionalTextRange
 
-	window2TextY []int //A mapping from window y-coordinates to text y-coordinates
+	customGutterText string // If not empty, this text is displayed in each gutter line instead of the line number
+	window2TextY     []int  // A mapping from window y-coordinates to text y-coordinates
 
 	moveTicker streak.Tracker
 
@@ -147,6 +148,9 @@ func (w *window) tabWidth() int {
 }
 
 func (w *window) gutterWidth() int {
+	if w.customGutterText != "" {
+		return runewidth.StringWidth(w.customGutterText) + 1
+	}
 	return ndigits(w.buf.LineCount()) + 1
 }
 
@@ -171,7 +175,7 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 	// We leave one space at the right end of the window so that we can always type
 	// at the end of lines
 	tf := textFormatter{tp: point{0, w.topLine}, src: w.buf, lineWidth: w.textAreaWidth(),
-		invertedRegion: w.selection, gutterWidth: w.gutterWidth()}
+		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText}
 	for wy := 0; wy < w.height; wy++ {
 		ty := tf.tp.y
 		line, ok := tf.formatNextLine(wy+1 >= w.height)
@@ -203,14 +207,16 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 }
 
 type textFormatter struct {
-	tp             point
 	src            *buffer.Buffer
-	lineWidth      int
 	invertedRegion optionalTextRange
-	curLine        string
-	buf            []byte
-	spacesCarry    int
+	lineWidth      int
+	gutterText     string
 	gutterWidth    int
+
+	tp          point
+	curLine     string
+	buf         []byte
+	spacesCarry int
 }
 
 const tabWidth = 4
@@ -223,7 +229,11 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 		tf.curLine = trimNewline(tf.src.Line(tf.tp.y))
 	}
 	totalW := tf.spacesCarry
-	tf.buf = strconv.AppendInt(tf.buf[:0], int64(tf.tp.y)+1, 10)
+	if tf.gutterText != "" {
+		tf.buf = append(tf.buf[:0], tf.gutterText...)
+	} else {
+		tf.buf = strconv.AppendInt(tf.buf[:0], int64(tf.tp.y)+1, 10)
+	}
 	for i := len(tf.buf); i < tf.gutterWidth; i++ {
 		tf.buf = append(tf.buf, ' ')
 	}
