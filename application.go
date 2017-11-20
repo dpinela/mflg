@@ -61,15 +61,15 @@ func (app *application) promptYOffset() int {
 }
 
 func (app *application) redraw(console io.Writer) error {
-	p := app.cursorPos()
+	if err := app.mainWindow.redraw(console); err != nil {
+		return err
+	}
 	if app.promptWindow != nil {
 		if err := app.promptWindow.redrawAtYOffset(console, app.promptYOffset()); err != nil {
 			return err
 		}
 	}
-	if err := app.mainWindow.redraw(console); err != nil {
-		return err
-	}
+	p := app.cursorPos()
 	_, err := console.Write([]byte(termesc.SetCursorPos(p.y+1, p.x+app.activeWindow().gutterWidth()+1)))
 	return err
 }

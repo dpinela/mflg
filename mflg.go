@@ -193,7 +193,6 @@ func main() {
 			} else {
 				app.resize(h, w)
 			}
-			continue
 		}
 	}
 }
