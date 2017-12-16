@@ -152,6 +152,23 @@ func TestScrolling(t *testing.T) {
 	checkTopLine(t, 6, w, 2)
 }
 
+func TestResize(t *testing.T) {
+	w := newTestWindowA(t)
+	w.moveCursorDown()
+	w.moveCursorDown()
+	w.resize(10, 6)
+	checkCursorPos(t, 1, w, point{0, 2})
+	w.resize(1, 6)
+	checkCursorPos(t, 2, w, point{0, 0})
+}
+
+func TestScrollingOneLine(t *testing.T) {
+	w := newTestWindow(t, 20, 1, strings.Repeat("A", 2000))
+	w.moveCursorDown()
+	checkCursorPos(t, 1, w, point{0, 1})
+	checkTopLine(t, 1, w, 1)
+}
+
 func TestTextInput(t *testing.T) {
 	w := newTestWindowA(t)
 	w.cursorPos = point{1, 4}

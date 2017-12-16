@@ -69,16 +69,20 @@ func (app *application) redraw(console io.Writer) error {
 			return err
 		}
 	}
-	p := app.cursorPos()
-	_, err := console.Write([]byte(termesc.SetCursorPos(p.y+1, p.x+app.activeWindow().gutterWidth()+1)))
-	return err
+	if app.activeWindow().cursorInViewport() {
+		p := app.cursorPos()
+		_, err := console.Write([]byte(termesc.SetCursorPos(p.y+1, p.x+app.activeWindow().gutterWidth()+1)))
+		return err
+	}
+	return nil
 }
 
 func (app *application) cursorPos() point {
 	if app.promptWindow != nil {
-		return point{app.promptWindow.cursorPos.x, app.promptWindow.cursorPos.y + app.promptYOffset()}
+		p := app.promptWindow.viewportCursorPos()
+		return point{p.x, p.y + app.promptYOffset()}
 	}
-	return app.mainWindow.cursorPos
+	return app.mainWindow.viewportCursorPos()
 }
 
 func (app *application) handleMouseEvent(ev termesc.MouseEvent) {

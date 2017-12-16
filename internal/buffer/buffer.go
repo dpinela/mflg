@@ -127,21 +127,17 @@ func (b *Buffer) Line(i int) string {
 // LineCount returns the number of lines in the buffer.
 func (b *Buffer) LineCount() int { return len(b.lines) }
 
-func bufIndexForColumn(line string, col int) int {
-	i := 0
+func ByteIndexForChar(line string, col int) int {
 	p := 0
-	for p < len(line) && i < col {
+	for i := 0; p < len(line) && i < col; i++ {
 		p += NextCharBoundary(line[p:])
-		i++
 	}
 	return p
 }
 
-var nl = []byte{'\n'}
-
 func (b *Buffer) Insert(text string, row, col int) {
 	line := b.lines[row]
-	insPoint := bufIndexForColumn(line, col)
+	insPoint := ByteIndexForChar(line, col)
 	numNewLines := strings.Count(text, "\n")
 	if numNewLines > 0 {
 		b.lines = append(b.lines, make([]string, numNewLines)...)
@@ -184,7 +180,7 @@ func (b *Buffer) InsertLineBreak(row, col int) {
 	line := b.lines[row]
 	b.lines = append(b.lines, "")
 	copy(b.lines[row+1:], b.lines[row:])
-	p := bufIndexForColumn(line, col)
+	p := ByteIndexForChar(line, col)
 	b.lines[row] = line[:p] + "\n"
 	b.lines[row+1] = line[p:]
 }
@@ -202,7 +198,7 @@ func (b *Buffer) DeleteChar(row, col int) {
 		b.lines = b.lines[:len(b.lines)-1]
 	} else {
 		line := b.lines[row]
-		p := bufIndexForColumn(line, col-1)
+		p := ByteIndexForChar(line, col-1)
 		n := NextCharBoundary(line[p:])
 		b.lines[row] = line[:p] + line[p+n:]
 	}
@@ -215,8 +211,8 @@ func (b *Buffer) DeleteRange(rowStart, colStart, rowEnd, colEnd int) {
 		rowStart, rowEnd = rowEnd, rowStart
 		colStart, colEnd = colEnd, colStart
 	}
-	p := bufIndexForColumn(b.lines[rowStart], colStart)
-	q := bufIndexForColumn(b.lines[rowEnd], colEnd)
+	p := ByteIndexForChar(b.lines[rowStart], colStart)
+	q := ByteIndexForChar(b.lines[rowEnd], colEnd)
 	if rowStart == rowEnd {
 		line := b.lines[rowStart]
 		b.lines[rowStart] = line[:p] + line[q:]
@@ -233,8 +229,8 @@ func (b *Buffer) DeleteRange(rowStart, colStart, rowEnd, colEnd int) {
 // CopyRange returns a copy of the characters in the given range, as a
 // contiguous slice.
 func (b *Buffer) CopyRange(rowStart, colStart, rowEnd, colEnd int) []byte {
-	p := bufIndexForColumn(b.lines[rowStart], colStart)
-	q := bufIndexForColumn(b.lines[rowEnd], colEnd)
+	p := ByteIndexForChar(b.lines[rowStart], colStart)
+	q := ByteIndexForChar(b.lines[rowEnd], colEnd)
 	if rowStart == rowEnd {
 		return []byte(b.lines[rowStart][p:q])
 	}
