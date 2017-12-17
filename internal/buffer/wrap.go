@@ -28,8 +28,10 @@ type WrappedLine struct {
 	Text  string
 }
 
+// Point represents a point in text-space.
 type Point struct{ X, Y int }
 
+// Less reports whether p comes before q in the text.
 func (p Point) Less(q Point) bool {
 	if p.Y < q.Y {
 		return true
@@ -41,6 +43,9 @@ func (p Point) Less(q Point) bool {
 }
 
 // WrappedBuffer manages line wrapping for a Buffer.
+//
+// When using a WrappedBuffer for display, all edits should go through it to ensure that the wrap boundaries
+// are updated accordingly, using its Insert, InsertLineBreak, DeleteRange and DeleteChar methods.
 type WrappedBuffer struct {
 	lineWidth, tabWidth int
 	displayWidth        func(string) int // A function that returns the display width of a string.
@@ -108,10 +113,40 @@ func (wb *WrappedBuffer) Line(wy int) WrappedLine {
 	return wb.lines[wy]
 }
 
-// Refresh invalidates all existing wrapped lines; it should be used when the source buffer is updated.
-func (wb *WrappedBuffer) Refresh() {
-	wb.lines = wb.lines[:0]
+// Insert inserts text into the underlying Buffer.
+func (wb *WrappedBuffer) Insert(text string, ty, tx int) {
+	wb.src.Insert(text, ty, tx)
+	wb.refresh()
 }
+
+// InsertLineBreak inserts a line break into the underlying Buffer.
+func (wb *WrappedBuffer) InsertLineBreak(ty, tx int) {
+	wb.src.InsertLineBreak(ty, tx)
+	wb.refresh()
+}
+
+// DeleteRange deletes all characters in the underlying Buffer within the specified range.
+func (wb *WrappedBuffer) DeleteRange(tyStart, txStart, tyEnd, txEnd int) {
+	wb.src.DeleteRange(tyStart, txStart, tyEnd, txEnd)
+	wb.refresh()
+}
+
+// DeleteChar deletes the character preceding the one at (ty, tx).
+func (wb *WrappedBuffer) DeleteChar(ty, tx int) {
+	wb.src.DeleteChar(ty, tx)
+	wb.refresh()
+}
+
+// SetWidth changes the line width of the buffer.
+func (wb *WrappedBuffer) SetWidth(newWidth int) {
+	if newWidth != wb.lineWidth {
+		wb.lineWidth = newWidth
+		wb.refresh()
+	}
+}
+
+// refresh invalidates all existing wrapped lines; it should be used when the source buffer is updated.
+func (wb *WrappedBuffer) refresh() { wb.lines = wb.lines[:0] }
 
 // wrapUntil wraps the source buffer until the end of wrapped line i.
 func (wb *WrappedBuffer) wrapUntil(i int) {

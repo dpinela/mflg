@@ -131,6 +131,7 @@ func (w *window) resize(newHeight, newWidth int) {
 	}
 	w.width = newWidth
 	w.height = newHeight
+	w.wrappedBuf.SetWidth(newWidth)
 	w.needsRedraw = true
 }
 
@@ -399,17 +400,6 @@ func (w *window) searchRegexp(re *regexp.Regexp) {
 	}
 }
 
-func (w *window) searchReplace(re *regexp.Regexp, subText string) {
-	w.searchRE = re
-	lines := w.buf.SliceLines(0, w.buf.LineCount())
-	for i, line := range lines {
-		lines[i] = re.ReplaceAllString(line, subText)
-	}
-	w.needsRedraw = true
-	w.dirty = true
-	w.wrappedBuf.Refresh()
-}
-
 func displayLenChar(char string) int {
 	if char == "\t" {
 		return 4
@@ -465,18 +455,17 @@ func (w *window) typeText(text string) {
 	switch text[0] {
 	case '\r':
 		indent := leadingIndentation(w.buf.Line(tp.y))
-		w.buf.InsertLineBreak(tp.y, tp.x)
-		w.buf.Insert(indent, tp.y+1, 0)
+		w.wrappedBuf.InsertLineBreak(tp.y, tp.x)
+		w.wrappedBuf.Insert(indent, tp.y+1, 0)
 		w.moveCursorDown() // Needed to ensure scrolling if necessary
 		w.cursorPos = w.textCoordsToWindowCoords(point{len(indent), tp.y + 1})
 	case '\t':
-		w.buf.Insert(w.tabString, tp.y, tp.x)
+		w.wrappedBuf.Insert(w.tabString, tp.y, tp.x)
 		w.moveCursorRightBy(len(w.tabString))
 	default:
-		w.buf.Insert(text, tp.y, tp.x)
+		w.wrappedBuf.Insert(text, tp.y, tp.x)
 		w.moveCursorRight()
 	}
-	w.wrappedBuf.Refresh()
 }
 
 // visibleTextEnd returns the text-space coordinates of the first character that lies below the viewport.
@@ -499,26 +488,26 @@ func (w *window) isTextPointOnscreen(tp point) bool {
 
 func (w *window) backspace() {
 	w.dirty = true
-	w.wrappedBuf.Refresh()
 	w.needsRedraw = true
 	if w.selection.Set {
-		w.buf.DeleteRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x)
+		w.wrappedBuf.DeleteRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x)
 		w.gotoTextPos(w.selection.begin)
 		w.selection = optionalTextRange{}
 		return
 	}
-	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	newX := 0
-	if tp.y > 0 {
-		newX = displayLen(w.buf.Line(tp.y - 1))
+	if w.cursorPos.y > 0 {
+		newX = displayLen(w.wrappedBuf.Line(w.cursorPos.y - 1).Text)
 	}
-	w.buf.DeleteChar(tp.y, tp.x)
-	if w.cursorPos.x == 0 {
+	tp := w.windowCoordsToTextCoords(w.cursorPos)
+	w.wrappedBuf.DeleteChar(tp.y, tp.x)
+	switch {
+	case tp.x > 0:
+		w.gotoTextPos(point{y: tp.y, x: tp.x - 1})
+	case tp.y > 0:
 		w.moveCursorUp()
 		w.cursorPos.x = newX
 		w.roundCursorPos()
-	} else {
-		w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x - 1})
 	}
 }
 
@@ -590,10 +579,9 @@ func (w *window) paste() {
 	}
 	s := string(data)
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	w.buf.Insert(s, tp.y, tp.x)
+	w.wrappedBuf.Insert(s, tp.y, tp.x)
 	w.gotoTextPos(posAfterInsertion(tp, s))
 	w.needsRedraw = true
-	w.wrappedBuf.Refresh()
 }
 
 func posAfterInsertion(tp point, data string) point {
