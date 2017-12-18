@@ -128,27 +128,25 @@ func TestScrolling(t *testing.T) {
 	for i := 0; i < 9; i++ {
 		w.moveCursorDown()
 	}
-	checkCursorPos(t, 1, w, point{1, 9})
+	checkCursorPos(t, 1, w, point{0, 9})
 	w.moveCursorDown()
 	w.moveCursorLeft()
-	checkCursorPos(t, 2, w, point{0, 9})
+	checkCursorPos(t, 2, w, point{8, 9})
 	checkTopLine(t, 2, w, 1)
 	for i := 0; i < 4; i++ {
 		w.moveCursorDown()
 	}
-	checkCursorPos(t, 3, w, point{0, 9})
-	checkTopLine(t, 3, w, 5)
+	checkCursorPos(t, 3, w, point{tabWidth + 1, 13})
+	checkTopLine(t, 3, w, 4)
 	w.moveCursorDown()
-	checkCursorPos(t, 4, w, point{0, 9})
+	checkCursorPos(t, 4, w, point{1, 14})
 	checkTopLine(t, 4, w, 5)
 	w.moveCursorRight()
-	checkCursorPos(t, 5, w, point{1, 9})
-	w.moveCursorRight()
-	checkCursorPos(t, 5, w, point{1, 9})
+	checkCursorPos(t, 5, w, point{1, 14})
 	for i := 0; i < 12; i++ {
 		w.moveCursorUp()
 	}
-	checkCursorPos(t, 6, w, point{0, 0})
+	checkCursorPos(t, 6, w, point{0, 2})
 	checkTopLine(t, 6, w, 2)
 }
 
