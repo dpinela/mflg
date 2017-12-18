@@ -131,7 +131,7 @@ func (w *window) resize(newHeight, newWidth int) {
 	}
 	w.width = newWidth
 	w.height = newHeight
-	w.wrappedBuf.SetWidth(newWidth)
+	w.wrappedBuf.SetWidth(w.textAreaWidth())
 	w.needsRedraw = true
 }
 
