@@ -10,6 +10,7 @@ import (
 type application struct {
 	filename                 string
 	mainWindow, promptWindow *window
+	cursorVisible            bool
 	width, height            int
 	promptHandler            func(string) // What to do with the prompt input when the user hits Enter
 }
@@ -69,9 +70,19 @@ func (app *application) redraw(console io.Writer) error {
 			return err
 		}
 	}
-	if app.activeWindow().cursorInViewport() {
+	nowVisible := app.activeWindow().cursorInViewport()
+	defer func() { app.cursorVisible = nowVisible }()
+	if nowVisible {
+		if !app.cursorVisible {
+			if _, err := console.Write([]byte(termesc.ShowCursor)); err != nil {
+				return err
+			}
+		}
 		p := app.cursorPos()
 		_, err := console.Write([]byte(termesc.SetCursorPos(p.y+1, p.x+app.activeWindow().gutterWidth()+1)))
+		return err
+	} else if app.cursorVisible {
+		_, err := console.Write([]byte(termesc.HideCursor))
 		return err
 	}
 	return nil

@@ -29,6 +29,9 @@ const (
 	DownKey  = csi + "B"
 	LeftKey  = csi + "D"
 	RightKey = csi + "C"
+
+	HideCursor = csi + "?25l"
+	ShowCursor = csi + "?25h"
 )
 
 // SetCursorPos returns a code that sets the cursor's position to (y, x).
