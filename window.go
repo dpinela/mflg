@@ -351,9 +351,10 @@ func (w *window) scrollUp() {
 	}
 }
 
-func (w *window) gotoLine(y int) {
-	if w.wrappedBuf.HasLine(y) {
-		w.topLine = y
+func (w *window) gotoLine(ty int) {
+	wy := w.wrappedBuf.WindowYForTextPos(buffer.Point{X: 0, Y: ty})
+	if w.wrappedBuf.HasLine(wy) {
+		w.topLine = wy
 		w.needsRedraw = true
 	}
 }
