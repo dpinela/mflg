@@ -31,7 +31,7 @@ func (app *application) openFile(filename string) error {
 func (app *application) openPrompt(prompt string, whenDone func(string)) {
 	if app.promptWindow == nil {
 		app.promptWindow = newWindow(app.width, 1, buffer.New())
-		app.promptWindow.customGutterText = prompt
+		app.promptWindow.setGutterText(prompt)
 		app.promptHandler = whenDone
 	}
 }

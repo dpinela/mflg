@@ -58,7 +58,10 @@ type window struct {
 	mouseSelectionAnchor optionalPoint // Same, but using the mouse
 	selection            optionalTextRange
 
-	customGutterText string // If not empty, this text is displayed in each gutter line instead of the line number
+	// If not empty, this text is displayed in each gutter line instead of the line number.
+	// This shouldn't be set directly, as it affects the gutter width and therefore the wrapping in the main text area:
+	// use setGutterText instead.
+	customGutterText string
 
 	moveTicker streak.Tracker
 
@@ -133,6 +136,11 @@ func (w *window) resize(newHeight, newWidth int) {
 	w.height = newHeight
 	w.wrappedBuf.SetWidth(w.textAreaWidth())
 	w.needsRedraw = true
+}
+
+func (w *window) setGutterText(text string) {
+	w.customGutterText = text
+	w.wrappedBuf.SetWidth(w.textAreaWidth())
 }
 
 // Returns the length of line, as visually seen on the console.

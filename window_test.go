@@ -5,6 +5,7 @@ import (
 	"github.com/dpinela/mflg/internal/clipboard"
 	"github.com/dpinela/mflg/internal/termesc"
 
+	"bytes"
 	"strings"
 	"testing"
 	"time"
@@ -431,4 +432,17 @@ func TestDownFromFullLine(t *testing.T) {
 	w := newTestWindow(t, 16, 5, testDocument)
 	w.moveCursorDown()
 	checkCursorPos(t, 1, w, point{0, 1})
+}
+
+func TestRenderOneLine(t *testing.T) {
+	w := newTestWindow(t, 9, 1, "ABCDEFGH")
+	w.setGutterText("OL:")
+	var fakeConsole bytes.Buffer
+	if err := w.redraw(&fakeConsole); err != nil {
+		t.Error(err)
+	}
+	want := termesc.SetCursorPos(1, 1) + termesc.ClearScreenForward + "OL: ABCD"
+	if out := fakeConsole.String(); out != want {
+		t.Errorf("got %q, want %q", out, want)
+	}
 }
