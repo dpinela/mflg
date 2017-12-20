@@ -66,6 +66,13 @@ func checkLineContent(t *testing.T, stepN int, w *window, line int, text string)
 	}
 }
 
+func checkNeedsRedraw(t *testing.T, w *window) {
+	t.Helper()
+	if !w.needsRedraw {
+		t.Error("no redraw requested")
+	}
+}
+
 // This test is written in such a way that it passes regardless of what
 // the tab width is, because calculating the correct results might get
 // complicated in some cases.
@@ -162,10 +169,28 @@ func TestResize(t *testing.T) {
 }
 
 func TestScrollingOneLine(t *testing.T) {
-	w := newTestWindow(t, 20, 1, strings.Repeat("A", 2000))
+	const (
+		gutterText  = "X"
+		windowWidth = 20
+	)
+	w := newTestWindow(t, windowWidth, 1, strings.Repeat("A", 2000))
+	// Ensure the gutter is 2 units wide
+	w.setGutterText(gutterText)
 	w.moveCursorDown()
 	checkCursorPos(t, 1, w, point{0, 1})
 	checkTopLine(t, 1, w, 1)
+	w.topLine = 0
+	w.cursorPos = point{w.textAreaWidth() - 1, 0}
+	w.needsRedraw = false
+	w.moveCursorRight()
+	checkCursorPos(t, 2, w, point{0, 1})
+	checkTopLine(t, 2, w, 1)
+	checkNeedsRedraw(t, w)
+	w.needsRedraw = false
+	w.moveCursorLeft()
+	checkCursorPos(t, 3, w, point{w.textAreaWidth() - 1, 0})
+	checkTopLine(t, 3, w, 0)
+	checkNeedsRedraw(t, w)
 }
 
 func TestTextInput(t *testing.T) {

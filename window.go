@@ -375,6 +375,10 @@ func (w *window) moveCursorLeft() {
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	if tp.x > 0 {
 		w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x - 1})
+		if !w.cursorInViewport() {
+			w.topLine -= w.topLine - w.cursorPos.y
+			w.needsRedraw = true
+		}
 	} else if tp.y > 0 {
 		w.moveCursorUp()
 		w.cursorPos.x = w.textAreaWidth() - 1
@@ -390,12 +394,15 @@ func (w *window) moveCursorRightBy(n int) {
 	oldWp := w.cursorPos
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x + n})
-	if w.cursorPos == oldWp && tp.y+1 < w.buf.LineCount() {
-		w.cursorPos.x = 0
-		w.moveCursorDown()
+	// If we're at the end of a text-space line, we can move right no further within it; go to the next line.
+	// Since this is the end of the line, it is guaranteed that the start of the next is at the start of the next
+	// window-space line.
+	if oldWp == w.cursorPos && tp.y+1 < w.buf.LineCount() {
+		w.cursorPos = point{0, w.cursorPos.y + 1}
 	}
-	if w.cursorPos.x >= w.width {
-		w.cursorPos.x = w.width
+	if !w.cursorInViewport() {
+		w.topLine += w.cursorPos.y - (w.topLine + w.height) + 1
+		w.needsRedraw = true
 	}
 }
 
