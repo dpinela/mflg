@@ -145,7 +145,8 @@ func (wb *WrappedBuffer) SetWidth(newWidth int) {
 	}
 }
 
-// refresh invalidates all existing wrapped lines; it should be used when the source buffer is updated.
+// refresh invalidates all existing wrapped lines; it should be used when the source buffer is updated or when
+// the wrap width is changed.
 func (wb *WrappedBuffer) refresh() { wb.lines = wb.lines[:0] }
 
 // wrapUntil wraps the source buffer until the end of wrapped line i.

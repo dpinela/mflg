@@ -134,9 +134,14 @@ func (w *window) resize(newHeight, newWidth int) {
 	}
 	w.width = newWidth
 	w.height = newHeight
-	w.wrappedBuf.SetWidth(w.textAreaWidth())
+	w.updateWrapWidth()
 	w.needsRedraw = true
 }
+
+// updateWrapWidth updates wrappedBuf's width to match the text area's current width.
+// It should be called after any state change which causes that width to change, such as resizes or edits (the latter
+// can cause the gutter width to change).
+func (w *window) updateWrapWidth() { w.wrappedBuf.SetWidth(w.textAreaWidth()) }
 
 func (w *window) setGutterText(text string) {
 	w.customGutterText = text
@@ -473,13 +478,16 @@ func (w *window) typeText(text string) {
 		indent := leadingIndentation(w.buf.Line(tp.y))
 		w.wrappedBuf.InsertLineBreak(tp.y, tp.x)
 		w.wrappedBuf.Insert(indent, tp.y+1, 0)
+		w.updateWrapWidth()
 		w.moveCursorDown() // Needed to ensure scrolling if necessary
 		w.cursorPos = w.textCoordsToWindowCoords(point{len(indent), tp.y + 1})
 	case '\t':
 		w.wrappedBuf.Insert(w.tabString, tp.y, tp.x)
+		w.updateWrapWidth()
 		w.moveCursorRightBy(len(w.tabString))
 	default:
 		w.wrappedBuf.Insert(text, tp.y, tp.x)
+		w.updateWrapWidth()
 		w.moveCursorRight()
 	}
 }
@@ -507,6 +515,7 @@ func (w *window) backspace() {
 	w.needsRedraw = true
 	if w.selection.Set {
 		w.wrappedBuf.DeleteRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x)
+		w.updateWrapWidth()
 		w.gotoTextPos(w.selection.begin)
 		w.selection = optionalTextRange{}
 		return
@@ -517,6 +526,7 @@ func (w *window) backspace() {
 	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.wrappedBuf.DeleteChar(tp.y, tp.x)
+	w.updateWrapWidth()
 	switch {
 	case tp.x > 0:
 		w.gotoTextPos(point{y: tp.y, x: tp.x - 1})
@@ -596,6 +606,7 @@ func (w *window) paste() {
 	s := string(data)
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.wrappedBuf.Insert(s, tp.y, tp.x)
+	w.updateWrapWidth()
 	w.gotoTextPos(posAfterInsertion(tp, s))
 	w.needsRedraw = true
 }

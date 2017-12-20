@@ -59,9 +59,15 @@ func checkTopLine(t *testing.T, stepN int, w *window, n int) {
 
 func checkLineContent(t *testing.T, stepN int, w *window, line int, text string) {
 	t.Helper()
-	got := strings.TrimRight(string(w.buf.Line(line)), "\n")
-	if got != text {
+	if got := strings.TrimRight(w.buf.Line(line), "\n"); got != text {
 		t.Errorf("step %d: line %d contains %q, want %q", stepN, line, got, text)
+	}
+}
+
+func checkWrappedLine(t *testing.T, w *window, y int, want buffer.WrappedLine) {
+	t.Helper()
+	if got := w.wrappedBuf.Line(y); got != want {
+		t.Errorf("line %d contains %q at (%d, %d), want %q at (%d, %d)", y, got.Text, got.Start.X, got.Start.Y, want.Text, want.Start.X, want.Start.Y)
 	}
 }
 
@@ -334,14 +340,17 @@ func TestCopy(t *testing.T) {
 }
 
 func TestPaste(t *testing.T) {
-	const chunk = "blub"
+	const (
+		chunk = "blub"
+		x     = 6
+	)
 	w := newTestWindowA(t)
-	w.cursorPos = point{6, 0}
+	w.cursorPos = point{x, 0}
 	if err := clipboard.Copy([]byte(chunk)); err != nil {
 		t.Fatal(err)
 	}
 	w.paste()
-	checkCursorPos(t, 1, w, point{10, 0})
+	checkCursorPos(t, 1, w, point{x + len(chunk), 0})
 	checkLineContent(t, 1, w, 0, "#lorem"+chunk+" ipsum")
 }
 
@@ -463,4 +472,11 @@ func TestRenderOneLine(t *testing.T) {
 	if out := fakeConsole.String(); out != want {
 		t.Errorf("got %q, want %q", out, want)
 	}
+}
+
+func TestGutterResize(t *testing.T) {
+	w := newTestWindow(t, 9, 15, "a\nb\nc\nd\nefghij\nl\nm\nn\no")
+	w.typeText("\r")
+	checkWrappedLine(t, w, 5, buffer.WrappedLine{Start: buffer.Point{X: 0, Y: 5}, Text: "efghi"})
+	checkWrappedLine(t, w, 6, buffer.WrappedLine{Start: buffer.Point{X: 5, Y: 5}, Text: "j\n"})
 }
