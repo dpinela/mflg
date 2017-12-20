@@ -32,7 +32,6 @@ func newTestWindow(t testing.TB, width, height int, content string) *window {
 		t.Fatal(err)
 	}
 	w := newWindow(width, height, buf)
-	w.redraw(nil)
 	return w
 }
 
@@ -280,11 +279,6 @@ func TestAutoIndent(t *testing.T) {
 	w.typeText("\t")
 	checkCursorPos(t, 0, w, point{tab, 0})
 	w.typeText("\r")
-	w.redraw(nil)
-	//The redraws are needed because the code relies on layout being redone
-	// (usually done in the main input loop)
-	//after every input; this is not ideal and should change, but we'll
-	//leave it this way for now.
 	checkLineContent(t, 1, w, 0, "\t")
 	checkLineContent(t, 1, w, 1, "\t")
 	checkCursorPos(t, 1, w, point{tab, 1})
@@ -292,7 +286,6 @@ func TestAutoIndent(t *testing.T) {
 		w.typeText(" ")
 	}
 	w.typeText("\r")
-	w.redraw(nil)
 	checkLineContent(t, 2, w, 0, "\t")
 	checkLineContent(t, 2, w, 1, "\t   ")
 	checkLineContent(t, 2, w, 2, "\t   ")
