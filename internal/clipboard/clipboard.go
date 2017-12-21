@@ -8,13 +8,14 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/pkg/errors"
+
+	"github.com/tajtiattila/basedir"
 )
 
 // Copy overwrites the clipboard's contents with the given data.
@@ -27,33 +28,6 @@ func Copy(data []byte) error {
 func Paste() ([]byte, error) {
 	data, err := pasteGeneric()
 	return data, errors.Wrap(err, "paste failed")
-}
-
-func homeDirectory() (string, error) {
-	if d, ok := os.LookupEnv("HOME"); ok {
-		return d, nil
-	}
-	if d, ok := os.LookupEnv("USERPROFILE"); ok {
-		return d, nil
-	}
-	return "", errors.New("home directory not found")
-}
-
-func mflgPath(elems ...string) (string, error) {
-	h, err := homeDirectory()
-	if err != nil {
-		return "", err
-	}
-	// This would be more readable if we could do filepath.Join(h, ".mflg", elems...)
-	return filepath.Join(append([]string{h, ".mflg"}, elems...)...), nil
-}
-
-func mkMflgPath(elems ...string) (string, error) {
-	p, err := mflgPath(elems...)
-	if err != nil {
-		return p, err
-	}
-	return p, os.MkdirAll(p, 0700)
 }
 
 func copyGeneric(data []byte) error {
@@ -74,18 +48,24 @@ func pasteGeneric() ([]byte, error) {
 	return pasteBuiltin()
 }
 
-const genericClipboardFile = "clipboard"
+func clipboardFilename() (string, error) {
+	mflgDir, err := basedir.Data.EnsureDir("mflg", 0700)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(mflgDir, "clipboard"), nil
+}
 
 func copyBuiltin(data []byte) error {
-	p, err := mkMflgPath()
+	p, err := clipboardFilename()
 	if err != nil {
 		return err
 	}
-	return atomicwrite.Write(filepath.Join(p, genericClipboardFile), func(w io.Writer) error { _, err := w.Write(data); return err })
+	return atomicwrite.Write(p, func(w io.Writer) error { _, err := w.Write(data); return err })
 }
 
 func pasteBuiltin() ([]byte, error) {
-	p, err := mflgPath(genericClipboardFile)
+	p, err := clipboardFilename()
 	if err != nil {
 		return nil, err
 	}

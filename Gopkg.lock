@@ -15,6 +15,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/tajtiattila/basedir"
+  packages = ["."]
+  revision = "3e9c9955563504cead0f66a0b2beb0046ac598e1"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   revision = "847319b7fc94cab682988f93da778204da164588"
@@ -34,6 +40,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "42655813a4bc421d072099f5a588c921a0720dd4f285d6861304cce59c53cb80"
+  inputs-digest = "efde70c24c3437a7bf41dfd39cf7f0089cde2ceb021d4fb937d0c604a43086ce"
   solver-name = "gps-cdcl"
   solver-version = 1
