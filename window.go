@@ -118,9 +118,13 @@ func tabString(width int) string {
 }
 
 func (w *window) viewportCursorPos() point { return point{w.cursorPos.x, w.cursorPos.y - w.topLine} }
-func (w *window) cursorInViewport() bool {
-	return w.cursorPos.y >= w.topLine && w.cursorPos.y < w.topLine+w.height
+func (w *window) windowPosInViewport(wp point) bool {
+	return wp.y >= w.topLine && wp.y < w.topLine+w.height
 }
+func (w *window) textPosInViewport(tp point) bool {
+	return w.windowPosInViewport(point{0, w.wrappedBuf.WindowYForTextPos(buffer.Point{X: tp.x, Y: tp.y})})
+}
+func (w *window) cursorInViewport() bool { return w.windowPosInViewport(w.cursorPos) }
 
 // resize sets the window's height and width, then updates the layout
 // and cursor position accordingly.
@@ -492,24 +496,6 @@ func (w *window) typeText(text string) {
 	}
 }
 
-// visibleTextEnd returns the text-space coordinates of the first character that lies below the viewport.
-func (w *window) visibleTextEnd() point {
-	// If there's offscreen lines, the start of the first line below the bottom of the viewport is exactly
-	// the point we want.
-	line := w.wrappedBuf.Line(w.topLine + w.height)
-	if w.wrappedBuf.HasLine(w.topLine + w.height) {
-		return point{line.Start.X, line.Start.Y}
-	}
-	// If there are no offscreen lines, then we got the last line in the whole buffer; scan it to the end
-	// to find the end point.
-	_, tx := scanLineUntil(line.Text, line.Start.X, func(_, _ int) bool { return false })
-	return point{tx, line.Start.Y}
-}
-
-func (w *window) isTextPointOnscreen(tp point) bool {
-	return tp.y >= w.topLine && !w.visibleTextEnd().Less(tp)
-}
-
 func (w *window) backspace() {
 	w.dirty = true
 	w.needsRedraw = true
@@ -538,7 +524,7 @@ func (w *window) backspace() {
 }
 
 func (w *window) gotoTextPos(tp point) {
-	if !w.isTextPointOnscreen(tp) {
+	if !w.textPosInViewport(tp) {
 		w.gotoLine(tp.y)
 	}
 	w.cursorPos = w.textCoordsToWindowCoords(tp)
