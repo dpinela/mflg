@@ -108,7 +108,7 @@ func main() {
 	app := application{mainWindow: newWindow(w, h, buf)}
 	app.resize(h, w)
 	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
-	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableMouseReporting)
+	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.ShowCursor + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
 	inputCh := make(chan string, 32)
 	go func() {
