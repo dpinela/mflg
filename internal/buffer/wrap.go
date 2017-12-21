@@ -116,25 +116,29 @@ func (wb *WrappedBuffer) Line(wy int) WrappedLine {
 // Insert inserts text into the underlying Buffer.
 func (wb *WrappedBuffer) Insert(text string, ty, tx int) {
 	wb.src.Insert(text, ty, tx)
-	wb.refresh()
+	wb.refreshFrom(ty)
 }
 
 // InsertLineBreak inserts a line break into the underlying Buffer.
 func (wb *WrappedBuffer) InsertLineBreak(ty, tx int) {
 	wb.src.InsertLineBreak(ty, tx)
-	wb.refresh()
+	wb.refreshFrom(ty)
 }
 
 // DeleteRange deletes all characters in the underlying Buffer within the specified range.
 func (wb *WrappedBuffer) DeleteRange(tyStart, txStart, tyEnd, txEnd int) {
 	wb.src.DeleteRange(tyStart, txStart, tyEnd, txEnd)
-	wb.refresh()
+	wb.refreshFrom(tyStart)
 }
 
 // DeleteChar deletes the character preceding the one at (ty, tx).
 func (wb *WrappedBuffer) DeleteChar(ty, tx int) {
 	wb.src.DeleteChar(ty, tx)
-	wb.refresh()
+	if tx == 0 && ty > 0 {
+		wb.refreshFrom(ty - 1)
+	} else {
+		wb.refreshFrom(ty)
+	}
 }
 
 // SetWidth changes the line width of the buffer.
@@ -148,6 +152,12 @@ func (wb *WrappedBuffer) SetWidth(newWidth int) {
 // refresh invalidates all existing wrapped lines; it should be used when the source buffer is updated or when
 // the wrap width is changed.
 func (wb *WrappedBuffer) refresh() { wb.lines = wb.lines[:0] }
+
+// refreshFrom invalidates all wrapped lines from the given text Y coordinate onwards.
+func (wb *WrappedBuffer) refreshFrom(ty int) {
+	wy := sort.Search(len(wb.lines), func(wy int) bool { return !wb.lines[wy].Start.Less(Point{0, ty}) })
+	wb.lines = wb.lines[:wy]
+}
 
 // wrapUntil wraps the source buffer until the end of wrapped line i.
 func (wb *WrappedBuffer) wrapUntil(i int) {
