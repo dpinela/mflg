@@ -250,7 +250,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	if tf.line >= len(tf.src) {
 		return nil, false
 	}
-	line := trimNewline(tf.src[tf.line].Text)
+	line := strings.TrimSuffix(tf.src[tf.line].Text, "\n")
 	tp := tf.src[tf.line].Start
 	if tf.gutterText != "" {
 		tf.buf = append(tf.buf[:0], tf.gutterText...)
@@ -295,13 +295,6 @@ func (tf *textFormatter) appendSpaces(n int) {
 	for i := 0; i < n; i++ {
 		tf.buf = append(tf.buf, ' ')
 	}
-}
-
-func trimNewline(line string) string {
-	if len(line) > 0 && line[len(line)-1] == '\n' {
-		return line[:len(line)-1]
-	}
-	return line
 }
 
 func min(x, y int) int {
