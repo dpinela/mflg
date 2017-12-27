@@ -205,19 +205,24 @@ func (b *Buffer) DeleteChar(row, col int) {
 }
 
 // DeleteRange deletes all characters in the given range, including line breaks.
-// The range is treated as a half-open range.
+// The range is treated as a half-open range, and may extend past the end of the text.
 func (b *Buffer) DeleteRange(rowStart, colStart, rowEnd, colEnd int) {
 	if rowEnd < rowStart || (rowStart == rowEnd && colEnd < colStart) {
 		rowStart, rowEnd = rowEnd, rowStart
 		colStart, colEnd = colEnd, colStart
 	}
+	if rowStart >= len(b.lines) {
+		return
+	}
 	p := ByteIndexForChar(b.lines[rowStart], colStart)
+	if rowEnd >= len(b.lines) {
+		b.lines[rowStart] = b.lines[rowStart][:p]
+		b.lines = b.lines[rowStart+1:]
+		return
+	}
 	q := ByteIndexForChar(b.lines[rowEnd], colEnd)
-	if rowStart == rowEnd {
-		line := b.lines[rowStart]
-		b.lines[rowStart] = line[:p] + line[q:]
-	} else {
-		b.lines[rowStart] = b.lines[rowStart][:p] + b.lines[rowEnd][q:]
+	b.lines[rowStart] = b.lines[rowStart][:p] + b.lines[rowEnd][q:]
+	if rowStart != rowEnd {
 		// Delete all the lines entirely between the start and the end point;
 		// the line where the end point lies is deleted too, since it was
 		// merged into the start line.
@@ -225,6 +230,9 @@ func (b *Buffer) DeleteRange(rowStart, colStart, rowEnd, colEnd int) {
 		b.lines = b.lines[:len(b.lines)-(rowEnd-rowStart)]
 	}
 }
+
+// ReplaceLine replaces the contents with line y with text.
+func (b *Buffer) ReplaceLine(y int, text string) { b.lines[y] = text }
 
 // CopyRange returns a copy of the characters in the given range, as a
 // contiguous slice.

@@ -73,8 +73,6 @@ type window struct {
 	buf        *buffer.Buffer        // The buffer being edited in the window
 	wrappedBuf *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
 	tabString  string                // The string that should be inserted when typing a tab
-
-	searchRE *regexp.Regexp // The regexp currently in use for search and replace ops
 }
 
 type optionalPoint struct {
@@ -409,11 +407,32 @@ func (w *window) moveCursorRightBy(n int) {
 }
 
 func (w *window) searchRegexp(re *regexp.Regexp) {
-	w.searchRE = re
 	for i, line := range w.buf.SliceLines(0, w.buf.LineCount()) {
 		if re.MatchString(line) {
 			w.gotoLine(i)
 			return
+		}
+	}
+}
+
+func separateSuffix(s, suffix string) (begin, foundSuffix string) {
+	t := strings.TrimSuffix(s, suffix)
+	if len(t) < len(s) {
+		return t, suffix
+	}
+	return s, ""
+}
+
+func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
+	for i, line := range w.buf.SliceLines(0, w.buf.LineCount()) {
+		// Prevent the regexp from removing the newlines.
+		// TODO: this should change if/when regexps can be applied across line boundaries.
+		line, suffix := separateSuffix(line, "\n")
+		newLine := re.ReplaceAllString(line, replacement)
+		if newLine != line {
+			w.wrappedBuf.ReplaceLine(i, newLine+suffix)
+			w.dirty = true
+			w.needsRedraw = true
 		}
 	}
 }

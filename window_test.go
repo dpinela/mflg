@@ -6,6 +6,7 @@ import (
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -479,4 +480,12 @@ func TestGutterResize(t *testing.T) {
 	w.typeText("\r")
 	checkWrappedLine(t, w, 5, buffer.WrappedLine{Start: buffer.Point{X: 0, Y: 5}, Text: "efghi"})
 	checkWrappedLine(t, w, 6, buffer.WrappedLine{Start: buffer.Point{X: 5, Y: 5}, Text: "j\n"})
+}
+
+func TestReplace(t *testing.T) {
+	w := newTestWindow(t, 10, 10, `func A() int { return 4 }
+func Go() int { return 5 }`)
+	w.replaceRegexp(regexp.MustCompile(`func (\w+)`), "function $1$1")
+	checkLineContent(t, 1, w, 0, "function AA() int { return 4 }")
+	checkLineContent(t, 1, w, 1, "function GoGo() int { return 5 }")
 }

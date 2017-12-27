@@ -141,6 +141,11 @@ func (wb *WrappedBuffer) DeleteChar(ty, tx int) {
 	}
 }
 
+func (wb *WrappedBuffer) ReplaceLine(ty int, text string) {
+	wb.src.ReplaceLine(ty, text)
+	wb.refreshFrom(ty)
+}
+
 // SetWidth changes the line width of the buffer.
 func (wb *WrappedBuffer) SetWidth(newWidth int) {
 	if newWidth != wb.lineWidth {

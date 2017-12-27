@@ -22,8 +22,11 @@ In other words, more like an advanced nano and less like vi or emacs.
 
 - **Copy**: Control-C
 - **Paste**: Control-V
+- **Replace**: Control-R, then type a regex, then the replacement. You may use $1, $2, $3... to refer to captured groups, and $name or ${name} to refer to named groups. To insert a literal $, use $$ (see [the Go regexp docs][go-regexp]).
 - **Save**: Control-S
 - **Quit**: Control-Q
+
+[go-regexp]: https://golang.org/pkg/regexp/#Regexp.Expand
 
 ### Movement
 

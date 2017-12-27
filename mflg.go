@@ -179,6 +179,17 @@ func main() {
 						app.mainWindow.searchRegexp(re)
 					}
 				})
+			case "\x12":
+				app.openPrompt("Replace:", func(searchRE string) {
+					re, err := regexp.Compile(searchRE)
+					if err != nil {
+						must(printAtBottom(err.Error()))
+						return
+					}
+					app.openPrompt("With:", func(replacement string) {
+						app.mainWindow.replaceRegexp(re, replacement)
+					})
+				})
 			case "\x01":
 				if !aw.inMouseSelection() {
 					aw.markSelectionBound()

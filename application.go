@@ -28,12 +28,12 @@ func (app *application) openFile(filename string) error {
 	return nil
 }
 
+// openPrompt opens a prompt window at the bottom of the viewport.
+// When the user hits Enter, whenDone is called with the entered text.
 func (app *application) openPrompt(prompt string, whenDone func(string)) {
-	if app.promptWindow == nil {
-		app.promptWindow = newWindow(app.width, 1, buffer.New())
-		app.promptWindow.setGutterText(prompt)
-		app.promptHandler = whenDone
-	}
+	app.promptWindow = newWindow(app.width, 1, buffer.New())
+	app.promptWindow.setGutterText(prompt)
+	app.promptHandler = whenDone
 }
 
 func (app *application) cancelPrompt() {
@@ -43,8 +43,11 @@ func (app *application) cancelPrompt() {
 }
 
 func (app *application) finishPrompt() {
-	app.promptHandler(app.promptWindow.buf.Line(1))
+	// Do things in this order so that the prompt handler can safely call openPrompt.
+	response := app.promptWindow.buf.Line(0)
+	handler := app.promptHandler
 	app.cancelPrompt()
+	handler(response)
 }
 
 func (app *application) activeWindow() *window {
