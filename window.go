@@ -250,12 +250,19 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	}
 	line := strings.TrimSuffix(tf.src[tf.line].Text, "\n")
 	tp := tf.src[tf.line].Start
+	var gutterLen int
 	if tf.gutterText != "" {
-		tf.buf = append(tf.buf[:0], tf.gutterText...)
+		tf.buf = append(tf.buf[:0], termesc.SetGraphicAttributes(termesc.StyleNone, termesc.StyleBold)...)
+		gutterLen = runewidth.StringWidth(tf.gutterText)
+		tf.buf = append(tf.buf, tf.gutterText...)
 	} else {
-		tf.buf = strconv.AppendInt(tf.buf[:0], int64(tp.Y)+1, 10)
+		tf.buf = append(tf.buf[:0], termesc.SetGraphicAttributes(termesc.StyleNone, termesc.ColorWhite)...)
+		n := len(tf.buf)
+		tf.buf = strconv.AppendInt(tf.buf, int64(tp.Y)+1, 10)
+		gutterLen = len(tf.buf) - n
 	}
-	for i := len(tf.buf); i < tf.gutterWidth; i++ {
+	tf.buf = append(tf.buf, termesc.SetGraphicAttributes(termesc.StyleNone)...)
+	for i := gutterLen; i < tf.gutterWidth; i++ {
 		tf.buf = append(tf.buf, ' ')
 	}
 	if tf.invertedRegion.Set && tp.Y > tf.invertedRegion.begin.y && tp.Y <= tf.invertedRegion.end.y {
