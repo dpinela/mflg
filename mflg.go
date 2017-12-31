@@ -15,19 +15,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func mustWrite(w io.Writer, b []byte) {
-	if _, err := w.Write(b); err != nil {
-		panic(err)
-	}
-}
-
-// Predefined []byte strings to avoid allocations.
-var (
-	crlf       = []byte("\r\n")
-	tab        = []byte("\t")
-	fourSpaces = []byte("    ")
-)
-
 func saveBuffer(fname string, buf *buffer.Buffer) error {
 	return atomicwrite.Write(fname, func(w io.Writer) error { _, err := buf.WriteTo(w); return err })
 }
@@ -35,23 +22,6 @@ func saveBuffer(fname string, buf *buffer.Buffer) error {
 func must(err error) {
 	if err != nil {
 		panic(err)
-	}
-}
-
-func rawGetLine(in <-chan string, out io.Writer) (string, error) {
-	var line []byte
-	for {
-		c := <-in
-		if len(c) == 0 {
-			return string(line), nil
-		}
-		if len(c) == 1 && c[0] == '\r' {
-			return string(line), nil
-		}
-		if _, err := fmt.Fprint(out, c); err != nil {
-			return string(line), err
-		}
-		line = append(line, c...)
 	}
 }
 
