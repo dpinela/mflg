@@ -27,9 +27,11 @@ var testCases = []struct {
 	{input: "\x1B[41;0;0M", output: ErrInvalidCoords},
 	{input: "\x1B[M#\x1B\x1B", output: ErrInvalidCoords},
 	{input: "\x1B[67;3;2M", output: MouseEvent{
-		Button: NoButton, X: 2, Y: 1}},
+		Button: NoButton, X: 2, Y: 1, Move: true}},
 	{input: "\x1B[MG##", output: MouseEvent{
-		Button: NoButton, Shift: true, X: 2, Y: 2}},
+		Button: NoButton, Shift: true, X: 2, Y: 2, Move: true}},
+	{input: "\x1B[64;15;5M", output: MouseEvent{
+		Button: LeftButton, X: 14, Y: 4, Move: true}},
 }
 
 func parseResult(code string) interface{} {

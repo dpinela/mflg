@@ -633,8 +633,10 @@ func posAfterInsertion(tp point, data string) point {
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	switch ev.Button {
 	case termesc.LeftButton:
-		w.setCursorPosFromMouse(ev)
-		w.mouseSelectionAnchor.Put(w.windowCoordsToTextCoords(w.cursorPos))
+		if !ev.Move {
+			w.setCursorPosFromMouse(ev)
+			w.mouseSelectionAnchor.Put(w.windowCoordsToTextCoords(w.cursorPos))
+		}
 	case termesc.ReleaseButton:
 		w.setCursorPosFromMouse(ev)
 		if w.mouseSelectionAnchor.Set {

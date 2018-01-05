@@ -11,6 +11,7 @@ import (
 type MouseEvent struct {
 	Button              MouseButton // The mouse button that was pressed (if any)
 	Shift, Alt, Control bool        // True if the corresponding modifier keys are held down
+	Move                bool        // True if this is a mouse-move event, false if it is a press/release/scroll event.
 	X, Y                int         // The viewport-space coordinates of the character the mouse was over
 }
 
@@ -77,16 +78,17 @@ func (ev *MouseEvent) setButtonInfo(button byte) {
 	ev.Shift = button&4 != 0
 	ev.Alt = button&8 != 0
 	ev.Control = button&0x10 != 0
-	if button&0x40 != 0 {
-		switch {
-		case button&3 == 3:
-			ev.Button = NoButton
-		case button&1 != 0:
+	ev.Move = button&0x40 != 0 && button&0x20 == 0
+	switch {
+	case button&0x60 == 0x60:
+		if button&1 != 0 {
 			ev.Button = ScrollDownButton
-		default:
+		} else {
 			ev.Button = ScrollUpButton
 		}
-	} else {
+	case button&0x40 != 0 && button&3 == 3:
+		ev.Button = NoButton
+	default:
 		ev.Button = MouseButton((button & 3) + 1)
 	}
 }
