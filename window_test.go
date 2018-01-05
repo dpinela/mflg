@@ -462,16 +462,18 @@ func TestDownFromFullLine(t *testing.T) {
 	checkCursorPos(t, 1, w, point{0, 1})
 }
 
+var controlSeqRE = regexp.MustCompile(`\x1b\[[^a-zA-Z]*[a-zA-Z]`)
+
 func TestRenderOneLine(t *testing.T) {
+	const testOutLine = "OL: ABCD"
 	w := newTestWindow(t, 9, 1, "ABCDEFGH")
 	w.setGutterText("OL:")
 	var fakeConsole bytes.Buffer
 	if err := w.redraw(&fakeConsole); err != nil {
 		t.Error(err)
 	}
-	want := termesc.SetCursorPos(1, 1) + termesc.ClearScreenForward + "OL: ABCD"
-	if out := fakeConsole.String(); out != want {
-		t.Errorf("got %q, want %q", out, want)
+	if out := controlSeqRE.ReplaceAllString(fakeConsole.String(), ""); out != testOutLine {
+		t.Errorf("got %q, want %q", out, testOutLine)
 	}
 }
 
