@@ -11,6 +11,7 @@ import (
 
 const csi = "\x1B["
 
+// Escape sequences for terminal and cursor control functions.
 const (
 	ClearScreenForward   = csi + "J"      // Clears the visible area of the console ahead of the current cursor position
 	ClearScreen          = csi + "2J"     // Clears the entire visible area of the console
@@ -18,8 +19,13 @@ const (
 	EnterAlternateScreen = csi + "?1049h" // Switches to the alternate screen
 	ExitAlternateScreen  = csi + "?1049l" // Switches from the alternate screen to the regular one
 
-	EnableMouseReporting  = csi + "?1000h" + csi + "?1015h" // Causes mouse escape sequences to be sent to the application when mouse events occur
-	DisableMouseReporting = csi + "?1015l" + csi + "?1000l" // Restores the console's default mouse handling
+	// The mouse enabling escape sequence does three things:
+	// 1000: enable mouse click reporting (using the old xterm format)
+	// 1003: enable mouse move reporting (this enables click reporting too on supporting terminals, but we include 1000 anyway for those that don't support this feature)
+	// 1015: switch to urxvt-format mouse reporting (has no terminal size limit unlike the xterm one)
+
+	EnableMouseReporting  = csi + "?1000h" + csi + "?1003h" + csi + "?1015h" // Causes mouse escape sequences to be sent to the application when mouse events occur
+	DisableMouseReporting = csi + "?1015l" + csi + "?1003l" + csi + "?1000l" // Restores the console's default mouse handling
 
 	ResetGraphicAttributes = csi + "m"
 	Bold                   = csi + "1m"

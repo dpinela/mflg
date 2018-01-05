@@ -1,3 +1,5 @@
+//go:generate stringer -type=MouseButton
+
 package termesc
 
 import (
@@ -5,11 +7,11 @@ import (
 	"fmt"
 )
 
-// MouseEvent represents a mouse press or release, or a scroll wheel tick.
+// MouseEvent represents a mouse press, release or movement, or a scroll wheel tick.
 type MouseEvent struct {
-	Button              MouseButton // The mouse button that was pressed
+	Button              MouseButton // The mouse button that was pressed (if any)
 	Shift, Alt, Control bool        // True if the corresponding modifier keys are held down
-	X, Y                int         // The coordinates of the character the mouse was over
+	X, Y                int         // The viewport-space coordinates of the character the mouse was over
 }
 
 // MouseButton identifies the different mouse buttons. This includes both directions
@@ -19,7 +21,8 @@ type MouseButton int8
 
 // Identifiers for mouse buttons.
 const (
-	LeftButton MouseButton = iota
+	NoButton MouseButton = iota // denotes a mouse-move event
+	LeftButton
 	MiddleButton
 	RightButton
 	ReleaseButton
@@ -75,12 +78,15 @@ func (ev *MouseEvent) setButtonInfo(button byte) {
 	ev.Alt = button&8 != 0
 	ev.Control = button&0x10 != 0
 	if button&0x40 != 0 {
-		if button&1 != 0 {
+		switch {
+		case button&3 == 3:
+			ev.Button = NoButton
+		case button&1 != 0:
 			ev.Button = ScrollDownButton
-		} else {
+		default:
 			ev.Button = ScrollUpButton
 		}
 	} else {
-		ev.Button = MouseButton(button & 3)
+		ev.Button = MouseButton((button & 3) + 1)
 	}
 }
