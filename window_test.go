@@ -393,6 +393,21 @@ func TestKeyboardSelection(t *testing.T) {
 	}
 }
 
+func TestTwoKeyboardSelections(t *testing.T) {
+	w := newTestWindowA(t)
+	w.cursorPos = point{0, 2}
+	w.markSelectionBound()
+	w.cursorPos = point{5, 2}
+	w.markSelectionBound()
+	checkSelection(t, 1, w, testSelection)
+	w.cursorPos = point{6, 2}
+	w.markSelectionBound()
+	checkSelection(t, 2, w, optionalTextRange{})
+	w.cursorPos = point{0, 2}
+	w.markSelectionBound()
+	checkSelection(t, 3, w, optionalTextRange{textRange{point{0, 2}, point{6, 2}}, true})
+}
+
 func TestMouseSelection(t *testing.T) {
 	w := newTestWindowA(t)
 	testMouseSelection(t, w)
@@ -416,6 +431,12 @@ func TestCancelMouseSelection(t *testing.T) {
 }
 
 var testSelection = optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true}
+
+func checkSelection(t *testing.T, step int, w *window, want optionalTextRange) {
+	if w.selection != want {
+		t.Errorf("step %d: got selection %v, want %v", step, w.selection, want)
+	}
+}
 
 func testMouseSelection(t *testing.T, w *window) {
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
