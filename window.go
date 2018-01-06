@@ -36,6 +36,14 @@ type textRange struct {
 	begin, end point
 }
 
+// Normalize returns tr with its endpoints swapped if tr.End comes before tr.Start. Otherwise, it returns tr unchanged.
+func (tr textRange) Normalize() textRange {
+	if tr.end.Less(tr.begin) {
+		return textRange{tr.end, tr.begin}
+	}
+	return tr
+}
+
 type window struct {
 	width, height int
 	// options for representing the start position of a window within a row:
@@ -571,10 +579,7 @@ func (w *window) selectToCursorPos(anchor *optionalPoint) {
 		*anchor = optionalPoint{}
 		return
 	}
-	if tp.Less(anchor.point) {
-		tp, anchor.point = anchor.point, tp
-	}
-	w.selection.Put(textRange{anchor.point, tp})
+	w.selection.Put(textRange{anchor.point, tp}.Normalize())
 	*anchor = optionalPoint{}
 	w.needsRedraw = true
 }
@@ -633,7 +638,17 @@ func posAfterInsertion(tp point, data string) point {
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	switch ev.Button {
 	case termesc.LeftButton:
-		if !ev.Move {
+		if ev.Move {
+			// This is true if and only if a mouse selection has been started, but not ended yet;
+			// during that period, update the selection as the cursor moves. Releasing is thus technically
+			// a no-op, since when the release event fires we already detected the cursor moving into the
+			// second end of the range.
+			if w.mouseSelectionAnchor.Set {
+				w.setCursorPosFromMouse(ev)
+				w.selection.Put(textRange{w.mouseSelectionAnchor.point, w.windowCoordsToTextCoords(w.cursorPos)}.Normalize())
+				w.needsRedraw = true
+			}
+		} else {
 			w.setCursorPosFromMouse(ev)
 			w.mouseSelectionAnchor.Put(w.windowCoordsToTextCoords(w.cursorPos))
 		}

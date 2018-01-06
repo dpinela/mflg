@@ -440,10 +440,13 @@ func checkSelection(t *testing.T, step int, w *window, want optionalTextRange) {
 
 func testMouseSelection(t *testing.T, w *window) {
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
+	checkSelection(t, 1, w, optionalTextRange{})
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, Move: true, X: 4, Y: 2})
+	checkSelection(t, 2, w, optionalTextRange{textRange{point{0, 2}, point{1, 2}}, true})
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, Move: true, X: 8, Y: 2})
+	checkSelection(t, 3, w, testSelection)
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})
-	if w.selection != testSelection {
-		t.Errorf("got selection %+v, want %+v", w.selection, testSelection)
-	}
+	checkSelection(t, 4, w, testSelection)
 }
 
 func TestHybridSelection(t *testing.T) {
