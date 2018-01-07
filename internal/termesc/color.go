@@ -22,22 +22,22 @@ const (
 	ColorWhite
 )
 
-func (c GraphicFlag) appendNumbers(xs []int) []int { return append(xs, int(c)) }
+func (c GraphicFlag) forEachSGRCode(f func(int)) { f(int(c)) }
 
 type GraphicAttribute interface {
-	appendNumbers([]int) []int
+	forEachSGRCode(func(int))
 }
 
 func SetGraphicAttributes(attrs ...GraphicAttribute) string {
-	xs := make([]int, 0, 8)
-	b := []byte(csi)
+	b := make([]byte, len(csi), 64)
+	copy(b, csi)
 	for _, attr := range attrs {
-		for _, x := range attr.appendNumbers(xs[:0]) {
+		attr.forEachSGRCode(func(x int) {
 			if len(b) > len(csi) {
 				b = append(b, ';')
 			}
 			b = strconv.AppendInt(b, int64(x), 10)
-		}
+		})
 	}
 	return string(append(b, 'm'))
 }

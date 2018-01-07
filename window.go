@@ -252,6 +252,13 @@ type textFormatter struct {
 
 const tabWidth = 4
 
+// Pre-compute the SGR escape sequences used in formatNextLine to avoid the expense of recomputing them repeatedly.
+var (
+	styleResetToBold  = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.StyleBold)
+	styleResetToWhite = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.ColorWhite)
+	styleReset        = termesc.SetGraphicAttributes(termesc.StyleNone)
+)
+
 func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	if tf.line >= len(tf.src) {
 		return nil, false
@@ -260,16 +267,16 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	tp := tf.src[tf.line].Start
 	var gutterLen int
 	if tf.gutterText != "" {
-		tf.buf = append(tf.buf[:0], termesc.SetGraphicAttributes(termesc.StyleNone, termesc.StyleBold)...)
+		tf.buf = append(tf.buf[:0], styleResetToBold...)
 		gutterLen = runewidth.StringWidth(tf.gutterText)
 		tf.buf = append(tf.buf, tf.gutterText...)
 	} else {
-		tf.buf = append(tf.buf[:0], termesc.SetGraphicAttributes(termesc.StyleNone, termesc.ColorWhite)...)
+		tf.buf = append(tf.buf[:0], styleResetToWhite...)
 		n := len(tf.buf)
 		tf.buf = strconv.AppendInt(tf.buf, int64(tp.Y)+1, 10)
 		gutterLen = len(tf.buf) - n
 	}
-	tf.buf = append(tf.buf, termesc.SetGraphicAttributes(termesc.StyleNone)...)
+	tf.buf = append(tf.buf, styleReset...)
 	for i := gutterLen; i < tf.gutterWidth; i++ {
 		tf.buf = append(tf.buf, ' ')
 	}
@@ -282,7 +289,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 			case tf.invertedRegion.begin:
 				tf.buf = append(tf.buf, termesc.ReverseVideo...)
 			case tf.invertedRegion.end:
-				tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
+				tf.buf = append(tf.buf, styleReset...)
 			}
 		}
 		n := buffer.NextCharBoundary(line)
@@ -295,7 +302,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 		tp.X++
 	}
 	if tf.invertedRegion.Set && ((tp.Y >= tf.invertedRegion.begin.y && tp.Y < tf.invertedRegion.end.y) || tf.invertedRegion.end == point{tp.X, tp.Y}) {
-		tf.buf = append(tf.buf, termesc.ResetGraphicAttributes...)
+		tf.buf = append(tf.buf, styleReset...)
 	}
 	if !last {
 		tf.buf = append(tf.buf, '\r', '\n')
