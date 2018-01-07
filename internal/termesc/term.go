@@ -27,10 +27,6 @@ const (
 	EnableMouseReporting  = csi + "?1000h" + csi + "?1003h" + csi + "?1015h" // Causes mouse escape sequences to be sent to the application when mouse events occur
 	DisableMouseReporting = csi + "?1015l" + csi + "?1003l" + csi + "?1000l" // Restores the console's default mouse handling
 
-	ResetGraphicAttributes = csi + "m"
-	Bold                   = csi + "1m"
-	ReverseVideo           = csi + "7m"
-
 	UpKey    = csi + "A"
 	DownKey  = csi + "B"
 	LeftKey  = csi + "D"

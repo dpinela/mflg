@@ -254,6 +254,7 @@ const tabWidth = 4
 
 // Pre-compute the SGR escape sequences used in formatNextLine to avoid the expense of recomputing them repeatedly.
 var (
+	styleInverted     = termesc.SetGraphicAttributes(termesc.StyleInverted)
 	styleResetToBold  = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.StyleBold)
 	styleResetToWhite = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.ColorWhite)
 	styleReset        = termesc.SetGraphicAttributes(termesc.StyleNone)
@@ -281,13 +282,13 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 		tf.buf = append(tf.buf, ' ')
 	}
 	if tf.invertedRegion.Set && tp.Y > tf.invertedRegion.begin.y && tp.Y <= tf.invertedRegion.end.y {
-		tf.buf = append(tf.buf, termesc.ReverseVideo...)
+		tf.buf = append(tf.buf, styleInverted...)
 	}
 	for len(line) > 0 {
 		if tf.invertedRegion.Set {
 			switch (point{tp.X, tp.Y}) {
 			case tf.invertedRegion.begin:
-				tf.buf = append(tf.buf, termesc.ReverseVideo...)
+				tf.buf = append(tf.buf, styleInverted...)
 			case tf.invertedRegion.end:
 				tf.buf = append(tf.buf, styleReset...)
 			}

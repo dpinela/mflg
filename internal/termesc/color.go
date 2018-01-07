@@ -7,8 +7,9 @@ type GraphicFlag int
 
 // Constants for non-color graphic attributes.
 const (
-	StyleNone GraphicFlag = 0
-	StyleBold GraphicFlag = 1
+	StyleNone     GraphicFlag = 0
+	StyleBold     GraphicFlag = 1
+	StyleInverted GraphicFlag = 7
 )
 
 // Constants for the 3-bit ANSI color palette.
