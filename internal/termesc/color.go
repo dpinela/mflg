@@ -2,6 +2,7 @@ package termesc
 
 import "strconv"
 
+// A GraphicFlag is a graphic attribute that can be defined by a single number in an ANSI escape code.
 type GraphicFlag int
 
 // Constants for non-color graphic attributes.
@@ -24,10 +25,15 @@ const (
 
 func (c GraphicFlag) forEachSGRCode(f func(int)) { f(int(c)) }
 
+// A GraphicAttribute is any graphic attribute that can be define by ANSI escape codes.
+// Currently it can only be a GraphicFlag; Color8 and Color24 will be implemented in the future.
 type GraphicAttribute interface {
+	// Yields the numbers to put in the CSI ... ; ... m sequence for this attribute.
 	forEachSGRCode(func(int))
 }
 
+// SetGraphicAttributes returns a code that applies the specified graphic attributes to all future text written
+// to the terminal, in the order given.
 func SetGraphicAttributes(attrs ...GraphicAttribute) string {
 	b := make([]byte, len(csi), 64)
 	copy(b, csi)
