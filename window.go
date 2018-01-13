@@ -46,19 +46,6 @@ func (tr textRange) Normalize() textRange {
 
 type window struct {
 	width, height int
-	// options for representing the start position of a window within a row:
-	// - full text point: resizes do not move the relative scroll position within the document, but needs recomputing that text point when scrolling up or down. Also may result in text shifting horizontally when scrolling vertically after a resize.
-	// - wrapped line index (relative to current text line): meaning changes whenever the window is resized, which means that scroll position changes too
-	// - wrapped line index (global): same issue, but even worse.
-	//
-	// Which invariants do we want to preserve when scrolling?
-	// - Scrolling vertically must only move text vertically (makes sense)
-	// - Scrolling should always move all lines up or down (precludes fully pinning the text point)
-	//
-	// What if we allow the start position to drift a bit when necessary on resizes?
-	// Let (X, Y) be the start position.
-	// When the text between (0, Y) and (X, Y) would occupy less space than the new window width, advance the start position
-	// just enough to ensure that it does. Exception: if X=0, do nothing (the start is at a line boundary).
 	topLine   int   //The index (in window space) of the topmost line being displayed
 	cursorPos point //The cursor position in window space
 
