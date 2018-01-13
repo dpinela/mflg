@@ -28,7 +28,7 @@ type WrappedLine struct {
 	Text  string
 }
 
-// Point represents a point in text-space.
+// Point represents a two-dimensional integer point in text or window space.
 type Point struct{ X, Y int }
 
 // Less reports whether p comes before q in the text.
@@ -40,6 +40,18 @@ func (p Point) Less(q Point) bool {
 		return false
 	}
 	return p.X < q.X
+}
+
+// Range represents the region of text lying between two Points, as defined by Point.Less.
+// For any valid Range r, r.End.Less(r.Begin) is false.
+type Range struct { Begin, End Point }
+
+// Normalize returns r with its endpoints swapped if necessary so that it is valid.
+func (r Range) Normalize() Range {
+	if r.End.Less(r.Begin) {
+		return Range{r.End, r.Begin}
+	}
+	return r
 }
 
 // WrappedBuffer manages line wrapping for a Buffer.
@@ -114,30 +126,30 @@ func (wb *WrappedBuffer) Line(wy int) WrappedLine {
 }
 
 // Insert inserts text into the underlying Buffer.
-func (wb *WrappedBuffer) Insert(text string, ty, tx int) {
-	wb.src.Insert(text, ty, tx)
-	wb.refreshFrom(ty)
+func (wb *WrappedBuffer) Insert(text string, tp Point) {
+	wb.src.Insert(text, tp)
+	wb.refreshFrom(tp.Y)
 }
 
 // InsertLineBreak inserts a line break into the underlying Buffer.
-func (wb *WrappedBuffer) InsertLineBreak(ty, tx int) {
-	wb.src.InsertLineBreak(ty, tx)
-	wb.refreshFrom(ty)
+func (wb *WrappedBuffer) InsertLineBreak(tp Point) {
+	wb.src.InsertLineBreak(tp)
+	wb.refreshFrom(tp.Y)
 }
 
 // DeleteRange deletes all characters in the underlying Buffer within the specified range.
-func (wb *WrappedBuffer) DeleteRange(tyStart, txStart, tyEnd, txEnd int) {
-	wb.src.DeleteRange(tyStart, txStart, tyEnd, txEnd)
-	wb.refreshFrom(tyStart)
+func (wb *WrappedBuffer) DeleteRange(tr Range) {
+	wb.src.DeleteRange(tr)
+	wb.refreshFrom(tr.Begin.Y)
 }
 
 // DeleteChar deletes the character preceding the one at (ty, tx).
-func (wb *WrappedBuffer) DeleteChar(ty, tx int) {
-	wb.src.DeleteChar(ty, tx)
-	if tx == 0 && ty > 0 {
-		wb.refreshFrom(ty - 1)
+func (wb *WrappedBuffer) DeleteChar(tp Point) {
+	wb.src.DeleteChar(tp)
+	if tp.X == 0 && tp.Y > 0 {
+		wb.refreshFrom(tp.Y - 1)
 	} else {
-		wb.refreshFrom(ty)
+		wb.refreshFrom(tp.Y)
 	}
 }
 

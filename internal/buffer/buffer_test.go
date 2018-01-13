@@ -124,3 +124,11 @@ func TestIndentAutodetect(t *testing.T) {
 		})
 	}
 }
+
+var wordBoundsTests = []struct {
+	y, x int
+}{}
+
+func TestWordBounds(t *testing.T) {
+	buf := bufFromData(t, testData)
+}

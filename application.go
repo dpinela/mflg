@@ -82,7 +82,7 @@ func (app *application) redraw(console io.Writer) error {
 			}
 		}
 		p := app.cursorPos()
-		_, err := console.Write([]byte(termesc.SetCursorPos(p.y+1, p.x+app.activeWindow().gutterWidth()+1)))
+		_, err := console.Write([]byte(termesc.SetCursorPos(p.Y+1, p.X+app.activeWindow().gutterWidth()+1)))
 		return err
 	} else if app.cursorVisible {
 		_, err := console.Write([]byte(termesc.HideCursor))
@@ -94,7 +94,7 @@ func (app *application) redraw(console io.Writer) error {
 func (app *application) cursorPos() point {
 	if app.promptWindow != nil {
 		p := app.promptWindow.viewportCursorPos()
-		return point{p.x, p.y + app.promptYOffset()}
+		return point{p.X, p.Y + app.promptYOffset()}
 	}
 	return app.mainWindow.viewportCursorPos()
 }

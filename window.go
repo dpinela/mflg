@@ -16,38 +16,13 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-type point struct {
-	x, y int
-}
-
-// Less returns true if p is lexicographically ordered before q,
-// considering the y-coordinate first.
-func (p point) Less(q point) bool {
-	if p.y < q.y {
-		return true
-	}
-	if p.y > q.y {
-		return false
-	}
-	return p.x < q.x
-}
-
-type textRange struct {
-	begin, end point
-}
-
-// Normalize returns tr with its endpoints swapped if tr.End comes before tr.Start. Otherwise, it returns tr unchanged.
-func (tr textRange) Normalize() textRange {
-	if tr.end.Less(tr.begin) {
-		return textRange{tr.end, tr.begin}
-	}
-	return tr
-}
+type point = buffer.Point
+type textRange = buffer.Range
 
 type window struct {
 	width, height int
-	topLine   int   //The index (in window space) of the topmost line being displayed
-	cursorPos point //The cursor position in window space
+	topLine       int   //The index (in window space) of the topmost line being displayed
+	cursorPos     point //The cursor position in window space
 
 	selectionAnchor      optionalPoint // The last point marked as an initial selection bound by keyboard
 	mouseSelectionAnchor optionalPoint // Same, but using the mouse
@@ -110,12 +85,12 @@ func tabString(width int) string {
 	return strings.Repeat(" ", width)
 }
 
-func (w *window) viewportCursorPos() point { return point{w.cursorPos.x, w.cursorPos.y - w.topLine} }
+func (w *window) viewportCursorPos() point { return point{w.cursorPos.X, w.cursorPos.Y - w.topLine} }
 func (w *window) windowPosInViewport(wp point) bool {
-	return wp.y >= w.topLine && wp.y < w.topLine+w.height
+	return wp.Y >= w.topLine && wp.Y < w.topLine+w.height
 }
 func (w *window) textPosInViewport(tp point) bool {
-	return w.windowPosInViewport(point{0, w.wrappedBuf.WindowYForTextPos(buffer.Point{X: tp.x, Y: tp.y})})
+	return w.windowPosInViewport(point{0, w.wrappedBuf.WindowYForTextPos(tp)})
 }
 func (w *window) cursorInViewport() bool { return w.windowPosInViewport(w.cursorPos) }
 
@@ -123,11 +98,11 @@ func (w *window) cursorInViewport() bool { return w.windowPosInViewport(w.cursor
 // and cursor position accordingly.
 func (w *window) resize(newHeight, newWidth int) {
 	gw := w.gutterWidth()
-	if w.cursorPos.x+gw >= newWidth {
-		w.cursorPos.x = newWidth - gw - 1
+	if w.cursorPos.X+gw >= newWidth {
+		w.cursorPos.X = newWidth - gw - 1
 	}
-	if w.cursorPos.y >= newHeight {
-		w.cursorPos.y = newHeight - 1
+	if w.cursorPos.Y >= newHeight {
+		w.cursorPos.Y = newHeight - 1
 	}
 	w.width = newWidth
 	w.height = newHeight
@@ -268,15 +243,15 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	for i := gutterLen; i < tf.gutterWidth; i++ {
 		tf.buf = append(tf.buf, ' ')
 	}
-	if tf.invertedRegion.Set && tp.Y > tf.invertedRegion.begin.y && tp.Y <= tf.invertedRegion.end.y {
+	if tf.invertedRegion.Set && tp.Y > tf.invertedRegion.Begin.Y && tp.Y <= tf.invertedRegion.End.Y {
 		tf.buf = append(tf.buf, styleInverted...)
 	}
 	for len(line) > 0 {
 		if tf.invertedRegion.Set {
-			switch (point{tp.X, tp.Y}) {
-			case tf.invertedRegion.begin:
+			switch tp {
+			case tf.invertedRegion.Begin:
 				tf.buf = append(tf.buf, styleInverted...)
-			case tf.invertedRegion.end:
+			case tf.invertedRegion.End:
 				tf.buf = append(tf.buf, styleReset...)
 			}
 		}
@@ -289,7 +264,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 		line = line[n:]
 		tp.X++
 	}
-	if tf.invertedRegion.Set && ((tp.Y >= tf.invertedRegion.begin.y && tp.Y < tf.invertedRegion.end.y) || tf.invertedRegion.end == point{tp.X, tp.Y}) {
+	if tf.invertedRegion.Set && ((tp.Y >= tf.invertedRegion.Begin.Y && tp.Y < tf.invertedRegion.End.Y) || tf.invertedRegion.End == tp) {
 		tf.buf = append(tf.buf, styleReset...)
 	}
 	if !last {
@@ -332,15 +307,15 @@ func (w *window) repeatMove(move func()) {
 	}
 }
 
-func (w *window) canMoveCursorDown() bool { return w.cursorPos.y < w.topLine+w.height-1 }
-func (w *window) canMoveCursorUp() bool   { return w.cursorPos.y > w.topLine }
+func (w *window) canMoveCursorDown() bool { return w.cursorPos.Y < w.topLine+w.height-1 }
+func (w *window) canMoveCursorUp() bool   { return w.cursorPos.Y > w.topLine }
 
 func (w *window) moveCursorDown() {
 	if !w.canMoveCursorDown() {
 		w.scrollDown()
 	}
 	if w.canMoveCursorDown() {
-		w.cursorPos.y++
+		w.cursorPos.Y++
 		w.roundCursorPos()
 	}
 }
@@ -350,7 +325,7 @@ func (w *window) moveCursorUp() {
 		w.scrollUp()
 	}
 	if w.canMoveCursorUp() {
-		w.cursorPos.y--
+		w.cursorPos.Y--
 		w.roundCursorPos()
 	}
 }
@@ -383,15 +358,15 @@ func (w *window) roundCursorPos() {
 
 func (w *window) moveCursorLeft() {
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	if tp.x > 0 {
-		w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x - 1})
+	if tp.X > 0 {
+		w.cursorPos = w.textCoordsToWindowCoords(point{Y: tp.Y, X: tp.X - 1})
 		if !w.cursorInViewport() {
-			w.topLine -= w.topLine - w.cursorPos.y
+			w.topLine -= w.topLine - w.cursorPos.Y
 			w.needsRedraw = true
 		}
-	} else if tp.y > 0 {
+	} else if tp.Y > 0 {
 		w.moveCursorUp()
-		w.cursorPos.x = w.textAreaWidth() - 1
+		w.cursorPos.X = w.textAreaWidth() - 1
 		w.roundCursorPos()
 	}
 }
@@ -403,15 +378,15 @@ func (w *window) moveCursorRight() { w.moveCursorRightBy(1) }
 func (w *window) moveCursorRightBy(n int) {
 	oldWp := w.cursorPos
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	w.cursorPos = w.textCoordsToWindowCoords(point{y: tp.y, x: tp.x + n})
+	w.cursorPos = w.textCoordsToWindowCoords(point{Y: tp.Y, X: tp.X + n})
 	// If we're at the end of a text-space line, we can move right no further within it; go to the next line.
 	// Since this is the end of the line, it is guaranteed that the start of the next is at the start of the next
 	// window-space line.
-	if oldWp == w.cursorPos && tp.y+1 < w.buf.LineCount() {
-		w.cursorPos = point{0, w.cursorPos.y + 1}
+	if oldWp == w.cursorPos && tp.Y+1 < w.buf.LineCount() {
+		w.cursorPos = point{0, w.cursorPos.Y + 1}
 	}
 	if !w.cursorInViewport() {
-		w.topLine += w.cursorPos.y - (w.topLine + w.height) + 1
+		w.topLine += w.cursorPos.Y - (w.topLine + w.height) + 1
 		w.needsRedraw = true
 	}
 }
@@ -469,16 +444,16 @@ func scanLineUntil(line string, startTx int, stopAt func(wx, tx int) bool) (wx, 
 }
 
 func (w *window) windowCoordsToTextCoords(wp point) (tp point) {
-	line := w.wrappedBuf.Line(wp.y)
-	_, tx := scanLineUntil(line.Text, line.Start.X, func(wx, _ int) bool { return wx >= wp.x })
+	line := w.wrappedBuf.Line(wp.Y)
+	_, tx := scanLineUntil(line.Text, line.Start.X, func(wx, _ int) bool { return wx >= wp.X })
 	return point{tx, line.Start.Y}
 }
 
 func (w *window) textCoordsToWindowCoords(tp point) (wp point) {
-	wy := w.wrappedBuf.WindowYForTextPos(buffer.Point{tp.x, tp.y})
+	wy := w.wrappedBuf.WindowYForTextPos(tp)
 	line := w.wrappedBuf.Line(wy)
-	wx, _ := scanLineUntil(line.Text, line.Start.X, func(_, tx int) bool { return tx >= tp.x })
-	return point{wx, wy}
+	wx, _ := scanLineUntil(line.Text, line.Start.X, func(_, tx int) bool { return tx >= tp.X })
+	return point{X: wx, Y: wy}
 }
 
 func prefixUntil(text string, pred func(rune) bool) string {
@@ -501,18 +476,18 @@ func (w *window) typeText(text string) {
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	switch text[0] {
 	case '\r':
-		indent := leadingIndentation(w.buf.Line(tp.y))
-		w.wrappedBuf.InsertLineBreak(tp.y, tp.x)
-		w.wrappedBuf.Insert(indent, tp.y+1, 0)
+		indent := leadingIndentation(w.buf.Line(tp.Y))
+		w.wrappedBuf.InsertLineBreak(tp)
+		w.wrappedBuf.Insert(indent, buffer.Point{Y: tp.Y + 1, X: 0})
 		w.updateWrapWidth()
 		w.moveCursorDown() // Needed to ensure scrolling if necessary
-		w.cursorPos = w.textCoordsToWindowCoords(point{len(indent), tp.y + 1})
+		w.cursorPos = w.textCoordsToWindowCoords(point{X: len(indent), Y: tp.Y + 1})
 	case '\t':
-		w.wrappedBuf.Insert(w.tabString, tp.y, tp.x)
+		w.wrappedBuf.Insert(w.tabString, tp)
 		w.updateWrapWidth()
 		w.moveCursorRightBy(len(w.tabString))
 	default:
-		w.wrappedBuf.Insert(text, tp.y, tp.x)
+		w.wrappedBuf.Insert(text, tp)
 		w.updateWrapWidth()
 		w.moveCursorRight()
 	}
@@ -522,32 +497,32 @@ func (w *window) backspace() {
 	w.dirty = true
 	w.needsRedraw = true
 	if w.selection.Set {
-		w.wrappedBuf.DeleteRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x)
+		w.wrappedBuf.DeleteRange(w.selection.textRange)
 		w.updateWrapWidth()
-		w.gotoTextPos(w.selection.begin)
+		w.gotoTextPos(w.selection.Begin)
 		w.selection = optionalTextRange{}
 		return
 	}
 	newX := 0
-	if w.cursorPos.y > 0 {
-		newX = displayLen(w.wrappedBuf.Line(w.cursorPos.y - 1).Text)
+	if w.cursorPos.Y > 0 {
+		newX = displayLen(w.wrappedBuf.Line(w.cursorPos.Y - 1).Text)
 	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	w.wrappedBuf.DeleteChar(tp.y, tp.x)
+	w.wrappedBuf.DeleteChar(tp)
 	w.updateWrapWidth()
 	switch {
-	case tp.x > 0:
-		w.gotoTextPos(point{y: tp.y, x: tp.x - 1})
-	case tp.y > 0:
+	case tp.X > 0:
+		w.gotoTextPos(point{Y: tp.Y, X: tp.X - 1})
+	case tp.Y > 0:
 		w.moveCursorUp()
-		w.cursorPos.x = newX
+		w.cursorPos.X = newX
 		w.roundCursorPos()
 	}
 }
 
 func (w *window) gotoTextPos(tp point) {
 	if !w.textPosInViewport(tp) {
-		w.gotoLine(tp.y)
+		w.gotoLine(tp.Y)
 	}
 	w.cursorPos = w.textCoordsToWindowCoords(tp)
 }
@@ -596,7 +571,7 @@ func (w *window) clearSelection() {
 
 func (w *window) copySelection() {
 	if w.selection.Set {
-		go clipboard.Copy(w.buf.CopyRange(w.selection.begin.y, w.selection.begin.x, w.selection.end.y, w.selection.end.x))
+		go clipboard.Copy(w.buf.CopyRange(w.selection.textRange))
 	}
 }
 
@@ -610,7 +585,7 @@ func (w *window) paste() {
 	}
 	s := string(data)
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	w.wrappedBuf.Insert(s, tp.y, tp.x)
+	w.wrappedBuf.Insert(s, tp)
 	w.updateWrapWidth()
 	w.gotoTextPos(posAfterInsertion(tp, s))
 	w.needsRedraw = true
@@ -620,10 +595,10 @@ func posAfterInsertion(tp point, data string) point {
 	for len(data) > 0 {
 		n := buffer.NextCharBoundary(data)
 		if data[:n] == "\n" {
-			tp.y++
-			tp.x = 0
+			tp.Y++
+			tp.X = 0
 		} else {
-			tp.x++
+			tp.X++
 		}
 		data = data[n:]
 	}
@@ -666,7 +641,7 @@ func (w *window) inMouseSelection() bool {
 }
 
 func (w *window) setCursorPosFromMouse(ev termesc.MouseEvent) {
-	w.cursorPos.x = ev.X - w.gutterWidth()
-	w.cursorPos.y = ev.Y + w.topLine
+	w.cursorPos.X = ev.X - w.gutterWidth()
+	w.cursorPos.Y = ev.Y + w.topLine
 	w.roundCursorPos()
 }

@@ -127,6 +127,10 @@ func (b *Buffer) Line(i int) string {
 // LineCount returns the number of lines in the buffer.
 func (b *Buffer) LineCount() int { return len(b.lines) }
 
+func (b *Buffer) WordBoundsAt(p Point) Range {
+	return Range{}
+}
+
 func ByteIndexForChar(line string, col int) int {
 	p := 0
 	for i := 0; p < len(line) && i < col; i++ {
@@ -135,18 +139,18 @@ func ByteIndexForChar(line string, col int) int {
 	return p
 }
 
-func (b *Buffer) Insert(text string, row, col int) {
-	line := b.lines[row]
-	insPoint := ByteIndexForChar(line, col)
+func (b *Buffer) Insert(text string, p Point) {
+	line := b.lines[p.Y]
+	insPoint := ByteIndexForChar(line, p.X)
 	numNewLines := strings.Count(text, "\n")
 	if numNewLines > 0 {
 		b.lines = append(b.lines, make([]string, numNewLines)...)
-		copy(b.lines[row+1+numNewLines:], b.lines[row+1:])
-		p := strings.IndexByte(text, '\n')
+		copy(b.lines[p.Y+1+numNewLines:], b.lines[p.Y+1:])
+		nl := strings.IndexByte(text, '\n')
 		carry := line[insPoint:]
-		b.lines[row] = line[:insPoint] + text[:p+1]
-		text = text[p+1:]
-		for i := row + 1; p != -1; i++ {
+		b.lines[p.Y] = line[:insPoint] + text[:nl+1]
+		text = text[nl+1:]
+		for i := p.Y + 1; nl != -1; i++ {
 			newLine := text
 			q := strings.IndexByte(text, '\n')
 			if q != -1 {
@@ -154,12 +158,12 @@ func (b *Buffer) Insert(text string, row, col int) {
 				newLine, text = text[:q], text[q:]
 			}
 			b.lines[i] = newLine
-			p = q
+			nl = q
 		}
-		b.lines[row+numNewLines] = b.lines[row+numNewLines] + carry
+		b.lines[p.Y+numNewLines] = b.lines[p.Y+numNewLines] + carry
 		return
 	}
-	b.lines[row] = line[:insPoint] + text + line[insPoint:]
+	b.lines[p.Y] = line[:insPoint] + text + line[insPoint:]
 }
 
 func dup(b []byte) []byte {
@@ -176,58 +180,55 @@ func dupToLine(b []byte) []byte {
 	return c
 }
 
-func (b *Buffer) InsertLineBreak(row, col int) {
-	line := b.lines[row]
+func (b *Buffer) InsertLineBreak(p Point) {
+	line := b.lines[p.Y]
 	b.lines = append(b.lines, "")
-	copy(b.lines[row+1:], b.lines[row:])
-	p := ByteIndexForChar(line, col)
-	b.lines[row] = line[:p] + "\n"
-	b.lines[row+1] = line[p:]
+	copy(b.lines[p.Y+1:], b.lines[p.Y:])
+	i := ByteIndexForChar(line, p.X)
+	b.lines[p.Y] = line[:i] + "\n"
+	b.lines[p.Y+1] = line[i:]
 }
 
-func (b *Buffer) DeleteChar(row, col int) {
+func (b *Buffer) DeleteChar(p Point) {
 	// If we're deleting before the start of a line, concatenate it into the previous one,
 	// then remove it.
-	if col == 0 {
-		if row == 0 {
+	if p.X == 0 {
+		if p.Y == 0 {
 			return
 		}
-		prevLine := b.lines[row-1]
-		b.lines[row-1] = prevLine[:len(prevLine)-1] + b.lines[row]
-		copy(b.lines[row:], b.lines[row+1:])
+		prevLine := b.lines[p.Y-1]
+		b.lines[p.Y-1] = prevLine[:len(prevLine)-1] + b.lines[p.Y]
+		copy(b.lines[p.Y:], b.lines[p.Y+1:])
 		b.lines = b.lines[:len(b.lines)-1]
 	} else {
-		line := b.lines[row]
-		p := ByteIndexForChar(line, col-1)
-		n := NextCharBoundary(line[p:])
-		b.lines[row] = line[:p] + line[p+n:]
+		line := b.lines[p.Y]
+		i := ByteIndexForChar(line, p.X-1)
+		n := NextCharBoundary(line[i:])
+		b.lines[p.Y] = line[:i] + line[i+n:]
 	}
 }
 
 // DeleteRange deletes all characters in the given range, including line breaks.
 // The range is treated as a half-open range, and may extend past the end of the text.
-func (b *Buffer) DeleteRange(rowStart, colStart, rowEnd, colEnd int) {
-	if rowEnd < rowStart || (rowStart == rowEnd && colEnd < colStart) {
-		rowStart, rowEnd = rowEnd, rowStart
-		colStart, colEnd = colEnd, colStart
-	}
-	if rowStart >= len(b.lines) {
+func (b *Buffer) DeleteRange(r Range) {
+	r = r.Normalize()
+	if r.Begin.Y >= len(b.lines) {
 		return
 	}
-	p := ByteIndexForChar(b.lines[rowStart], colStart)
-	if rowEnd >= len(b.lines) {
-		b.lines[rowStart] = b.lines[rowStart][:p]
-		b.lines = b.lines[rowStart+1:]
+	p := ByteIndexForChar(b.lines[r.Begin.Y], r.Begin.X)
+	if r.End.Y >= len(b.lines) {
+		b.lines[r.Begin.Y] = b.lines[r.Begin.Y][:p]
+		b.lines = b.lines[r.Begin.Y+1:]
 		return
 	}
-	q := ByteIndexForChar(b.lines[rowEnd], colEnd)
-	b.lines[rowStart] = b.lines[rowStart][:p] + b.lines[rowEnd][q:]
-	if rowStart != rowEnd {
+	q := ByteIndexForChar(b.lines[r.End.Y], r.End.X)
+	b.lines[r.Begin.Y] = b.lines[r.Begin.Y][:p] + b.lines[r.End.Y][q:]
+	if r.Begin.Y != r.End.Y {
 		// Delete all the lines entirely between the start and the end point;
 		// the line where the end point lies is deleted too, since it was
 		// merged into the start line.
-		copy(b.lines[rowStart+1:], b.lines[rowEnd+1:])
-		b.lines = b.lines[:len(b.lines)-(rowEnd-rowStart)]
+		copy(b.lines[r.Begin.Y+1:], b.lines[r.End.Y+1:])
+		b.lines = b.lines[:len(b.lines)-(r.End.Y-r.Begin.Y)]
 	}
 }
 
@@ -236,15 +237,15 @@ func (b *Buffer) ReplaceLine(y int, text string) { b.lines[y] = text }
 
 // CopyRange returns a copy of the characters in the given range, as a
 // contiguous slice.
-func (b *Buffer) CopyRange(rowStart, colStart, rowEnd, colEnd int) []byte {
-	p := ByteIndexForChar(b.lines[rowStart], colStart)
-	q := ByteIndexForChar(b.lines[rowEnd], colEnd)
-	if rowStart == rowEnd {
-		return []byte(b.lines[rowStart][p:q])
+func (b *Buffer) CopyRange(r Range) []byte {
+	p := ByteIndexForChar(b.lines[r.Begin.Y], r.Begin.X)
+	q := ByteIndexForChar(b.lines[r.End.Y], r.End.X)
+	if r.Begin.Y == r.End.Y {
+		return []byte(b.lines[r.Begin.Y][p:q])
 	}
-	out := []byte(b.lines[rowStart][p:])
-	for i := rowStart + 1; i < rowEnd; i++ {
+	out := []byte(b.lines[r.Begin.Y][p:])
+	for i := r.Begin.Y + 1; i < r.End.Y; i++ {
 		out = append(out, b.lines[i]...)
 	}
-	return append(out, b.lines[rowEnd][:q]...)
+	return append(out, b.lines[r.End.Y][:q]...)
 }
