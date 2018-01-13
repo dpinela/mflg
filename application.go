@@ -105,7 +105,7 @@ func (app *application) handleMouseEvent(ev termesc.MouseEvent) {
 		app.promptWindow.handleMouseEvent(ev)
 		return
 	}
-	if app.promptWindow != nil {
+	if app.promptWindow != nil && !ev.Move {
 		app.cancelPrompt()
 	}
 	app.mainWindow.handleMouseEvent(ev)
