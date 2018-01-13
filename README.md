@@ -21,6 +21,7 @@ In other words, more like an advanced nano and less like vi or emacs.
 ## Commands
 
 - **Copy**: Control-C
+- **Cut**: Control-X
 - **Paste**: Control-V
 - **Replace**: Control-R, then type a regex, then the replacement. You may use $1, $2, $3... to refer to captured groups, and $name or ${name} to refer to named groups. To insert a literal $, use $$ (see [the Go regexp docs][go-regexp]).
 - **Save**: Control-S
@@ -35,7 +36,8 @@ In other words, more like an advanced nano and less like vi or emacs.
   - Type a regex to go to the first occurrence of that regex
 - **Move cursor**: arrow keys (hold down/press repeatedly to move faster)
 
-_Caveat_: Right now, it isn't possible to use the **Go to Location** command to find a number, because it will be interpreted as a line number. This may change at some point.
+_Caveat_: To use the **Go to Location** command to find a number, enclose it in a group (ex.: `(666)`) so that it isn't
+mistaken for a line number.
 
 ### Selection
 
@@ -43,4 +45,4 @@ To select a range of text, use **Anchor** at each end of the range consecutively
 Alternatively, you may click and drag the mouse to select, like in a GUI editor.
 
 - **Anchor**: Control-A
-- **Clear Selection**: Control-X (cancels any in-progress selection as well)
+- **Clear Selection**: ESC (cancels any in-progress selection as well)

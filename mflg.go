@@ -165,13 +165,17 @@ func main() {
 					aw.markSelectionBound()
 				}
 			case "\x18":
-				aw.resetSelectionState()
+				aw.copySelection()
+				aw.backspace()
 			case "\x03":
 				aw.copySelection()
 			case "\x16":
 				aw.paste()
 			case "\x1b":
-				if app.promptWindow != nil {
+				switch {
+				case aw.selection.Set || aw.selectionAnchor.Set || aw.mouseSelectionAnchor.Set:
+					aw.resetSelectionState()
+				case app.promptWindow != nil:
 					app.cancelPrompt()
 				}
 			default:
