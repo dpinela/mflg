@@ -248,7 +248,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	for i := gutterLen; i < tf.gutterWidth; i++ {
 		tf.buf = append(tf.buf, ' ')
 	}
-	if tf.invertedRegion.Set && tp.Y > tf.invertedRegion.Begin.Y && tp.Y <= tf.invertedRegion.End.Y {
+	if tf.invertedRegion.Set && !tp.Less(tf.invertedRegion.Begin) && tp.Less(tf.invertedRegion.End) {
 		tf.buf = append(tf.buf, styleInverted...)
 	}
 	for len(line) > 0 {
