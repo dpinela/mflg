@@ -433,15 +433,32 @@ func TestCancelMouseSelection(t *testing.T) {
 func TestWordSelection(t *testing.T) {
 	w := newTestWindowA(t)
 	w.needsRedraw = false
-	for i := 0; i < 2; i++ {
-		w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 4, Y: 2})
-	}
+	doubleClick(w, 4, 2)
 	checkSelection(t, 1, w, optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true})
 	checkNeedsRedraw(t, w)
 }
 
+func TestFailedWordSelection(t *testing.T) {
+	w := newTestWindowA(t)
+	w.needsRedraw = false
+	doubleClick(w, 9, 0)
+	checkSelection(t, 1, w, optionalTextRange{})
+	// FIXME: This is consistent with the single-click behaviour (clicking inside a tab goes to the next character),
+	// but maybe that should change (so that clicking on a character always puts the cursor before that
+	// character).
+	//doubleClick(w, 4, 5)
+	//checkSelection(t, 2, w, optionalTextRange{})
+}
+
+func doubleClick(w *window, x, y int) {
+	for i := 0; i < 2; i++ {
+		w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: x, Y: y})
+	}
+}
+
 func TestWordSelectionDrag(t *testing.T) {
 	w := newTestWindowA(t)
+	w.needsRedraw = false
 	click := termesc.MouseEvent{Button: termesc.LeftButton, X: 4, Y: 2}
 	release := click
 	release.Button = termesc.ReleaseButton
