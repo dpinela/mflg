@@ -26,6 +26,7 @@ type window struct {
 
 	selectionAnchor      optionalPoint // The last point marked as an initial selection bound by keyboard
 	mouseSelectionAnchor optionalPoint // Same, but using the mouse
+	wordSelectionAnchor  optionalTextRange
 	selection            optionalTextRange
 
 	// If not empty, this text is displayed in each gutter line instead of the line number.
@@ -35,10 +36,7 @@ type window struct {
 
 	moveTicker streak.Tracker
 
-	lastMouseClick struct {
-		event termesc.MouseEvent
-		when  time.Time
-	}
+	lastMouseRelease, lastMouseLeftPress timedMouseEvent
 
 	dirty bool //Indicates whether the contents of the window's buffer have been modified
 	//Indicates whether the visible part of the window has changed since it was last
@@ -48,6 +46,16 @@ type window struct {
 	buf        *buffer.Buffer        // The buffer being edited in the window
 	wrappedBuf *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
 	tabString  string                // The string that should be inserted when typing a tab
+}
+
+type timedMouseEvent struct {
+	termesc.MouseEvent
+	when time.Time
+}
+
+func (tev *timedMouseEvent) put(ev termesc.MouseEvent) {
+	tev.MouseEvent = ev
+	tev.when = time.Now()
 }
 
 type optionalPoint struct {
@@ -611,37 +619,51 @@ func posAfterInsertion(tp point, data string) point {
 }
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
+	const doubleClickInterval = time.Second / 2
+
 	switch ev.Button {
 	case termesc.LeftButton:
 		if ev.Move {
+			tp := w.textPosFromMouse(ev)
+			w.cursorPos = w.textCoordsToWindowCoords(tp)
 			// This is true if and only if a mouse selection has been started, but not ended yet;
 			// during that period, update the selection as the cursor moves. Releasing is thus technically
 			// a no-op, since when the release event fires we already detected the cursor moving into the
 			// second end of the range.
-			if w.mouseSelectionAnchor.Set {
-				w.cursorPos = w.cursorPosFromMouse(ev)
-				w.selection.Put(textRange{w.mouseSelectionAnchor.point, w.windowCoordsToTextCoords(w.cursorPos)}.Normalize())
+			switch {
+			case w.mouseSelectionAnchor.Set:
+				w.selection.Put(textRange{w.mouseSelectionAnchor.point, tp}.Normalize())
 				w.needsRedraw = true
+			case w.wordSelectionAnchor.Set:
+				if newWord := w.buf.WordBoundsAt(tp); !newWord.Empty() {
+					w.selection.Put(buffer.Range{
+						minPoint(newWord.Begin, w.wordSelectionAnchor.Begin),
+						maxPoint(newWord.End, w.wordSelectionAnchor.End)})
+					w.needsRedraw = true
+				}
 			}
 		} else {
-			w.cursorPos = w.cursorPosFromMouse(ev)
-			w.mouseSelectionAnchor.Put(w.windowCoordsToTextCoords(w.cursorPos))
+			tpNew := w.textPosFromMouse(ev)
+			w.cursorPos = w.textCoordsToWindowCoords(tpNew)
+			if time.Since(w.lastMouseLeftPress.when) < doubleClickInterval {
+				if w.trySelectWord(w.textPosFromMouse(w.lastMouseLeftPress.MouseEvent), tpNew) {
+					w.wordSelectionAnchor.Put(w.selection.textRange)
+				}
+			} else {
+				w.mouseSelectionAnchor.Put(tpNew)
+			}
+			w.lastMouseLeftPress.put(ev)
 		}
 	case termesc.ReleaseButton:
 		tpNew := w.textPosFromMouse(ev)
 		w.cursorPos = w.textCoordsToWindowCoords(tpNew)
 		// Definition of a double-click: clicking twice on the same word within 0.5 seconds.
-		if time.Since(w.lastMouseClick.when) < time.Second/2 {
-			tpOld := w.textPosFromMouse(w.lastMouseClick.event)
-			if wordBounds := w.buf.WordBoundsAt(tpOld); wordBounds == w.buf.WordBoundsAt(tpNew) && !wordBounds.Empty() {
-				w.selection.Put(wordBounds)
-				w.needsRedraw = true
-			}
+		if time.Since(w.lastMouseRelease.when) < doubleClickInterval {
+			w.trySelectWord(w.textPosFromMouse(w.lastMouseRelease.MouseEvent), tpNew)
 		} else if w.mouseSelectionAnchor.Set {
 			w.selectToCursorPos(&w.mouseSelectionAnchor)
 		}
-		w.lastMouseClick.event = ev
-		w.lastMouseClick.when = time.Now()
+		w.lastMouseRelease.put(ev)
 	case termesc.ScrollUpButton:
 		w.scrollUp()
 		w.roundCursorPos()
@@ -649,6 +671,29 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 		w.scrollDown()
 		w.roundCursorPos()
 	}
+}
+
+func minPoint(p, q buffer.Point) buffer.Point {
+	if p.Less(q) {
+		return p
+	}
+	return q
+}
+
+func maxPoint(p, q buffer.Point) buffer.Point {
+	if p.Less(q) {
+		return q
+	}
+	return p
+}
+
+func (w *window) trySelectWord(tpOld, tpNew buffer.Point) bool {
+	if wordBounds := w.buf.WordBoundsAt(tpOld); wordBounds == w.buf.WordBoundsAt(tpNew) && !wordBounds.Empty() {
+		w.selection.Put(wordBounds)
+		w.needsRedraw = true
+		return true
+	}
+	return false
 }
 
 func (w *window) inMouseSelection() bool {
