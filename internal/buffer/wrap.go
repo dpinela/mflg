@@ -54,6 +54,9 @@ func (r Range) Normalize() Range {
 	return r
 }
 
+// Empty reports whether r spans no characters.
+func (r Range) Empty() bool { return r.Begin == r.End }
+
 // WrappedBuffer manages line wrapping for a Buffer.
 //
 // When using a WrappedBuffer for display, all edits should go through it to ensure that the wrap boundaries

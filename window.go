@@ -633,7 +633,7 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 		// Definition of a double-click: clicking twice on the same word within 0.5 seconds.
 		if time.Since(w.lastMouseClick.when) < time.Second/2 {
 			tpOld := w.textPosFromMouse(w.lastMouseClick.event)
-			if wordBounds := w.buf.WordBoundsAt(tpOld); wordBounds == w.buf.WordBoundsAt(tpNew) {
+			if wordBounds := w.buf.WordBoundsAt(tpOld); wordBounds == w.buf.WordBoundsAt(tpNew) && !wordBounds.Empty() {
 				w.selection.Put(wordBounds)
 				w.needsRedraw = true
 			}

@@ -432,6 +432,7 @@ func TestCancelMouseSelection(t *testing.T) {
 
 func TestWordSelection(t *testing.T) {
 	w := newTestWindowA(t)
+	w.needsRedraw = false
 	for i := 0; i < 2; i++ {
 		w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 4, Y: 2})
 	}
