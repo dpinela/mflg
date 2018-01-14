@@ -72,7 +72,7 @@ func TestInsertMultiLine(t *testing.T) {
 	buf := bufFromData(t, multilineTestData)
 	n := buf.LineCount()
 	wantN := n + 2
-	buf.Insert("DING\nTEXT\nFOO", 0, 5)
+	buf.Insert("DING\nTEXT\nFOO", Point{5, 0})
 	testContent(t, buf, multilineDataAfterInsert)
 	if buf.LineCount() != wantN {
 		t.Errorf("after insert: got %d lines, want %d", buf.LineCount(), wantN)
@@ -81,7 +81,7 @@ func TestInsertMultiLine(t *testing.T) {
 
 func TestInsertSingleLine(t *testing.T) {
 	buf := bufFromData(t, multilineTestData)
-	buf.Insert("DING", 0, 5)
+	buf.Insert("DING", Point{5, 0})
 	testContent(t, buf, multilineDataAfterInsertSL)
 }
 
@@ -125,10 +125,36 @@ func TestIndentAutodetect(t *testing.T) {
 	}
 }
 
+const wordBoundsBracketsTest = "teach(a)[man]->to {fish,now}"
+
 var wordBoundsTests = []struct {
-	y, x int
-}{}
+	in   string
+	p    Point
+	want Range
+}{
+	// Points within words
+	{in: multilineTestData, p: Point{7, 0}, want: Range{Point{6, 0}, Point{11, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{0, 0}, want: Range{Point{0, 0}, Point{5, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{6, 0}, want: Range{Point{6, 0}, Point{7, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{11, 0}, want: Range{Point{9, 0}, Point{12, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{15, 0}, want: Range{Point{15, 0}, Point{17, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{20, 0}, want: Range{Point{19, 0}, Point{23, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{25, 0}, want: Range{Point{24, 0}, Point{27, 0}}},
+
+	// Points outside of words
+	{in: multilineTestData, p: Point{5, 0}, want: Range{Point{5, 0}, Point{5, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{5, 0}, want: Range{Point{5, 0}, Point{5, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{8, 0}, want: Range{Point{8, 0}, Point{8, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{12, 0}, want: Range{Point{12, 0}, Point{12, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{18, 0}, want: Range{Point{18, 0}, Point{18, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{23, 0}, want: Range{Point{23, 0}, Point{23, 0}}},
+	{in: wordBoundsBracketsTest, p: Point{27, 0}, want: Range{Point{27, 0}, Point{27, 0}}},
+}
 
 func TestWordBounds(t *testing.T) {
-	buf := bufFromData(t, testData)
+	for _, tt := range wordBoundsTests {
+		if r := bufFromData(t, tt.in).WordBoundsAt(tt.p); r != tt.want {
+			t.Errorf("word bounds at %v in %q...: got %v, want %v", tt.p, tt.in[:20], r, tt.want)
+		}
+	}
 }

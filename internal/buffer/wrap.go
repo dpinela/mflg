@@ -44,7 +44,7 @@ func (p Point) Less(q Point) bool {
 
 // Range represents the region of text lying between two Points, as defined by Point.Less.
 // For any valid Range r, r.End.Less(r.Begin) is false.
-type Range struct { Begin, End Point }
+type Range struct{ Begin, End Point }
 
 // Normalize returns r with its endpoints swapped if necessary so that it is valid.
 func (r Range) Normalize() Range {

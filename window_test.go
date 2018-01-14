@@ -430,6 +430,36 @@ func TestCancelMouseSelection(t *testing.T) {
 	}
 }
 
+func TestWordSelection(t *testing.T) {
+	w := newTestWindowA(t)
+	for i := 0; i < 2; i++ {
+		w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 4, Y: 2})
+	}
+	checkSelection(t, 1, w, optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true})
+	checkNeedsRedraw(t, w)
+}
+
+func TestWordSelectionDrag(t *testing.T) {
+	w := newTestWindowA(t)
+	click := termesc.MouseEvent{Button: termesc.LeftButton, X: 4, Y: 2}
+	release := click
+	release.Button = termesc.ReleaseButton
+	w.handleMouseEvent(click)
+	w.handleMouseEvent(release)
+	w.handleMouseEvent(click)
+	checkSelection(t, 1, w, optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true})
+	checkNeedsRedraw(t, w)
+	w.needsRedraw = false
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 9, Y: 2, Move: true})
+	checkSelection(t, 2, w, optionalTextRange{textRange{point{0, 2}, point{9, 2}}, true})
+	checkNeedsRedraw(t, w)
+	w.needsRedraw = false
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 10, Y: 4, Move: true})
+	checkSelection(t, 3, w, optionalTextRange{textRange{point{0, 2}, point{16, 4}}, true})
+	checkNeedsRedraw(t, w)
+	w.needsRedraw = false
+}
+
 var testSelection = optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true}
 
 func checkSelection(t *testing.T, step int, w *window, want optionalTextRange) {

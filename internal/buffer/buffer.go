@@ -5,6 +5,10 @@ import (
 	"bufio"
 	"io"
 	"strings"
+
+	"golang.org/x/text/unicode/norm"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Buffer is a text buffer that support efficient access to individual lines of text.
@@ -127,8 +131,42 @@ func (b *Buffer) Line(i int) string {
 // LineCount returns the number of lines in the buffer.
 func (b *Buffer) LineCount() int { return len(b.lines) }
 
+// WordBoundsAt finds the boundaries of the word spanning text-space point p, if there is one.
+// If there isn't, it returns an empty range whose endpoints are both equal to p.
+// A word is defined as a sequence of Unicode letters and numbers, possibly with combining marks.
 func (b *Buffer) WordBoundsAt(p Point) Range {
-	return Range{}
+	line := b.lines[p.Y]
+	i := ByteIndexForChar(line, p.X)
+	startX, endX := p.X, p.X
+	for j := i; j < len(line); {
+		k := NextCharBoundary(line[j:])
+		if !isWordChar(line[j : j+k]) {
+			break
+		}
+		j += k
+		endX++
+	}
+	// If we didn't find any word characters ahead of p, we're not inside a word, so we can stop now.
+	if endX == p.X {
+		return Range{p, p}
+	}
+	for lineB := []byte(line[:i]); len(lineB) > 0; {
+		k := norm.NFC.LastBoundary(lineB)
+		if k == -1 {
+			k = 0
+		}
+		if !isWordChar(string(lineB[k:])) {
+			break
+		}
+		lineB = lineB[:k]
+		startX--
+	}
+	return Range{Point{startX, p.Y}, Point{endX, p.Y}}
+}
+
+func isWordChar(char string) bool {
+	r, _ := utf8.DecodeRuneInString(char)
+	return r == '_' || unicode.In(r, unicode.L, unicode.N)
 }
 
 func ByteIndexForChar(line string, col int) int {

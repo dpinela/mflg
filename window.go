@@ -35,6 +35,11 @@ type window struct {
 
 	moveTicker streak.Tracker
 
+	lastMouseClick struct {
+		event termesc.MouseEvent
+		when  time.Time
+	}
+
 	dirty bool //Indicates whether the contents of the window's buffer have been modified
 	//Indicates whether the visible part of the window has changed since it was last
 	//drawn
@@ -614,19 +619,29 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 			// a no-op, since when the release event fires we already detected the cursor moving into the
 			// second end of the range.
 			if w.mouseSelectionAnchor.Set {
-				w.setCursorPosFromMouse(ev)
+				w.cursorPos = w.cursorPosFromMouse(ev)
 				w.selection.Put(textRange{w.mouseSelectionAnchor.point, w.windowCoordsToTextCoords(w.cursorPos)}.Normalize())
 				w.needsRedraw = true
 			}
 		} else {
-			w.setCursorPosFromMouse(ev)
+			w.cursorPos = w.cursorPosFromMouse(ev)
 			w.mouseSelectionAnchor.Put(w.windowCoordsToTextCoords(w.cursorPos))
 		}
 	case termesc.ReleaseButton:
-		w.setCursorPosFromMouse(ev)
-		if w.mouseSelectionAnchor.Set {
+		tpNew := w.textPosFromMouse(ev)
+		w.cursorPos = w.textCoordsToWindowCoords(tpNew)
+		// Definition of a double-click: clicking twice on the same word within 0.5 seconds.
+		if time.Since(w.lastMouseClick.when) < time.Second/2 {
+			tpOld := w.textPosFromMouse(w.lastMouseClick.event)
+			if wordBounds := w.buf.WordBoundsAt(tpOld); wordBounds == w.buf.WordBoundsAt(tpNew) {
+				w.selection.Put(wordBounds)
+				w.needsRedraw = true
+			}
+		} else if w.mouseSelectionAnchor.Set {
 			w.selectToCursorPos(&w.mouseSelectionAnchor)
 		}
+		w.lastMouseClick.event = ev
+		w.lastMouseClick.when = time.Now()
 	case termesc.ScrollUpButton:
 		w.scrollUp()
 		w.roundCursorPos()
@@ -638,6 +653,14 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 
 func (w *window) inMouseSelection() bool {
 	return w.mouseSelectionAnchor.Set
+}
+
+func (w *window) textPosFromMouse(ev termesc.MouseEvent) point {
+	return w.windowCoordsToTextCoords(point{X: ev.X - w.gutterWidth(), Y: ev.Y + w.topLine})
+}
+
+func (w *window) cursorPosFromMouse(ev termesc.MouseEvent) point {
+	return w.textCoordsToWindowCoords(w.textPosFromMouse(ev))
 }
 
 func (w *window) setCursorPosFromMouse(ev termesc.MouseEvent) {
