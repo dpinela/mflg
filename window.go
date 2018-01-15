@@ -635,12 +635,11 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 				w.selection.Put(textRange{w.mouseSelectionAnchor.point, tp}.Normalize())
 				w.needsRedraw = true
 			case w.wordSelectionAnchor.Set:
-				if newWord := w.buf.WordBoundsAt(tp); !newWord.Empty() {
-					w.selection.Put(buffer.Range{
-						minPoint(newWord.Begin, w.wordSelectionAnchor.Begin),
-						maxPoint(newWord.End, w.wordSelectionAnchor.End)})
-					w.needsRedraw = true
-				}
+				newWord := w.buf.WordBoundsAt(tp)
+				w.selection.Put(buffer.Range{
+					minPoint(newWord.Begin, w.wordSelectionAnchor.Begin),
+					maxPoint(newWord.End, w.wordSelectionAnchor.End)})
+				w.needsRedraw = true
 			}
 		} else {
 			tpNew := w.textPosFromMouse(ev)

@@ -476,6 +476,9 @@ func TestWordSelectionDrag(t *testing.T) {
 	checkSelection(t, 3, w, optionalTextRange{textRange{point{0, 2}, point{16, 4}}, true})
 	checkNeedsRedraw(t, w)
 	w.needsRedraw = false
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 56, Y: 4, Move: true})
+	checkSelection(t, 4, w, optionalTextRange{textRange{point{0, 2}, point{47, 4}}, true})
+	checkNeedsRedraw(t, w)
 }
 
 var testSelection = optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true}
