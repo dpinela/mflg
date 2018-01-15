@@ -188,10 +188,8 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 	if !w.needsRedraw {
 		return nil
 	}
-	if console != nil {
-		if _, err := fmt.Fprint(console, termesc.SetCursorPos(yOffset+1, 1), termesc.ClearScreenForward); err != nil {
-			return err
-		}
+	if _, err := fmt.Fprint(console, termesc.SetCursorPos(yOffset+1, 1), termesc.ClearScreenForward); err != nil {
+		return err
 	}
 	lines := w.wrappedBuf.Lines(w.topLine, w.topLine+w.height)
 	tf := textFormatter{src: lines,
@@ -201,16 +199,10 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 		if !ok {
 			break
 		}
-		if console != nil {
-			if _, err := console.Write(line); err != nil {
-				return err
-			}
+		if _, err := console.Write(line); err != nil {
+			return err
 		}
 	}
-	w.roundCursorPos()
-
-	/*tp := w.windowCoordsToTextCoords(w.cursorPos)
-	fmt.Fprintf(w.w, "\r\x1B[1mw: %v t: %v\x1B[0m", w.cursorPos, tp)*/
 	w.needsRedraw = console == nil
 	return nil
 }
@@ -663,6 +655,7 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 			w.selectToCursorPos(&w.mouseSelectionAnchor)
 		}
 		w.lastMouseRelease.put(ev)
+		w.wordSelectionAnchor = optionalTextRange{}
 	case termesc.ScrollUpButton:
 		w.scrollUp()
 		w.roundCursorPos()
