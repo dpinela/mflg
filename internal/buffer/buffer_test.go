@@ -154,7 +154,34 @@ var wordBoundsTests = []struct {
 func TestWordBounds(t *testing.T) {
 	for _, tt := range wordBoundsTests {
 		if r := bufFromData(t, tt.in).WordBoundsAt(tt.p); r != tt.want {
-			t.Errorf("word bounds at %v in %q...: got %v, want %v", tt.p, tt.in[:20], r, tt.want)
+			t.Errorf("word bounds at %v in %q: got %v, want %v", tt.p, truncateWithEllipsis(tt.in, 20), r, tt.want)
+		}
+	}
+}
+
+func truncateWithEllipsis(s string, n int) string {
+	if n > len(s) {
+		return s
+	}
+	return s[:n] + "..."
+}
+
+var nextWordBoundTests = []struct {
+	in      string
+	p, want Point
+}{
+	{in: wordBoundsBracketsTest, p: Point{0, 0}, want: Point{5, 0}},
+	{in: wordBoundsBracketsTest, p: Point{5, 0}, want: Point{6, 0}},
+	{in: wordBoundsBracketsTest, p: Point{6, 0}, want: Point{7, 0}},
+	{in: wordBoundsBracketsTest, p: Point{7, 0}, want: Point{9, 0}},
+	{in: "", p: Point{0, 0}, want: Point{0, 0}},
+	{in: "A\nB\nC", p: Point{1, 1}, want: Point{0, 2}},
+}
+
+func TestNextWordBound(t *testing.T) {
+	for _, tt := range nextWordBoundTests {
+		if p := bufFromData(t, tt.in).NextWordBoundary(tt.p); p != tt.want {
+			t.Errorf("next word bound from %v in %q: got %v, want %v", tt.p, truncateWithEllipsis(tt.in, 20), p, tt.want)
 		}
 	}
 }

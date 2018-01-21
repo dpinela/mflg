@@ -365,10 +365,7 @@ func (w *window) moveCursorLeft() {
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	if tp.X > 0 {
 		w.cursorPos = w.textCoordsToWindowCoords(point{Y: tp.Y, X: tp.X - 1})
-		if !w.cursorInViewport() {
-			w.topLine = w.cursorPos.Y
-			w.needsRedraw = true
-		}
+		w.followCursor()
 	} else if tp.Y > 0 {
 		w.moveCursorUp()
 		w.cursorPos.X = w.textAreaWidth() - 1
@@ -390,17 +387,26 @@ func (w *window) moveCursorRightBy(n int) {
 	if oldWp == w.cursorPos && tp.Y+1 < w.buf.LineCount() {
 		w.cursorPos = point{0, w.cursorPos.Y + 1}
 	}
-	if !w.cursorInViewport() {
-		w.topLine = max(0, w.cursorPos.Y-w.height+1)
-		w.needsRedraw = true
-	}
+	w.followCursor()
 }
 
-func max(x, y int) int {
-	if x < y {
-		return y
+func (w *window) moveCursorRightWord() {
+	tp := w.windowCoordsToTextCoords(w.cursorPos)
+	w.cursorPos = w.textCoordsToWindowCoords(w.buf.NextWordBoundary(tp))
+	w.followCursor()
+}
+
+// followCursor scrolls the window towards the cursor, until the cursor is at the top or bottom edge.
+// If the cursor is already in the viewport, does nothing.
+func (w *window) followCursor() {
+	switch {
+	case w.cursorPos.Y < w.topLine:
+		w.topLine = w.cursorPos.Y
+		w.needsRedraw = true
+	case w.cursorPos.Y >= w.topLine+w.height:
+		w.topLine = w.cursorPos.Y - w.height + 1
+		w.needsRedraw = true
 	}
-	return x
 }
 
 func (w *window) searchRegexp(re *regexp.Regexp) {

@@ -1,4 +1,7 @@
 // Package termesc abstracts terminal ANSI escape codes.
+//
+// For keys which always produce the same sequence on all terminals, a constant is provided. For other keys, functions
+// of the form IsXXKey() are available.
 package termesc
 
 import (
@@ -36,6 +39,12 @@ const (
 	ShowCursor = csi + "?25h"
 )
 
+// IsAltLeftKey reports whether s represents a left arrow key press with Alt held.
+func IsAltLeftKey(s string) bool { return s == "\x1bb" || s == "\x1b\x1b[D" }
+
+// IsAltRightKey reports whether s represents a right arrow key press with Alt held.
+func IsAltRightKey(s string) bool { return s == "\x1bf" || s == "\x1b\x1b[C" }
+
 // SetCursorPos returns a code that sets the cursor's position to (y, x).
 // Coordinates are 1-based.
 func SetCursorPos(y, x int) string { return fmt.Sprintf(csi+"%d;%dH", y, x) }
@@ -72,30 +81,49 @@ func (r *ConsoleReader) ReadToken() (string, error) {
 	if c != 0x1B {
 		return string(c), nil
 	}
+	return r.readEsc()
+}
+
+func (r *ConsoleReader) readEsc() (string, error) {
 	token := make([]byte, 0, 16)
-	if nextB, err := r.peekTimeout(1, escDelay); err == nil && nextB[0] == '[' {
-		// No need to wait for the peek to finish; we know it already did, so we can
-		// safely read without triggering a race.
-		r.r.Discard(1)
-		token = append(token, 0x1B, '[')
-		for {
-			b, err := r.r.ReadByte()
-			if err != nil {
-				return string(token), err
+	switch nextB, err := r.peekTimeout(1, escDelay); err {
+	case nil:
+		switch b := nextB[0]; b {
+		case '[':
+			// No need to wait for the peek to finish; we know it already did, so we can
+			// safely read without triggering a race.
+			r.r.Discard(1)
+			token = append(token, 0x1B, '[')
+			for {
+				b, err := r.r.ReadByte()
+				if err != nil {
+					return string(token), err
+				}
+				// Old xterm-style (DECSET 1000 alone) mouse escape
+				if len(token) == 2 && b == 'M' {
+					token = append(token, 'M', 0, 0, 0)
+					_, err = io.ReadFull(r.r, token[3:])
+					return string(token), err
+				}
+				token = append(token, b)
+				if b >= 0x40 && b < 0x7F {
+					return string(token), nil
+				}
 			}
-			// Old xterm-style (DECSET 1000 alone) mouse escape
-			if len(token) == 2 && b == 'M' {
-				token = append(token, 'M', 0, 0, 0)
-				_, err = io.ReadFull(r.r, token[3:])
-				return string(token), err
-			}
-			token = append(token, b)
-			if b >= 0x40 && b < 0x7F {
-				return string(token), nil
-			}
+		case 'b', 'f':
+			r.r.Discard(1)
+			return string(append(token, 0x1b, b)), nil
+		case '\x1b':
+			r.r.Discard(1)
+			rest, err := r.readEsc()
+			return "\x1b" + rest, err
+		default:
+			return "\x1b", nil
 		}
-	} else {
-		return string(c), nil
+	case errTimedOut:
+		return "\x1b", nil
+	default:
+		return "\x1b", err
 	}
 }
 

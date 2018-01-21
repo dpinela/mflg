@@ -124,6 +124,20 @@ func TestRightArrowOffscreen(t *testing.T) {
 	checkCursorPos(t, 1, w, point{1, 0})
 }
 
+func TestArrowKeyWordNavigation(t *testing.T) {
+	w := newTestWindowA(t)
+	w.moveCursorRightWord()
+	checkCursorPos(t, 0, w, point{1, 0})
+	w.moveCursorRightWord()
+	checkCursorPos(t, 1, w, point{6, 0})
+	w.moveCursorRightWord()
+	checkCursorPos(t, 2, w, point{7, 0})
+	w.moveCursorRightWord()
+	checkCursorPos(t, 3, w, point{12, 0})
+	w.moveCursorRightWord()
+	checkCursorPos(t, 4, w, point{0, 1})
+}
+
 func TestMouseNavigation(t *testing.T) {
 	w := newTestWindow(t, 80, 50, testDocument)
 	var mouseNavTests = []struct {

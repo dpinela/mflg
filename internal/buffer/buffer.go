@@ -164,6 +164,32 @@ func (b *Buffer) WordBoundsAt(p Point) Range {
 	return Range{Point{startX, p.Y}, Point{endX, p.Y}}
 }
 
+// NextWordBoundary returns the position of the first word boundary after p. Word characters are defined as for
+// WordBoundsAt.
+//
+// If there are no more word boundaries after p, returns p.
+func (b *Buffer) NextWordBoundary(p Point) Point {
+	line := b.lines[p.Y]
+	i := ByteIndexForChar(line, p.X)
+	q := p
+	var wasInWord bool
+	for j := i; j < len(line); {
+		k := NextCharBoundary(line[j:])
+		isInWord := isWordChar(line[j : j+k])
+		if j > i && wasInWord != isInWord {
+			return q
+		}
+		j += k
+		q.X++
+		wasInWord = isInWord
+	}
+	// If we get here, we reached the end of the line without finding a word boundary.
+	if p.Y+1 < len(b.lines) {
+		return Point{0, p.Y + 1}
+	}
+	return q
+}
+
 func isWordChar(char string) bool {
 	r, _ := utf8.DecodeRuneInString(char)
 	return r == '_' || unicode.In(r, unicode.L, unicode.N)
