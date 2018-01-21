@@ -366,7 +366,7 @@ func (w *window) moveCursorLeft() {
 	if tp.X > 0 {
 		w.cursorPos = w.textCoordsToWindowCoords(point{Y: tp.Y, X: tp.X - 1})
 		if !w.cursorInViewport() {
-			w.topLine -= w.topLine - w.cursorPos.Y
+			w.topLine = w.cursorPos.Y
 			w.needsRedraw = true
 		}
 	} else if tp.Y > 0 {
@@ -391,9 +391,16 @@ func (w *window) moveCursorRightBy(n int) {
 		w.cursorPos = point{0, w.cursorPos.Y + 1}
 	}
 	if !w.cursorInViewport() {
-		w.topLine += w.cursorPos.Y - (w.topLine + w.height) + 1
+		w.topLine = max(0, w.cursorPos.Y-w.height+1)
 		w.needsRedraw = true
 	}
+}
+
+func max(x, y int) int {
+	if x < y {
+		return y
+	}
+	return x
 }
 
 func (w *window) searchRegexp(re *regexp.Regexp) {

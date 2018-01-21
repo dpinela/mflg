@@ -116,6 +116,14 @@ func TestArrowKeyNavigation(t *testing.T) {
 	checkCursorPos(t, 9, w, point{2 * tab, 9})
 }
 
+func TestRightArrowOffscreen(t *testing.T) {
+	w := newTestWindow(t, 80, 25, strings.Repeat(testDocument, 300))
+	w.topLine = 100
+	w.moveCursorRight()
+	checkTopLine(t, 1, w, 0)
+	checkCursorPos(t, 1, w, point{1, 0})
+}
+
 func TestMouseNavigation(t *testing.T) {
 	w := newTestWindow(t, 80, 50, testDocument)
 	var mouseNavTests = []struct {
