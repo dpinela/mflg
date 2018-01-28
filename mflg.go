@@ -189,6 +189,8 @@ func main() {
 					}
 				} else if termesc.IsAltRightKey(c) {
 					aw.moveCursorRightWord()
+				} else if termesc.IsAltLeftKey(c) {
+					aw.moveCursorLeftWord()
 				}
 			}
 		case <-resizeCh:
