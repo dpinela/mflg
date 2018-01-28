@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/dpinela/charseg"
+  packages = ["."]
+  revision = "040dd2efc4b144b1cb5c0de851ca0ffb90ddeba8"
+  version = "v1.0"
+
+[[projects]]
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
   revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
@@ -28,18 +34,15 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix","windows"]
+  packages = [
+    "unix",
+    "windows"
+  ]
   revision = "314a259e304ff91bd6985da2a7149bbf91237993"
-
-[[projects]]
-  branch = "master"
-  name = "golang.org/x/text"
-  packages = ["internal/gen","internal/triegen","internal/ucd","transform","unicode/cldr","unicode/norm"]
-  revision = "1cbadb444a806fd9430d14ad08967ed91da4fa0a"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "efde70c24c3437a7bf41dfd39cf7f0089cde2ceb021d4fb937d0c604a43086ce"
+  inputs-digest = "0cd62c469b0ed3c7eadc95a752808b5b1e5c147da1d4d753dba2c6b271045947"
   solver-name = "gps-cdcl"
   solver-version = 1

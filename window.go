@@ -390,9 +390,13 @@ func (w *window) moveCursorRightBy(n int) {
 	w.followCursor()
 }
 
+func (w *window) moveCursorLeftWord() {
+	w.cursorPos = w.textCoordsToWindowCoords(w.buf.PrevWordBoundary(w.windowCoordsToTextCoords(w.cursorPos)))
+	w.followCursor()
+}
+
 func (w *window) moveCursorRightWord() {
-	tp := w.windowCoordsToTextCoords(w.cursorPos)
-	w.cursorPos = w.textCoordsToWindowCoords(w.buf.NextWordBoundary(tp))
+	w.cursorPos = w.textCoordsToWindowCoords(w.buf.NextWordBoundary(w.windowCoordsToTextCoords(w.cursorPos)))
 	w.followCursor()
 }
 

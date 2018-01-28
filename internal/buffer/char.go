@@ -1,7 +1,7 @@
 package buffer
 
 import (
-	"golang.org/x/text/unicode/norm"
+	"github.com/dpinela/charseg"
 	"unicode/utf8"
 )
 
@@ -12,5 +12,9 @@ func NextCharBoundary(s string) int {
 	if len(s) < 2 {
 		return len(s)
 	}
-	return norm.NFC.NextBoundaryInString(s, true)
+	return len(charseg.FirstGraphemeCluster(s))
+}
+
+func FirstChar(s string) string {
+	return charseg.FirstGraphemeCluster(s)
 }

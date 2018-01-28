@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"golang.org/x/text/unicode/norm"
+	"github.com/dpinela/charseg"
 	"unicode"
 	"unicode/utf8"
 )
@@ -136,36 +136,30 @@ func (b *Buffer) LineCount() int { return len(b.lines) }
 // A word is defined as a sequence of Unicode letters and numbers, possibly with combining marks.
 func (b *Buffer) WordBoundsAt(p Point) Range {
 	line := b.lines[p.Y]
-	i := ByteIndexForChar(line, p.X)
-	startX, endX := p.X, p.X
-	for j := i; j < len(line); {
-		k := NextCharBoundary(line[j:])
-		if !isWordChar(line[j : j+k]) {
-			break
+	lastWordStart := -1
+	for i, x := 0, 0; i < len(line); x++ {
+		c := charseg.FirstGraphemeCluster(line[i:])
+		if isWordChar(c) {
+			if lastWordStart == -1 {
+				lastWordStart = x
+			}
+		} else {
+			if x >= p.X {
+				// If a word ends right before p, p doesn't contain it.
+				if lastWordStart == -1 || x == p.X {
+					return Range{p, p}
+				}
+				return Range{Point{lastWordStart, p.Y}, Point{x, p.Y}}
+			}
+			lastWordStart = -1
 		}
-		j += k
-		endX++
+		i += len(c)
 	}
-	// If we didn't find any word characters ahead of p, we're not inside a word, so we can stop now.
-	if endX == p.X {
-		return Range{p, p}
-	}
-	for lineB := []byte(line[:i]); len(lineB) > 0; {
-		k := norm.NFC.LastBoundary(lineB)
-		if k == -1 {
-			k = 0
-		}
-		if !isWordChar(string(lineB[k:])) {
-			break
-		}
-		lineB = lineB[:k]
-		startX--
-	}
-	return Range{Point{startX, p.Y}, Point{endX, p.Y}}
+	return Range{p, p}
 }
 
-// NextWordBoundary returns the position of the first word boundary after p. Word characters are defined as for
-// WordBoundsAt.
+// NextWordBoundary returns the position of the character to the right of the first word boundary after p.
+// Word characters are defined as for WordBoundsAt.
 //
 // If there are no more word boundaries after p, returns p.
 func (b *Buffer) NextWordBoundary(p Point) Point {
@@ -183,11 +177,48 @@ func (b *Buffer) NextWordBoundary(p Point) Point {
 		q.X++
 		wasInWord = isInWord
 	}
-	// If we get here, we reached the end of the line without finding a word boundary.
+	// If we get here, we got to the end of the line without finding a word boundary. Go to the start of the next line.
 	if p.Y+1 < len(b.lines) {
 		return Point{0, p.Y + 1}
 	}
 	return q
+}
+
+// PrevWordBoundary returns the position of the character to the left of the last word boundary before p.
+// Word characters are defined as for WordBoundsAt.
+//
+// If there are no more word boundaries before p, returns p.
+func (b *Buffer) PrevWordBoundary(p Point) Point {
+	line := b.lines[p.Y]
+	wasInWord := false
+	lastWordBoundary := -1
+	for i, x := 0, 0; i < len(line) && x < p.X; x++ {
+		c := FirstChar(line[i:])
+		isInWord := isWordChar(c)
+		if isInWord != wasInWord {
+			lastWordBoundary = x
+		}
+		wasInWord = isInWord
+		i += len(c)
+	}
+	// There is no boundary in this line before p. Go to the end of the previous line.
+	// No taking shortcuts with len() instead of charCount() here; the values might be functionally equivalent, but tests will notice the difference.
+	if lastWordBoundary == -1 {
+		if p.Y > 0 {
+			return Point{charCount(b.lines[p.Y-1]), p.Y - 1}
+		}
+		return p
+	}
+	return Point{lastWordBoundary, p.Y}
+}
+
+func charCount(s string) int {
+	n := 0
+	for s != "\n" && s != "" {
+		s = s[NextCharBoundary(s):]
+		n++
+	}
+	return n
 }
 
 func isWordChar(char string) bool {

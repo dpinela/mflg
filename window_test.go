@@ -136,6 +136,17 @@ func TestArrowKeyWordNavigation(t *testing.T) {
 	checkCursorPos(t, 3, w, point{12, 0})
 	w.moveCursorRightWord()
 	checkCursorPos(t, 4, w, point{0, 1})
+	w.moveCursorLeftWord()
+	checkCursorPos(t, 5, w, point{12, 0})
+	w.moveCursorLeftWord()
+	checkCursorPos(t, 6, w, point{7, 0})
+	w.moveCursorLeftWord()
+	checkCursorPos(t, 7, w, point{6, 0})
+	w.moveCursorLeftWord()
+	checkCursorPos(t, 8, w, point{1, 0})
+	// This seems a bit uninuitive, but is a logical result of the definition of word boundaries.
+	w.moveCursorLeftWord()
+	checkCursorPos(t, 9, w, point{1, 0})
 }
 
 func TestMouseNavigation(t *testing.T) {

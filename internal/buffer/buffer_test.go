@@ -166,10 +166,12 @@ func truncateWithEllipsis(s string, n int) string {
 	return s[:n] + "..."
 }
 
-var nextWordBoundTests = []struct {
+type wordBoundSkipTest struct {
 	in      string
 	p, want Point
-}{
+}
+
+var nextWordBoundTests = []wordBoundSkipTest{
 	{in: wordBoundsBracketsTest, p: Point{0, 0}, want: Point{5, 0}},
 	{in: wordBoundsBracketsTest, p: Point{5, 0}, want: Point{6, 0}},
 	{in: wordBoundsBracketsTest, p: Point{6, 0}, want: Point{7, 0}},
@@ -178,10 +180,29 @@ var nextWordBoundTests = []struct {
 	{in: "A\nB\nC", p: Point{1, 1}, want: Point{0, 2}},
 }
 
-func TestNextWordBound(t *testing.T) {
+var prevWordBoundTests = []wordBoundSkipTest{
+	{in: wordBoundsBracketsTest, p: Point{0, 0}, want: Point{0, 0}},
+	{in: "GO BACK\n", p: Point{7, 0}, want: Point{3, 0}},
+}
+
+func init() {
 	for _, tt := range nextWordBoundTests {
-		if p := bufFromData(t, tt.in).NextWordBoundary(tt.p); p != tt.want {
-			t.Errorf("next word bound from %v in %q: got %v, want %v", tt.p, truncateWithEllipsis(tt.in, 20), p, tt.want)
+		prevWordBoundTests = append(prevWordBoundTests, wordBoundSkipTest{tt.in, tt.want, tt.p})
+	}
+}
+
+func TestNextWordBound(t *testing.T) {
+	testWordBoundSkip(t, "next", nextWordBoundTests, (*Buffer).NextWordBoundary)
+}
+
+func TestPrevWordBound(t *testing.T) {
+	testWordBoundSkip(t, "previous", prevWordBoundTests, (*Buffer).PrevWordBoundary)
+}
+
+func testWordBoundSkip(t *testing.T, name string, cases []wordBoundSkipTest, skipDir func(*Buffer, Point) Point) {
+	for _, tt := range cases {
+		if p := skipDir(bufFromData(t, tt.in), tt.p); p != tt.want {
+			t.Errorf("%s word bound from %v in %q: got %v, want %v", name, tt.p, truncateWithEllipsis(tt.in, 20), p, tt.want)
 		}
 	}
 }
