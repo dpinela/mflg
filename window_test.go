@@ -517,6 +517,7 @@ func TestWordSelectionDrag(t *testing.T) {
 var testSelection = optionalTextRange{textRange{point{0, 2}, point{5, 2}}, true}
 
 func checkSelection(t *testing.T, step int, w *window, want optionalTextRange) {
+	t.Helper()
 	if w.selection != want {
 		t.Errorf("step %d: got selection %v, want %v", step, w.selection, want)
 	}
@@ -606,10 +607,18 @@ func TestReplace(t *testing.T) {
 
 func TestReplaceInSelection(t *testing.T) {
 	w := newTestWindow(t, 10, 10, shortTestDocument+"\n"+shortTestDocument)
+
 	w.selection.Put(buffer.Range{point{7, 1}, point{11, 2}})
 	w.replaceRegexp(replaceTestRegexp, "function $1$1")
 	checkLineContent(t, 1, w, 0, "func A() int { return 4 }")
-	checkLineContent(t, 1, w, 1, "function GoGo() int { return 5 }")
+	checkLineContent(t, 1, w, 1, "func Go() int { return 5 }")
 	checkLineContent(t, 1, w, 2, "function AA() int { return 4 }")
-	checkLineContent(t, 1, w, 3, "function Go() int { return 5 }")
+	checkLineContent(t, 1, w, 3, "func Go() int { return 5 }")
+	checkSelection(t, 1, w, optionalTextRange{buffer.Range{point{7, 1}, point{16, 2}}, true})
+	/*
+		newSelection := buffer.Range{point{0, 0}, point{11, 0}}
+		w.selection.Put(newSelection)
+		w.replaceRegexp(regexp.MustCompile("int"), "float32")
+		checkLineContent(t, 2, w, 0, "func A() int { return 4 }")
+		checkSelection(t, 2, w, optionalTextRange{newSelection, true})*/
 }

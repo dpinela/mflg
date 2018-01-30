@@ -202,23 +202,14 @@ func (b *Buffer) PrevWordBoundary(p Point) Point {
 		i += len(c)
 	}
 	// There is no boundary in this line before p. Go to the end of the previous line.
-	// No taking shortcuts with len() instead of charCount() here; the values might be functionally equivalent, but tests will notice the difference.
+	// No taking shortcuts with len() instead of CharCount() here; the values might be functionally equivalent, but tests will notice the difference.
 	if lastWordBoundary == -1 {
 		if p.Y > 0 {
-			return Point{charCount(b.lines[p.Y-1]), p.Y - 1}
+			return Point{CharCount(b.lines[p.Y-1]), p.Y - 1}
 		}
 		return p
 	}
 	return Point{lastWordBoundary, p.Y}
-}
-
-func charCount(s string) int {
-	n := 0
-	for s != "\n" && s != "" {
-		s = s[NextCharBoundary(s):]
-		n++
-	}
-	return n
 }
 
 func isWordChar(char string) bool {

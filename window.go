@@ -431,13 +431,41 @@ func separateSuffix(s, suffix string) (begin, foundSuffix string) {
 }
 
 func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
-	for i, line := range w.buf.SliceLines(0, w.buf.LineCount()) {
+	var lines []string
+	// Process only the lines within the selection Y bounds.
+	if w.selection.Set {
+		lines = w.buf.SliceLines(w.selection.Begin.Y, w.selection.End.Y+1)
+	} else {
+		lines = w.buf.SliceLines(0, w.buf.LineCount())
+	}
+	for i, line := range lines {
+		if w.selection.Set {
+			i += w.selection.Begin.Y
+		}
+		// Do not replace text within the selection Y bounds, but outside the selection.
+		begin := 0
+		if w.selection.Set && i == w.selection.Begin.Y {
+			begin = buffer.ByteIndexForChar(line, w.selection.Begin.X)
+		}
+		end := len(line)
 		// Prevent the regexp from removing the newlines.
 		// TODO: this should change if/when regexps can be applied across line boundaries.
-		line, suffix := separateSuffix(line, "\n")
-		newLine := re.ReplaceAllString(line, replacement)
-		if newLine != line {
-			w.wrappedBuf.ReplaceLine(i, newLine+suffix)
+		if strings.HasSuffix(line, "\n") {
+			end--
+		}
+		if w.selection.Set && i == w.selection.End.Y {
+			end = buffer.ByteIndexForChar(line, w.selection.End.X)
+		}
+		oldLine := line[begin:end]
+		if newLine := re.ReplaceAllString(oldLine, replacement); newLine != oldLine {
+			w.wrappedBuf.ReplaceLine(i, line[:begin]+newLine+line[end:])
+			// We only need to adjust the selection in its final line, and then only at the bottom-right
+			// end. The rest of it is guaranteed to stay in place, regardless of which replacements are
+			// made, since newlines cannot be taken out and the replacement doesn't touch anything
+			// before the beginning.
+			if w.selection.Set && i == w.selection.End.Y {
+				w.selection.End.X += buffer.CharCount(newLine) - buffer.CharCount(oldLine)
+			}
 			w.dirty = true
 			w.needsRedraw = true
 		}

@@ -18,3 +18,12 @@ func NextCharBoundary(s string) int {
 func FirstChar(s string) string {
 	return charseg.FirstGraphemeCluster(s)
 }
+
+func CharCount(s string) int {
+	n := 0
+	for len(s) > 0 && s != "\n" {
+		s = s[NextCharBoundary(s):]
+		n++
+	}
+	return n
+}
