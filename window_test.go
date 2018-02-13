@@ -459,7 +459,21 @@ func TestCancelMouseSelection(t *testing.T) {
 	w.resetSelectionState()
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2})
 	if w.selection.Set {
-		t.Errorf("got selection %+v, want nil", w.selection)
+		t.Errorf("got selection %+v, want none", w.selection)
+	}
+}
+
+func TestClearMouseSelection(t *testing.T) {
+	w := newTestWindowA(t)
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
+	c2 := termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2}
+	c3 := c2
+	c3.Button = termesc.LeftButton
+	w.handleMouseEvent(c2)
+	w.handleMouseEvent(c3)
+	w.handleMouseEvent(c2)
+	if w.selection.Set {
+		t.Errorf("got selection %+v, want none", w.selection)
 	}
 }
 
