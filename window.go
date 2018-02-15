@@ -48,14 +48,22 @@ type window struct {
 	tabString  string                // The string that should be inserted when typing a tab
 }
 
+type snapshot struct {
+	content   *buffer.Buffer
+	selection optionalTextRange
+	cursorPos point
+}
+
 type timedMouseEvent struct {
 	termesc.MouseEvent
-	when time.Time
+	when   time.Time
+	isDrag bool
 }
 
 func (tev *timedMouseEvent) put(ev termesc.MouseEvent) {
 	tev.MouseEvent = ev
 	tev.when = time.Now()
+	tev.isDrag = false
 }
 
 type optionalPoint struct {
@@ -661,6 +669,9 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	switch ev.Button {
 	case termesc.LeftButton:
 		if ev.Move {
+			if w.lastMouseLeftPress.when.After(w.lastMouseRelease.when) {
+				w.lastMouseLeftPress.isDrag = true
+			}
 			tp := w.textPosFromMouse(ev)
 			w.cursorPos = w.textCoordsToWindowCoords(tp)
 			// This is true if and only if a mouse selection has been started, but not ended yet;
@@ -681,7 +692,7 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 		} else {
 			tpNew := w.textPosFromMouse(ev)
 			w.cursorPos = w.textCoordsToWindowCoords(tpNew)
-			if time.Since(w.lastMouseLeftPress.when) < doubleClickInterval {
+			if time.Since(w.lastMouseLeftPress.when) < doubleClickInterval && !w.lastMouseLeftPress.isDrag {
 				if w.trySelectWord(w.textPosFromMouse(w.lastMouseLeftPress.MouseEvent), tpNew) {
 					w.wordSelectionAnchor.Put(w.selection.textRange)
 				}
@@ -693,13 +704,19 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	case termesc.ReleaseButton:
 		tpNew := w.textPosFromMouse(ev)
 		w.cursorPos = w.textCoordsToWindowCoords(tpNew)
-		// Definition of a double-click: clicking twice on the same word within 0.5 seconds.
-		if time.Since(w.lastMouseRelease.when) < doubleClickInterval {
-			w.trySelectWord(w.textPosFromMouse(w.lastMouseRelease.MouseEvent), tpNew)
-		} else if w.mouseSelectionAnchor.Set {
+		didSelectWord := false
+		// Definition of a double-click: clicking twice on the same character within 0.5 seconds.
+		if time.Since(w.lastMouseRelease.when) < doubleClickInterval && !w.lastMouseRelease.isDrag && !w.lastMouseLeftPress.isDrag {
+			didSelectWord = w.trySelectWord(w.textPosFromMouse(w.lastMouseRelease.MouseEvent), tpNew)
+		}
+		if !didSelectWord && w.mouseSelectionAnchor.Set {
 			w.selectToCursorPos(&w.mouseSelectionAnchor)
 		}
 		w.lastMouseRelease.put(ev)
+		// If left-press isn't supported, then this always sets isDrag to false, enabling double-clicks
+		// to work. If it is, then it should work, unless you drag the mouse into the terminal having
+		// clicked outside.
+		w.lastMouseRelease.isDrag = w.lastMouseLeftPress.isDrag
 		w.wordSelectionAnchor = optionalTextRange{}
 	case termesc.ScrollUpButton:
 		w.scrollUp()
@@ -725,12 +742,15 @@ func maxPoint(p, q buffer.Point) buffer.Point {
 }
 
 func (w *window) trySelectWord(tpOld, tpNew buffer.Point) bool {
-	if wordBounds := w.buf.WordBoundsAt(tpOld); wordBounds == w.buf.WordBoundsAt(tpNew) && !wordBounds.Empty() {
+	if tpNew != tpOld {
+		return false
+	}
+	wordBounds := w.buf.WordBoundsAt(tpNew)
+	if !wordBounds.Empty() {
 		w.selection.Put(wordBounds)
 		w.needsRedraw = true
-		return true
 	}
-	return false
+	return !wordBounds.Empty()
 }
 
 func (w *window) inMouseSelection() bool {

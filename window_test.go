@@ -466,6 +466,10 @@ func TestCancelMouseSelection(t *testing.T) {
 func TestClearMouseSelection(t *testing.T) {
 	w := newTestWindowA(t)
 	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 3, Y: 2})
+	// Clearing a mouse selection only works if we can distinguish a drag from a non-drag. On other
+	// tests it doesn't matter, but here we have to simulate a drag more accurately to properly test
+	// the clearing code.
+	w.handleMouseEvent(termesc.MouseEvent{Button: termesc.LeftButton, X: 5, Y: 2, Move: true})
 	c2 := termesc.MouseEvent{Button: termesc.ReleaseButton, X: 8, Y: 2}
 	c3 := c2
 	c3.Button = termesc.LeftButton
