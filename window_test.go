@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+func init() {
+	// Important for undo tests.
+	changeCoalescingInterval = time.Millisecond
+}
+
 const testDocument = `#lorem ipsum
 
 dolor sit[10];
@@ -639,4 +644,56 @@ func TestReplaceInSelection(t *testing.T) {
 		w.replaceRegexp(regexp.MustCompile("int"), "float32")
 		checkLineContent(t, 2, w, 0, "func A() int { return 4 }")
 		checkSelection(t, 2, w, optionalTextRange{newSelection, true})*/
+}
+
+func TestUndo(t *testing.T) {
+	w := newTestWindowEmpty(t)
+	const (
+		text1 = "boom!"
+		text2 = " HO! HO! HO!"
+	)
+	typeString(w, text1)
+	time.Sleep(2 * time.Millisecond)
+	typeString(w, text2)
+	time.Sleep(2 * time.Millisecond)
+	typeString(w, " Merry undoing!")
+	w.undo()
+	checkLineContent(t, 1, w, 0, text1 + text2)
+	checkCursorPos(t, 1, w, point{X: len(text1) + len(text2), Y: 0})
+	w.undo()
+	checkLineContent(t, 2, w, 0, text1)
+	checkCursorPos(t, 2, w, point{X: len(text1), Y: 0})
+	w.undo()
+	checkLineContent(t, 3, w, 0, "")
+	checkCursorPos(t, 3, w, point{X: 0, Y: 0})
+}
+
+func typeString(w *window, s string) {
+	for _, c := range s {
+		w.typeText(string(c))
+	}
+}
+
+func TestUndoWithSelection(t *testing.T) {
+	w := newTestWindow(t, 20, 10, shortTestDocument)
+	selectionEnd := point{9, 1}
+	selection := buffer.Range{point{4, 0}, selectionEnd}
+	w.cursorPos = selectionEnd
+	w.selection.Put(selection)
+	w.typeText("B")
+	w.undo()
+	checkLineContent(t, 1, w, 0, "func A() int { return 4 }")
+	checkLineContent(t, 1, w, 1, "func Go() int { return 5 }")
+	checkCursorPos(t, 1, w, selectionEnd)
+	checkSelection(t, 1, w, optionalTextRange{Set: true, textRange: selection})
+}
+
+func TestUndoNothing(t *testing.T) {
+	w := newTestWindow(t, 20, 10, shortTestDocument)
+	p := point{10, 1}
+	w.cursorPos = p
+	w.undo()
+	checkLineContent(t, 1, w, 0, "func A() int { return 4 }")
+	checkLineContent(t, 1, w, 1, "func Go() int { return 5 }")
+	checkCursorPos(t, 1, w, p)
 }

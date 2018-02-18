@@ -48,6 +48,10 @@ type window struct {
 	tabString  string                // The string that should be inserted when typing a tab
 }
 
+// The maximum time between two changes such that they will be undone together.
+// It is a variable so that it can be changed for testing.
+var changeCoalescingInterval = time.Second
+
 type snapshot struct {
 	content   *buffer.Buffer
 	selection optionalTextRange
@@ -662,6 +666,8 @@ func posAfterInsertion(tp point, data string) point {
 	}
 	return tp
 }
+
+func (w *window) undo() {}
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	const doubleClickInterval = time.Second / 2
