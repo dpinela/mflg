@@ -658,7 +658,7 @@ func TestUndo(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 	typeString(w, " Merry undoing!")
 	w.undo()
-	checkLineContent(t, 1, w, 0, text1 + text2)
+	checkLineContent(t, 1, w, 0, text1+text2)
 	checkCursorPos(t, 1, w, point{X: len(text1) + len(text2), Y: 0})
 	w.undo()
 	checkLineContent(t, 2, w, 0, text1)

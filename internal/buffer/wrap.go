@@ -128,6 +128,12 @@ func (wb *WrappedBuffer) Line(wy int) WrappedLine {
 	return wb.lines[wy]
 }
 
+// Reset replaces the underlying Buffer and forces all lines to be re-wrapped.
+func (wb *WrappedBuffer) Reset(b *Buffer) {
+	wb.src = b
+	wb.refresh()
+}
+
 // Insert inserts text into the underlying Buffer.
 func (wb *WrappedBuffer) Insert(text string, tp Point) {
 	wb.src.Insert(text, tp)
@@ -156,6 +162,7 @@ func (wb *WrappedBuffer) DeleteChar(tp Point) {
 	}
 }
 
+// ReplaceLine replaces the entire content of line ty with text.
 func (wb *WrappedBuffer) ReplaceLine(ty int, text string) {
 	wb.src.ReplaceLine(ty, text)
 	wb.refreshFrom(ty)

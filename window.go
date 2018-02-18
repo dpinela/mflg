@@ -38,10 +38,11 @@ type window struct {
 
 	lastMouseRelease, lastMouseLeftPress timedMouseEvent
 
-	dirty bool //Indicates whether the contents of the window's buffer have been modified
-	//Indicates whether the visible part of the window has changed since it was last
-	//drawn
-	needsRedraw bool
+	dirty            bool      //Indicates whether the contents of the window's buffer have been modified
+	modificationTime time.Time // The time when the last edit occurred
+	undoStack        []snapshot
+
+	needsRedraw bool // Indicates whether the visible part of the window has changed since it was last drawn
 
 	buf        *buffer.Buffer        // The buffer being edited in the window
 	wrappedBuf *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
@@ -442,6 +443,20 @@ func separateSuffix(s, suffix string) (begin, foundSuffix string) {
 	return s, ""
 }
 
+// takeSnapshot puts a new snapshot on the undo stack if the last change occurred long enough ago.
+// It should be called by each edit operation, before the edit actually takes place.
+func (w *window) takeSnapshot() {
+	now := time.Now()
+	if now.Sub(w.modificationTime) > changeCoalescingInterval {
+		w.undoStack = append(w.undoStack, snapshot{
+			content:   w.buf.Copy(),
+			selection: w.selection,
+			cursorPos: w.cursorPos,
+		})
+	}
+	w.modificationTime = now
+}
+
 func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 	var lines []string
 	// Process only the lines within the selection Y bounds.
@@ -450,6 +465,7 @@ func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 	} else {
 		lines = w.buf.SliceLines(0, w.buf.LineCount())
 	}
+	changed := false
 	for i, line := range lines {
 		if w.selection.Set {
 			i += w.selection.Begin.Y
@@ -470,6 +486,10 @@ func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 		}
 		oldLine := line[begin:end]
 		if newLine := re.ReplaceAllString(oldLine, replacement); newLine != oldLine {
+			if !changed {
+				w.takeSnapshot()
+			}
+			changed = true
 			w.wrappedBuf.ReplaceLine(i, line[:begin]+newLine+line[end:])
 			// We only need to adjust the selection in its final line, and then only at the bottom-right
 			// end. The rest of it is guaranteed to stay in place, regardless of which replacements are
@@ -531,8 +551,10 @@ func leadingIndentation(text string) string {
 
 func (w *window) typeText(text string) {
 	if w.selection.Set {
+		// This already takes a snapshot, since it's callable by itself.
 		w.backspace()
 	}
+	w.takeSnapshot()
 	w.dirty = true
 	w.needsRedraw = true
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
@@ -556,6 +578,9 @@ func (w *window) typeText(text string) {
 }
 
 func (w *window) backspace() {
+	if w.selection.Set || w.cursorPos.X > 0 || w.cursorPos.Y > 0 {
+		w.takeSnapshot()
+	}
 	w.dirty = true
 	w.needsRedraw = true
 	if w.selection.Set {
@@ -642,8 +667,11 @@ func (w *window) paste() {
 	if err != nil || len(data) == 0 {
 		return
 	}
+	// backspace() already takes a snapshot, so in that case, we don't have to.
 	if w.selection.Set {
 		w.backspace()
+	} else {
+		w.takeSnapshot()
 	}
 	s := string(data)
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
@@ -667,7 +695,20 @@ func posAfterInsertion(tp point, data string) point {
 	return tp
 }
 
-func (w *window) undo() {}
+func (w *window) undo() {
+	if len(w.undoStack) == 0 {
+		return
+	}
+	i := len(w.undoStack) - 1
+	oldState := w.undoStack[i]
+	w.undoStack = w.undoStack[:i]
+	w.buf = oldState.content
+	w.wrappedBuf.Reset(w.buf)
+	w.selection = oldState.selection
+	w.cursorPos = oldState.cursorPos
+	w.dirty = len(w.undoStack) != 0
+	w.needsRedraw = true
+}
 
 func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 	const doubleClickInterval = time.Second / 2

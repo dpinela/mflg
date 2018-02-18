@@ -171,6 +171,8 @@ func main() {
 				aw.copySelection()
 			case "\x16":
 				aw.paste()
+			case "\x1a":
+				aw.undo()
 			case "\x1b":
 				switch {
 				case aw.selection.Set || aw.selectionAnchor.Set || aw.mouseSelectionAnchor.Set:
