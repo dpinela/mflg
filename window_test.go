@@ -362,6 +362,15 @@ func main() {
 	checkLineContent(t, 2, w, 1, strings.Repeat(" ", M-1)+chunk)
 }
 
+func TestCutNothing(t *testing.T) {
+	w := newTestWindowA(t)
+	p := point{1, 0}
+	w.cursorPos = p
+	w.cutSelection()
+	checkCursorPos(t, 1, w, p)
+	checkLineContent(t, 1, w, 0, "#lorem ipsum")
+}
+
 func TestCopy(t *testing.T) {
 	const timeout = 100 * time.Millisecond
 	w := newTestWindowA(t)

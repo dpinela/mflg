@@ -165,8 +165,7 @@ func main() {
 					aw.markSelectionBound()
 				}
 			case "\x18":
-				aw.copySelection()
-				aw.backspace()
+				aw.cutSelection()
 			case "\x03":
 				aw.copySelection()
 			case "\x16":

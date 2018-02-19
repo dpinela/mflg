@@ -662,6 +662,13 @@ func (w *window) copySelection() {
 	}
 }
 
+func (w *window) cutSelection() {
+	if w.selection.Set {
+		w.copySelection()
+		w.backspace()
+	}
+}
+
 func (w *window) paste() {
 	data, err := clipboard.Paste()
 	if err != nil || len(data) == 0 {
