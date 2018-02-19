@@ -702,11 +702,14 @@ func posAfterInsertion(tp point, data string) point {
 	return tp
 }
 
-func (w *window) undo() {
+func (w *window) undo()    { w.undoSince(len(w.undoStack) - 1) }
+func (w *window) undoAll() { w.undoSince(0) }
+
+// undoSince reverts all changes made since the i-th snapshot.
+func (w *window) undoSince(i int) {
 	if len(w.undoStack) == 0 {
 		return
 	}
-	i := len(w.undoStack) - 1
 	oldState := w.undoStack[i]
 	w.undoStack = w.undoStack[:i]
 	w.buf = oldState.content

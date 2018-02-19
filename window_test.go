@@ -70,6 +70,17 @@ func checkLineContent(t *testing.T, stepN int, w *window, line int, text string)
 	}
 }
 
+func checkBufContent(t *testing.T, buf *buffer.Buffer, text string) {
+	t.Helper()
+	var b strings.Builder
+	if _, err := buf.WriteTo(&b); err != nil {
+		t.Error(err)
+	}
+	if got := b.String(); got != text {
+		t.Errorf("buffer contains %q, want %q", got, text)
+	}
+}
+
 func checkWrappedLine(t *testing.T, w *window, y int, want buffer.WrappedLine) {
 	t.Helper()
 	if got := w.wrappedBuf.Line(y); got != want {
@@ -655,31 +666,52 @@ func TestReplaceInSelection(t *testing.T) {
 		checkSelection(t, 2, w, optionalTextRange{newSelection, true})*/
 }
 
+const (
+	undoneText1 = "boom!"
+	undoneText2 = " HO! HO! HO!"
+)
+
 func TestUndo(t *testing.T) {
 	w := newTestWindowEmpty(t)
-	const (
-		text1 = "boom!"
-		text2 = " HO! HO! HO!"
-	)
-	typeString(w, text1)
-	time.Sleep(2 * time.Millisecond)
-	typeString(w, text2)
-	time.Sleep(2 * time.Millisecond)
-	typeString(w, " Merry undoing!")
+	typeStringsWithPause(w, undoneText1, undoneText2, " Merry undoing!")
 	w.undo()
-	checkLineContent(t, 1, w, 0, text1+text2)
-	checkCursorPos(t, 1, w, point{X: len(text1) + len(text2), Y: 0})
+	checkLineContent(t, 1, w, 0, undoneText1+undoneText2)
+	checkCursorPos(t, 1, w, point{X: len(undoneText1) + len(undoneText2), Y: 0})
 	w.undo()
-	checkLineContent(t, 2, w, 0, text1)
-	checkCursorPos(t, 2, w, point{X: len(text1), Y: 0})
+	checkLineContent(t, 2, w, 0, undoneText1)
+	checkCursorPos(t, 2, w, point{X: len(undoneText1), Y: 0})
 	w.undo()
 	checkLineContent(t, 3, w, 0, "")
 	checkCursorPos(t, 3, w, point{X: 0, Y: 0})
+	checkNotDirty(t, w)
+}
+
+func TestUndoAll(t *testing.T) {
+	w := newTestWindow(t, 20, 10, shortTestDocument)
+	typeStringsWithPause(w, undoneText1, undoneText2)
+	w.undoAll()
+	checkBufContent(t, w.buf, shortTestDocument)
+	checkCursorPos(t, 1, w, point{X: 0, Y: 0})
+	checkNotDirty(t, w)
 }
 
 func typeString(w *window, s string) {
 	for _, c := range s {
 		w.typeText(string(c))
+	}
+}
+
+func typeStringsWithPause(w *window, strings ...string) {
+	for _, s := range strings {
+		time.Sleep(2 * time.Millisecond)
+		typeString(w, s)
+	}
+}
+
+func checkNotDirty(t *testing.T, w *window) {
+	t.Helper()
+	if w.dirty {
+		t.Error("after undoing everything, got dirty window")
 	}
 }
 

@@ -172,6 +172,16 @@ func main() {
 				aw.paste()
 			case "\x1a":
 				aw.undo()
+			case "\x15":
+				if len(aw.undoStack) > 0 && app.promptWindow == nil {
+					app.openPrompt("Discard changes [y/Esc]?", func(resp string) {
+						if len(resp) != 0 && (resp[0] == 'Y' || resp[0] == 'y') {
+							aw.undoAll()
+						}
+					})
+				} else {
+					aw.undoAll()
+				}
 			case "\x1b":
 				switch {
 				case aw.selection.Set || aw.selectionAnchor.Set || aw.mouseSelectionAnchor.Set:
