@@ -115,7 +115,7 @@ func main() {
 					return
 				}
 				must(printAtBottom("Discard changes [y/N]? "))
-				if c = <-inputCh; len(c) == 1 && (c[0] == 'y' || c[0] == 'Y') {
+				if c = <-inputCh; c == "y" || c == "Y" {
 					return
 				}
 			case "\x13":
