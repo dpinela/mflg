@@ -122,7 +122,7 @@ func main() {
 				if !app.mainWindow.dirty {
 					continue
 				}
-				if err := saveBuffer(fname, buf); err != nil {
+				if err := saveBuffer(fname, app.mainWindow.buf); err != nil {
 					must(printAtBottom(err.Error()))
 				} else {
 					app.mainWindow.dirty = false
