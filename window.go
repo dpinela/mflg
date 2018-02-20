@@ -580,9 +580,9 @@ func (w *window) typeText(text string) {
 func (w *window) backspace() {
 	if w.selection.Set || w.cursorPos.X > 0 || w.cursorPos.Y > 0 {
 		w.takeSnapshot()
+		w.dirty = true
+		w.needsRedraw = true
 	}
-	w.dirty = true
-	w.needsRedraw = true
 	if w.selection.Set {
 		w.wrappedBuf.DeleteRange(w.selection.textRange)
 		w.updateWrapWidth()
