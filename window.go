@@ -686,6 +686,7 @@ func (w *window) paste() {
 	w.updateWrapWidth()
 	w.gotoTextPos(posAfterInsertion(tp, s))
 	w.needsRedraw = true
+	w.dirty = true
 }
 
 func posAfterInsertion(tp point, data string) point {
