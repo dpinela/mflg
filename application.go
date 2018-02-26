@@ -58,7 +58,7 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 		select {
 		case c, ok := <-inputCh:
 			if !ok {
-				panic("console input closed")
+				return nil
 			}
 			switch c {
 			case termesc.UpKey:
