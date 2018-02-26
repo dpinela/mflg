@@ -5,8 +5,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"regexp"
-	"strconv"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/dpinela/mflg/internal/buffer"
@@ -51,167 +49,29 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
 		os.Exit(2)
 	}
-	buf := buffer.New()
-	fname := os.Args[1]
-	if f, err := os.Open(fname); err == nil {
-		_, err = buf.ReadFrom(f)
-		f.Close()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error reading %s: %v", fname, err)
-			os.Exit(2)
-		}
-	} else if !os.IsNotExist(err) {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+	app := application{}
+	if err := app.navigateTo(os.Args[1]); err != nil {
+		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
+		os.Exit(1)
 	}
 	w, h, err := terminal.GetSize(0)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error finding terminal size:", err)
-		os.Exit(2)
+		os.Exit(1)
 	}
 	oldMode, err := terminal.MakeRaw(0)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error entering raw mode:", err)
-		os.Exit(2)
+		os.Exit(1)
 	}
 	defer terminal.Restore(0, oldMode)
-	app := application{mainWindow: newWindow(w, h, buf)}
-	app.resize(h, w)
 	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
 	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.ShowCursor + termesc.DisableMouseReporting)
+	app.resize(h, w)
 	resizeCh := make(chan os.Signal, 32)
-	inputCh := make(chan string, 32)
-	go func() {
-		con := termesc.NewConsoleReader(os.Stdin)
-		for {
-			if s, err := con.ReadToken(); err != nil {
-				close(inputCh)
-				return
-			} else {
-				inputCh <- s
-			}
-		}
-	}()
 	signal.Notify(resizeCh, unix.SIGWINCH)
-	for {
-		must(app.redraw(os.Stdout))
-		aw := app.activeWindow()
-		select {
-		case c, ok := <-inputCh:
-			if !ok {
-				panic("console input closed")
-			}
-			switch c {
-			case termesc.UpKey:
-				aw.repeatMove(aw.moveCursorUp)
-			case termesc.DownKey:
-				aw.repeatMove(aw.moveCursorDown)
-			case termesc.LeftKey:
-				aw.moveCursorLeft()
-			case termesc.RightKey:
-				aw.moveCursorRight()
-			case "\x11":
-				if !app.mainWindow.dirty {
-					return
-				}
-				must(printAtBottom("Discard changes [y/N]? "))
-				if c = <-inputCh; c == "y" || c == "Y" {
-					return
-				}
-			case "\x13":
-				if !app.mainWindow.dirty {
-					continue
-				}
-				if err := saveBuffer(fname, app.mainWindow.buf); err != nil {
-					must(printAtBottom(err.Error()))
-				} else {
-					app.mainWindow.dirty = false
-				}
-			case "\x7f", "\b":
-				aw.backspace()
-			case "\x0c":
-				app.openPrompt("Go to:", func(response string) {
-					if allASCIIDigits(response) {
-						lineNum, err := strconv.ParseInt(response, 10, 64)
-						if err != nil {
-							must(printAtBottom(err.Error()))
-							return
-						}
-						if lineNum > 0 {
-							app.mainWindow.gotoLine(int(lineNum - 1))
-						}
-					} else {
-						re, err := regexp.Compile(response)
-						if err != nil {
-							must(printAtBottom(err.Error()))
-							return
-						}
-						app.mainWindow.searchRegexp(re)
-					}
-				})
-			case "\x12":
-				app.openPrompt("Replace:", func(searchRE string) {
-					re, err := regexp.Compile(searchRE)
-					if err != nil {
-						must(printAtBottom(err.Error()))
-						return
-					}
-					app.openPrompt("With:", func(replacement string) {
-						app.mainWindow.replaceRegexp(re, replacement)
-					})
-				})
-			case "\x01":
-				if !aw.inMouseSelection() {
-					aw.markSelectionBound()
-				}
-			case "\x18":
-				aw.cutSelection()
-			case "\x03":
-				aw.copySelection()
-			case "\x16":
-				aw.paste()
-			case "\x1a":
-				aw.undo()
-			case "\x15":
-				if len(aw.undoStack) > 0 && app.promptWindow == nil {
-					app.openPrompt("Discard changes [y/Esc]?", func(resp string) {
-						if len(resp) != 0 && (resp[0] == 'Y' || resp[0] == 'y') {
-							aw.undoAll()
-						}
-					})
-				} else {
-					aw.undoAll()
-				}
-			case "\x1b":
-				switch {
-				case aw.selection.Set || aw.selectionAnchor.Set || aw.mouseSelectionAnchor.Set:
-					aw.resetSelectionState()
-				case app.promptWindow != nil:
-					app.cancelPrompt()
-				}
-			default:
-				if ev, err := termesc.ParseMouseEvent(c); err == nil {
-					app.handleMouseEvent(ev)
-				} else if c >= " " || c == "\r" || c == "\t" {
-					if app.promptWindow != nil && c == "\r" {
-						app.finishPrompt()
-					} else {
-						aw.typeText(c)
-					}
-				} else if termesc.IsAltRightKey(c) {
-					aw.moveCursorRightWord()
-				} else if termesc.IsAltLeftKey(c) {
-					aw.moveCursorLeftWord()
-				}
-			}
-		case <-resizeCh:
-			// This can only fail if our terminal turns into a non-terminal
-			// during execution, which is highly unlikely.
-			if w, h, err := terminal.GetSize(0); err != nil {
-				panic(err)
-			} else {
-				app.resize(h, w)
-			}
-		}
+	if err := app.run(os.Stdin, resizeCh, os.Stdout); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }

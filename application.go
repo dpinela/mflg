@@ -2,9 +2,14 @@ package main
 
 import (
 	"io"
+	"os"
+	"regexp"
+	"strconv"
 
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/termesc"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type application struct {
@@ -13,6 +18,165 @@ type application struct {
 	cursorVisible            bool
 	width, height            int
 	promptHandler            func(string) // What to do with the prompt input when the user hits Enter
+}
+
+func (app *application) navigateTo(location string) error {
+	buf := buffer.New()
+	if f, err := os.Open(location); err == nil {
+		_, err = buf.ReadFrom(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+		// Allow the user to edit a file that doesn't exist yet
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	app.mainWindow = newWindow(0, 0, buf)
+	app.filename = location
+	return nil
+}
+
+func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.Writer) error {
+	inputCh := make(chan string, 32)
+	go func() {
+		con := termesc.NewConsoleReader(in)
+		for {
+			if s, err := con.ReadToken(); err != nil {
+				close(inputCh)
+				return
+			} else {
+				inputCh <- s
+			}
+		}
+	}()
+	for {
+		if err := app.redraw(out); err != nil {
+			return err
+		}
+		aw := app.activeWindow()
+		select {
+		case c, ok := <-inputCh:
+			if !ok {
+				panic("console input closed")
+			}
+			switch c {
+			case termesc.UpKey:
+				aw.repeatMove(aw.moveCursorUp)
+			case termesc.DownKey:
+				aw.repeatMove(aw.moveCursorDown)
+			case termesc.LeftKey:
+				aw.moveCursorLeft()
+			case termesc.RightKey:
+				aw.moveCursorRight()
+			case "\x11":
+				if !app.mainWindow.dirty {
+					return nil
+				}
+				if err := printAtBottom("Discard changes [y/N]? "); err != nil {
+					return err
+				}
+				if c = <-inputCh; c == "y" || c == "Y" {
+					return nil
+				}
+			case "\x13":
+				if !app.mainWindow.dirty {
+					continue
+				}
+				if err := saveBuffer(app.filename, app.mainWindow.buf); err != nil {
+					if err := printAtBottom(err.Error()); err != nil {
+						return err
+					}
+				} else {
+					app.mainWindow.dirty = false
+				}
+			case "\x7f", "\b":
+				aw.backspace()
+			case "\x0c":
+				app.openPrompt("Go to:", func(response string) {
+					if allASCIIDigits(response) {
+						lineNum, err := strconv.ParseInt(response, 10, 64)
+						if err != nil {
+							must(printAtBottom(err.Error()))
+							return
+						}
+						if lineNum > 0 {
+							app.mainWindow.gotoLine(int(lineNum - 1))
+						}
+					} else {
+						re, err := regexp.Compile(response)
+						if err != nil {
+							must(printAtBottom(err.Error()))
+							return
+						}
+						app.mainWindow.searchRegexp(re)
+					}
+				})
+			case "\x12":
+				app.openPrompt("Replace:", func(searchRE string) {
+					re, err := regexp.Compile(searchRE)
+					if err != nil {
+						must(printAtBottom(err.Error()))
+						return
+					}
+					app.openPrompt("With:", func(replacement string) {
+						app.mainWindow.replaceRegexp(re, replacement)
+					})
+				})
+			case "\x01":
+				if !aw.inMouseSelection() {
+					aw.markSelectionBound()
+				}
+			case "\x18":
+				aw.cutSelection()
+			case "\x03":
+				aw.copySelection()
+			case "\x16":
+				aw.paste()
+			case "\x1a":
+				aw.undo()
+			case "\x15":
+				if len(aw.undoStack) > 0 && app.promptWindow == nil {
+					app.openPrompt("Discard changes [y/Esc]?", func(resp string) {
+						if len(resp) != 0 && (resp[0] == 'Y' || resp[0] == 'y') {
+							aw.undoAll()
+						}
+					})
+				} else {
+					aw.undoAll()
+				}
+			case "\x1b":
+				switch {
+				case aw.selection.Set || aw.selectionAnchor.Set || aw.mouseSelectionAnchor.Set:
+					aw.resetSelectionState()
+				case app.promptWindow != nil:
+					app.cancelPrompt()
+				}
+			default:
+				if ev, err := termesc.ParseMouseEvent(c); err == nil {
+					app.handleMouseEvent(ev)
+				} else if c >= " " || c == "\r" || c == "\t" {
+					if app.promptWindow != nil && c == "\r" {
+						app.finishPrompt()
+					} else {
+						aw.typeText(c)
+					}
+				} else if termesc.IsAltRightKey(c) {
+					aw.moveCursorRightWord()
+				} else if termesc.IsAltLeftKey(c) {
+					aw.moveCursorLeftWord()
+				}
+			}
+		case <-resizeSignal:
+			// This can only fail if our terminal turns into a non-terminal
+			// during execution, which is highly unlikely.
+			if w, h, err := terminal.GetSize(0); err != nil {
+				return err
+			} else {
+				app.resize(h, w)
+			}
+		}
+	}
 }
 
 func (app *application) resize(height, width int) {
