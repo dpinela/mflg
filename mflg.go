@@ -14,6 +14,9 @@ import (
 )
 
 func saveBuffer(fname string, buf *buffer.Buffer) error {
+	if fname == os.DevNull {
+		return nil
+	}
 	return atomicwrite.Write(fname, func(w io.Writer) error { _, err := buf.WriteTo(w); return err })
 }
 
