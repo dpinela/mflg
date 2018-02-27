@@ -264,7 +264,7 @@ func (app *application) cursorPos() point {
 }
 
 func (app *application) handleMouseEvent(ev termesc.MouseEvent) {
-	if py := app.promptYOffset(); ev.Y >= py {
+	if py := app.promptYOffset(); ev.Y >= py && app.promptWindow != nil {
 		ev.Y -= py
 		app.promptWindow.handleMouseEvent(ev)
 		return
