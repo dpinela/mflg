@@ -304,7 +304,7 @@ func (b *Buffer) DeleteRange(r Range) {
 	p := ByteIndexForChar(b.lines[r.Begin.Y], r.Begin.X)
 	if r.End.Y >= len(b.lines) {
 		b.lines[r.Begin.Y] = b.lines[r.Begin.Y][:p]
-		b.lines = b.lines[r.Begin.Y+1:]
+		b.lines = b.lines[:r.Begin.Y+1]
 		return
 	}
 	q := ByteIndexForChar(b.lines[r.End.Y], r.End.X)
