@@ -96,26 +96,10 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			case termesc.RightKey:
 				aw.moveCursorRight()
 			case "\x11":
-				if !app.mainWindow.dirty {
-					return nil
+				if app.saveTimerPending {
+					saveBuffer(app.filename, app.mainWindow.buf)
 				}
-				if err := printAtBottom("Discard changes [y/N]? "); err != nil {
-					return err
-				}
-				if c = <-inputCh; c == "y" || c == "Y" {
-					return nil
-				}
-			case "\x13":
-				if !app.mainWindow.dirty {
-					continue
-				}
-				if err := saveBuffer(app.filename, app.mainWindow.buf); err != nil {
-					if err := printAtBottom(err.Error()); err != nil {
-						return err
-					}
-				} else {
-					app.mainWindow.dirty = false
-				}
+				return nil
 			case "\x7f", "\b":
 				aw.backspace()
 			case "\x0c":
