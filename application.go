@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/termesc"
@@ -18,6 +19,8 @@ type application struct {
 	cursorVisible            bool
 	width, height            int
 	promptHandler            func(string) // What to do with the prompt input when the user hits Enter
+
+	saveDelay time.Duration
 }
 
 func (app *application) navigateTo(location string) error {
