@@ -38,6 +38,7 @@ type window struct {
 
 	lastMouseRelease, lastMouseLeftPress timedMouseEvent
 
+	onChange         func()    // If not nil, called whenever the window's buffer is modified
 	dirty            bool      //Indicates whether the contents of the window's buffer have been modified
 	modificationTime time.Time // The time when the last edit occurred
 	undoStack        []snapshot
@@ -457,6 +458,13 @@ func (w *window) takeSnapshot() {
 	w.modificationTime = now
 }
 
+func (w *window) notifyChange() {
+	if w.onChange != nil {
+		w.onChange()
+	}
+	w.dirty = true
+}
+
 func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 	var lines []string
 	// Process only the lines within the selection Y bounds.
@@ -498,7 +506,7 @@ func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 			if w.selection.Set && i == w.selection.End.Y {
 				w.selection.End.X += buffer.CharCount(newLine) - buffer.CharCount(oldLine)
 			}
-			w.dirty = true
+			w.notifyChange()
 			w.needsRedraw = true
 		}
 	}
@@ -555,7 +563,6 @@ func (w *window) typeText(text string) {
 		w.backspace()
 	}
 	w.takeSnapshot()
-	w.dirty = true
 	w.needsRedraw = true
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	switch text[0] {
@@ -575,12 +582,12 @@ func (w *window) typeText(text string) {
 		w.updateWrapWidth()
 		w.moveCursorRight()
 	}
+	w.notifyChange()
 }
 
 func (w *window) backspace() {
 	if w.selection.Set || w.cursorPos.X > 0 || w.cursorPos.Y > 0 {
 		w.takeSnapshot()
-		w.dirty = true
 		w.needsRedraw = true
 	}
 	if w.selection.Set {
@@ -588,6 +595,7 @@ func (w *window) backspace() {
 		w.updateWrapWidth()
 		w.gotoTextPos(w.selection.Begin)
 		w.selection = optionalTextRange{}
+		w.notifyChange()
 		return
 	}
 	newX := 0
@@ -596,6 +604,7 @@ func (w *window) backspace() {
 	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.wrappedBuf.DeleteChar(tp)
+	w.notifyChange()
 	w.updateWrapWidth()
 	switch {
 	case tp.X > 0:
@@ -686,7 +695,7 @@ func (w *window) paste() {
 	w.updateWrapWidth()
 	w.gotoTextPos(posAfterInsertion(tp, s))
 	w.needsRedraw = true
-	w.dirty = true
+	w.notifyChange()
 }
 
 func posAfterInsertion(tp point, data string) point {
@@ -717,7 +726,7 @@ func (w *window) undoSince(i int) {
 	w.wrappedBuf.Reset(w.buf)
 	w.selection = oldState.selection
 	w.cursorPos = oldState.cursorPos
-	w.dirty = len(w.undoStack) != 0
+	w.notifyChange()
 	w.needsRedraw = true
 }
 

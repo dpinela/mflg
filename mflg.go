@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/dpinela/mflg/internal/buffer"
@@ -52,7 +53,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
 		os.Exit(2)
 	}
-	app := application{}
+	app := application{saveDelay: 1 * time.Second}
 	if err := app.navigateTo(os.Args[1]); err != nil {
 		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
 		os.Exit(1)

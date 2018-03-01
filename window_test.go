@@ -683,7 +683,6 @@ func TestUndo(t *testing.T) {
 	w.undo()
 	checkLineContent(t, 3, w, 0, "")
 	checkCursorPos(t, 3, w, point{X: 0, Y: 0})
-	checkNotDirty(t, w)
 }
 
 func TestUndoAll(t *testing.T) {
@@ -692,7 +691,6 @@ func TestUndoAll(t *testing.T) {
 	w.undoAll()
 	checkBufContent(t, w.buf, shortTestDocument)
 	checkCursorPos(t, 1, w, point{X: 0, Y: 0})
-	checkNotDirty(t, w)
 }
 
 func typeString(w *window, s string) {

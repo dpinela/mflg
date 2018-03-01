@@ -20,7 +20,9 @@ type application struct {
 	width, height            int
 	promptHandler            func(string) // What to do with the prompt input when the user hits Enter
 
-	saveDelay time.Duration
+	saveDelay        time.Duration
+	saveTimer        *time.Timer
+	saveTimerPending bool
 }
 
 func (app *application) navigateTo(location string) error {
@@ -36,8 +38,29 @@ func (app *application) navigateTo(location string) error {
 		return err
 	}
 	app.mainWindow = newWindow(0, 0, buf)
+	app.mainWindow.onChange = app.resetSaveTimer
 	app.filename = location
 	return nil
+}
+
+func (app *application) resetSaveTimer() {
+	if app.saveTimer == nil {
+		app.saveTimer = time.NewTimer(app.saveDelay)
+		app.saveTimerPending = true
+		return
+	}
+	if !app.saveTimer.Stop() && app.saveTimerPending {
+		<-app.saveTimer.C
+	}
+	app.saveTimer.Reset(app.saveDelay)
+	app.saveTimerPending = true
+}
+
+func (app *application) saveTimerChan() <-chan time.Time {
+	if app.saveTimer == nil {
+		return nil
+	}
+	return app.saveTimer.C
 }
 
 func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.Writer) error {
@@ -177,6 +200,11 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 				return err
 			} else {
 				app.resize(h, w)
+			}
+		case <-app.saveTimerChan():
+			app.saveTimerPending = false
+			if err := saveBuffer(app.filename, app.mainWindow.buf); err != nil {
+				printAtBottom(err.Error())
 			}
 		}
 	}
