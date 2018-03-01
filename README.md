@@ -26,8 +26,12 @@ In other words, more like an advanced nano and less like vi or emacs.
 - **Undo**: Control-Z
 - **Undo All/Discard Changes**: Control-U (will ask for confirmation)
 - **Replace**: Control-R, then type a regex, then the replacement. You may use $1, $2, $3... to refer to captured groups, and $name or ${name} to refer to named groups. To insert a literal $, use $$ (see [the Go regexp docs][go-regexp]).
-- **Save**: Control-S
 - **Quit**: Control-Q
+
+mflg saves your files automatically as you make changes, so there is no Save command as in other editors; except for a small delay, what you see on screen is what is on disk.
+Hence, **Quit** exits the editor unconditionally.
+If you want to throw away the changes you've made to a file since opening it, use the **Undo All** command; if you want to make absolutely sure you don't lose the original version, make a backup before editing the file.
+(If the file is tracked by a version control system, the VCS provides such a backup.)
 
 [go-regexp]: https://golang.org/pkg/regexp/#Regexp.Expand
 
@@ -45,6 +49,7 @@ mistaken for a line number.
 
 To select a range of text, use **Anchor** at each end of the range consecutively, in any order.
 Alternatively, you may click and drag the mouse to select, like in a GUI editor.
+You can also double-click and double-click-and-drag to select by words.
 
 - **Anchor**: Control-A
 - **Clear Selection**: ESC (cancels any in-progress selection as well)
