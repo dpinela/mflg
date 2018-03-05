@@ -43,6 +43,8 @@ func (app *application) navigateTo(location string) error {
 	return nil
 }
 
+func (app *application) currentFile() string { return app.filename }
+
 func (app *application) resetSaveTimer() {
 	if app.saveTimer == nil {
 		app.saveTimer = time.NewTimer(app.saveDelay)

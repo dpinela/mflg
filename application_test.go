@@ -8,6 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -64,6 +66,66 @@ func TestAutoSave(t *testing.T) {
 	time.Sleep(2 * saveDelay)
 	checkFileContents(t, name, "ABC\nrp")
 	close(fakeConsole)
+}
+
+func TestNavigation(t *testing.T) {
+	d, err := ioutil.TempDir("", "mflg-nav-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, err = filepath.Abs(d); err != nil {
+		t.Fatal(err)
+	}
+	if strings.IndexByte(d, ':') != -1 || filepath.Separator == ':' {
+		t.Fatal("generated file names will contain colons; some navigation syntax is ambiguous in this case")
+	}
+	defer os.RemoveAll(d)
+	nameA := filepath.Join(d, "A")
+	nameB := filepath.Join(d, "B")
+	putFile(t, nameA, []byte("lorem\nipsum\n"))
+	putFile(t, nameB, []byte("sit\namet\nconsequiat"))
+	app := &application{}
+	t.Run("Start", func(t *testing.T) {
+		app.testNav(t, nameA)
+		app.resize(stdWidth, stdHeight)
+		app.checkLocation(t, nameA, 0)
+	})
+	t.Run("SameFile", func(t *testing.T) {
+		app.testNav(t, ":3")
+		app.checkLocation(t, nameA, 2)
+		app.testNav(t, ":^.psu")
+		app.checkLocation(t, nameA, 1)
+		app.testNav(t, nameA+":1")
+		app.checkLocation(t, nameA, 0)
+	})
+	t.Run("DifferentFiles", func(t *testing.T) {
+		app.testNav(t, nameB)
+		app.checkLocation(t, nameB, 0)
+		app.testNav(t, nameA+":2")
+		app.checkLocation(t, nameA, 1)
+	})
+}
+
+func (app *application) testNav(t *testing.T, dest string) {
+	t.Helper()
+	if err := app.navigateTo(dest); err != nil {
+		t.Error(err)
+	}
+}
+
+func (app *application) checkLocation(t *testing.T, filename string, lineNum int) {
+	t.Helper()
+	y := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
+	if app.currentFile() != filename || y != lineNum {
+		t.Errorf("editor at %s:%d, want %s:%d", app.currentFile(), y, filename, lineNum)
+	}
+}
+
+func putFile(t *testing.T, name string, content []byte) {
+	t.Helper()
+	if err := ioutil.WriteFile(name, content, 0600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func checkFileContents(t *testing.T, filename, want string) {
