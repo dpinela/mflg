@@ -37,9 +37,14 @@ If you want to throw away the changes you've made to a file since opening it, us
 
 ### Movement
 
+When opening mflg, the argument follows the same syntax as the **Go to Location** command, except that you can't omit the filename, for obvious reasons.
+
 - **Go to Location**: Control-L
-  - Type line number to go to that line
-  - Type a regex to go to the first occurrence of that regex
+  - Typing a filename alone navigates to the start of that file
+  - Typing a string of the form "filename:loc" (colon-separated) navigates to the file, then:
+    - If loc is a positive integer, jumps to the line loc
+    - Otherwise, it treats it as a regex and jumps to its first occurrence
+    - If the filename part is empty, the command navigates in the current file. (ex.: you can use ":20" to go to line 20)
 - **Move cursor**: arrow keys (hold down/press repeatedly to move faster)
 
 _Caveat_: To use the **Go to Location** command to find a number, enclose it in a group (ex.: `(666)`) so that it isn't

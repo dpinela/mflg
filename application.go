@@ -3,8 +3,10 @@ package main
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dpinela/mflg/internal/buffer"
@@ -26,20 +28,49 @@ type application struct {
 }
 
 func (app *application) navigateTo(location string) error {
-	buf := buffer.New()
-	if f, err := os.Open(location); err == nil {
-		_, err = buf.ReadFrom(f)
-		f.Close()
+	line := 1
+	regex := (*regexp.Regexp)(nil)
+	filename := location
+	err := error(nil)
+	if i := strings.IndexByte(location, ':'); i != -1 {
+		filename = location[:i]
+		if rest := location[i+1:]; allASCIIDigits(rest) {
+			line, err = strconv.Atoi(rest)
+		} else {
+			regex, err = regexp.Compile(rest)
+		}
 		if err != nil {
 			return err
 		}
-		// Allow the user to edit a file that doesn't exist yet
-	} else if !os.IsNotExist(err) {
-		return err
 	}
-	app.mainWindow = newWindow(0, 0, buf)
-	app.mainWindow.onChange = app.resetSaveTimer
-	app.filename = location
+	if filename != "" {
+		if filename, err = filepath.Abs(filename); err != nil {
+			return err
+		}
+	}
+	if filename != "" && filename != app.filename {
+		buf := buffer.New()
+		if f, err := os.Open(filename); err == nil {
+			_, err = buf.ReadFrom(f)
+			f.Close()
+			if err != nil {
+				return err
+			}
+			// Allow the user to edit a file that doesn't exist yet
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		app.saveNow()
+		app.mainWindow = newWindow(app.width, app.height, buf)
+		app.mainWindow.onChange = app.resetSaveTimer
+		app.filename = filename
+	}
+	switch {
+	case regex != nil:
+		app.mainWindow.searchRegexp(regex)
+	case line > 0:
+		app.mainWindow.gotoLine(line - 1)
+	}
 	return nil
 }
 
@@ -56,6 +87,16 @@ func (app *application) resetSaveTimer() {
 	}
 	app.saveTimer.Reset(app.saveDelay)
 	app.saveTimerPending = true
+}
+
+func (app *application) saveNow() {
+	if app.saveTimerPending {
+		if !app.saveTimer.Stop() {
+			<-app.saveTimer.C
+		}
+		saveBuffer(app.filename, app.mainWindow.buf)
+		app.saveTimerPending = false
+	}
 }
 
 func (app *application) saveTimerChan() <-chan time.Time {
@@ -106,22 +147,8 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 				aw.backspace()
 			case "\x0c":
 				app.openPrompt("Go to:", func(response string) {
-					if allASCIIDigits(response) {
-						lineNum, err := strconv.ParseInt(response, 10, 64)
-						if err != nil {
-							must(printAtBottom(err.Error()))
-							return
-						}
-						if lineNum > 0 {
-							app.mainWindow.gotoLine(int(lineNum - 1))
-						}
-					} else {
-						re, err := regexp.Compile(response)
-						if err != nil {
-							must(printAtBottom(err.Error()))
-							return
-						}
-						app.mainWindow.searchRegexp(re)
+					if err := app.navigateTo(response); err != nil {
+						must(printAtBottom(err.Error()))
 					}
 				})
 			case "\x12":

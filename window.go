@@ -367,6 +367,7 @@ func (w *window) gotoLine(ty int) {
 	wy := w.wrappedBuf.WindowYForTextPos(buffer.Point{X: 0, Y: ty})
 	if w.wrappedBuf.HasLine(wy) {
 		w.topLine = wy
+		w.cursorPos = point{X: 0, Y: wy}
 		w.needsRedraw = true
 	}
 }

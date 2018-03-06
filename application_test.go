@@ -48,7 +48,7 @@ func TestAutoSave(t *testing.T) {
 	f.Close()
 	defer os.Remove(name)
 	const saveDelay = time.Second / 20
-	app := &application{width: stdWidth, height: stdHeight, filename: name, saveDelay: saveDelay}
+	app := &application{width: stdWidth, height: stdHeight, saveDelay: saveDelay}
 	if err := app.navigateTo(name); err != nil {
 		t.Fatal(err)
 	}
@@ -84,15 +84,15 @@ func TestNavigation(t *testing.T) {
 	nameB := filepath.Join(d, "B")
 	putFile(t, nameA, []byte("lorem\nipsum\n"))
 	putFile(t, nameB, []byte("sit\namet\nconsequiat"))
-	app := &application{}
+	app := &application{width: stdWidth, height: stdHeight}
 	t.Run("Start", func(t *testing.T) {
 		app.testNav(t, nameA)
-		app.resize(stdWidth, stdHeight)
 		app.checkLocation(t, nameA, 0)
 	})
 	t.Run("SameFile", func(t *testing.T) {
 		app.testNav(t, ":3")
 		app.checkLocation(t, nameA, 2)
+
 		app.testNav(t, ":^.psu")
 		app.checkLocation(t, nameA, 1)
 		app.testNav(t, nameA+":1")
@@ -117,6 +117,7 @@ func (app *application) checkLocation(t *testing.T, filename string, lineNum int
 	t.Helper()
 	y := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
 	if app.currentFile() != filename || y != lineNum {
+		t.Log(app.mainWindow.topLine, app.mainWindow.cursorPos)
 		t.Errorf("editor at %s:%d, want %s:%d", app.currentFile(), y, filename, lineNum)
 	}
 }

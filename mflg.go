@@ -53,14 +53,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
 		os.Exit(2)
 	}
-	app := application{saveDelay: 1 * time.Second}
-	if err := app.navigateTo(os.Args[1]); err != nil {
-		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
-		os.Exit(1)
-	}
 	w, h, err := terminal.GetSize(0)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error finding terminal size:", err)
+		os.Exit(1)
+	}
+	app := application{saveDelay: 1 * time.Second, width: w, height: h}
+	if err := app.navigateTo(os.Args[1]); err != nil {
+		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
 		os.Exit(1)
 	}
 	oldMode, err := terminal.MakeRaw(0)
