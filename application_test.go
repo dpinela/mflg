@@ -104,6 +104,16 @@ func TestNavigation(t *testing.T) {
 		app.testNav(t, nameA+":2")
 		app.checkLocation(t, nameA, 1)
 	})
+	t.Run("Back", func(t *testing.T) {
+		app.testBack(t)
+		app.checkLocation(t, nameB, 0)
+		app.testBack(t)
+		app.checkLocation(t, nameA, 0)
+		// Avoid passing this last test by coincidence; the location before this sub-test is nameA:1
+		app.testBack(t)
+		app.testBack(t)
+		app.checkLocation(t, nameA, 2)
+	})
 }
 
 func (app *application) testNav(t *testing.T, dest string) {
@@ -113,11 +123,17 @@ func (app *application) testNav(t *testing.T, dest string) {
 	}
 }
 
+func (app *application) testBack(t *testing.T) {
+	t.Helper()
+	if err := app.back(); err != nil {
+		t.Error(err)
+	}
+}
+
 func (app *application) checkLocation(t *testing.T, filename string, lineNum int) {
 	t.Helper()
 	y := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
 	if app.currentFile() != filename || y != lineNum {
-		t.Log(app.mainWindow.topLine, app.mainWindow.cursorPos)
 		t.Errorf("editor at %s:%d, want %s:%d", app.currentFile(), y, filename, lineNum)
 	}
 }

@@ -16,6 +16,7 @@ import (
 )
 
 type application struct {
+	navStack                 []location
 	filename                 string
 	mainWindow, promptWindow *window
 	cursorVisible            bool
@@ -27,14 +28,25 @@ type application struct {
 	saveTimerPending bool
 }
 
-func (app *application) navigateTo(location string) error {
+type location struct {
+	filename string
+	line     int
+}
+
+func (app *application) navigateTo(where string) error {
+	// If this isn't the very first navigation command, save the current location and add it to the
+	// navigation stack once the command completes successfully.
+	oldLocation := location{filename: app.filename, line: -1}
+	if app.filename != "" {
+		oldLocation.line = app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
+	}
 	line := 1
 	regex := (*regexp.Regexp)(nil)
-	filename := location
+	filename := where
 	err := error(nil)
-	if i := strings.IndexByte(location, ':'); i != -1 {
-		filename = location[:i]
-		if rest := location[i+1:]; allASCIIDigits(rest) {
+	if i := strings.IndexByte(where, ':'); i != -1 {
+		filename = where[:i]
+		if rest := where[i+1:]; allASCIIDigits(rest) {
 			line, err = strconv.Atoi(rest)
 		} else {
 			regex, err = regexp.Compile(rest)
@@ -48,6 +60,26 @@ func (app *application) navigateTo(location string) error {
 			return err
 		}
 	}
+	if err := app.gotoFile(filename); err != nil {
+		return err
+	}
+	loc := location{filename: app.filename, line: 0}
+	switch {
+	case regex != nil:
+		app.mainWindow.searchRegexp(regex)
+		loc.line = app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
+	case line > 0:
+		app.mainWindow.gotoLine(line - 1)
+		loc.line = line - 1
+	}
+	if oldLocation.line >= 0 {
+		app.navStack = append(app.navStack, oldLocation)
+	}
+	return nil
+}
+
+// gotoFile loads the file at filename into the editor, if it isn't the currently open file already.
+func (app *application) gotoFile(filename string) error {
 	if filename != "" && filename != app.filename {
 		buf := buffer.New()
 		if f, err := os.Open(filename); err == nil {
@@ -65,12 +97,20 @@ func (app *application) navigateTo(location string) error {
 		app.mainWindow.onChange = app.resetSaveTimer
 		app.filename = filename
 	}
-	switch {
-	case regex != nil:
-		app.mainWindow.searchRegexp(regex)
-	case line > 0:
-		app.mainWindow.gotoLine(line - 1)
+	return nil
+}
+
+func (app *application) back() error {
+	if len(app.navStack) == 0 {
+		return nil
 	}
+	s := app.navStack
+	loc := s[len(s)-1]
+	if err := app.gotoFile(loc.filename); err != nil {
+		return err
+	}
+	app.mainWindow.gotoLine(loc.line)
+	app.navStack = s[:len(s)-1]
 	return nil
 }
 
@@ -151,6 +191,10 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 						must(printAtBottom(err.Error()))
 					}
 				})
+			case "\x02":
+				if err := app.back(); err != nil {
+					must(printAtBottom(err.Error()))
+				}
 			case "\x12":
 				app.openPrompt("Replace:", func(searchRE string) {
 					re, err := regexp.Compile(searchRE)

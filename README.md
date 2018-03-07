@@ -39,6 +39,7 @@ If you want to throw away the changes you've made to a file since opening it, us
 
 When opening mflg, the argument follows the same syntax as the **Go to Location** command, except that you can't omit the filename, for obvious reasons.
 
+- **Back**: Control-B - goes back to the last location from where **Go to Location** was used
 - **Go to Location**: Control-L
   - Typing a filename alone navigates to the start of that file
   - Typing a string of the form "filename:loc" (colon-separated) navigates to the file, then:
