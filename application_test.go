@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -79,6 +80,9 @@ func TestNavigation(t *testing.T) {
 	if strings.IndexByte(d, ':') != -1 || filepath.Separator == ':' {
 		t.Fatal("generated file names will contain colons; some navigation syntax is ambiguous in this case")
 	}
+	if err := os.Mkdir(filepath.Join(d, "X"), 0700); err != nil {
+		t.Fatal(err)
+	}
 	defer os.RemoveAll(d)
 	nameA := filepath.Join(d, "A")
 	nameB := filepath.Join(d, "B")
@@ -113,6 +117,24 @@ func TestNavigation(t *testing.T) {
 		app.testBack(t)
 		app.testBack(t)
 		app.checkLocation(t, nameA, 2)
+	})
+	t.Run("DifferentFilesRelative", func(t *testing.T) {
+		app.testNav(t, "A:2")
+		app.checkLocation(t, nameA, 1)
+		nameC := filepath.Join("X", "B")
+		app.testNav(t, nameC)
+		app.checkLocation(t, filepath.Join(d, nameC), 0)
+		app.testNav(t, filepath.Join("..", "A"))
+		app.checkLocation(t, nameA, 0)
+	})
+	t.Run("ShellFilenameExpansion", func(t *testing.T) {
+		defer func(old func() (*user.User, error)) { currentUser = old }(currentUser)
+		currentUser = func() (*user.User, error) { return &user.User{HomeDir: d}, nil }
+		if err := os.Setenv("NEW_FILE", "C"); err != nil {
+			t.Error(err)
+		}
+		app.testNav(t, "~/$NEW_FILE")
+		app.checkLocation(t, filepath.Join(d, "C"), 0)
 	})
 }
 
