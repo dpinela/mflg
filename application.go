@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -56,8 +57,17 @@ func (app *application) navigateTo(where string) error {
 		}
 	}
 	if filename != "" {
-		if filename, err = filepath.Abs(filename); err != nil {
-			return err
+		filename = expandPath(filename)
+		// Interpret relative paths relative to the directory containing the current file, if any.
+		// When starting up, interpret them relative to the working directory.
+		if !filepath.IsAbs(filename) {
+			if app.filename != "" {
+				filename = filepath.Join(filepath.Dir(app.filename), filename)
+			} else {
+				if filename, err = filepath.Abs(filename); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	if err := app.gotoFile(filename); err != nil {
@@ -77,6 +87,23 @@ func (app *application) navigateTo(where string) error {
 	}
 	return nil
 }
+
+// expandPath expands references to environment variables in path, of the form $VAR or ${VAR}.
+// It also expands ~/ at the start of a path to the user's home directory.
+func expandPath(path string) string {
+	path = os.ExpandEnv(path)
+	if p := strings.TrimPrefix(path, "~"+string(filepath.Separator)); len(p) != len(path) {
+		// In the unlikely event that the lookup fails, leave the tilde unexpanded; it will be easier
+		// to detect the problem that way.
+		if u, err := currentUser(); err == nil {
+			path = filepath.Join(u.HomeDir, p)
+		}
+	}
+	return path
+}
+
+// This is a variable so that it can be mocked for tests.
+var currentUser = user.Current
 
 // gotoFile loads the file at filename into the editor, if it isn't the currently open file already.
 func (app *application) gotoFile(filename string) error {
