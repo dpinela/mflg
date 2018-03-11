@@ -48,6 +48,7 @@ When opening mflg, the argument follows the same syntax as the **Go to Location*
     - If the filename part is empty, the command navigates in the current file. (ex.: you can use ":20" to go to line 20)
   - Environment variables (using $VAR or ${VAR} syntax) in filenames are expanded to their values, and ~ expands to your home directory, just like in a shell
   - Filenames are interpreted relatively to the current file's parent directory, or the working directory when starting up
+- **Find Next**: Control-G - if the last use of **Go to Location** specified a regex, goes to the next occurrence of that regex after the line the cursor is on. Wraps around the end of the file if necessary.
 - **Move cursor**: arrow keys (hold down/press repeatedly to move faster)
 
 _Caveat_: To use the **Go to Location** command to find a number, enclose it in a group (ex.: `(666)`) so that it isn't

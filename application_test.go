@@ -87,7 +87,7 @@ func TestNavigation(t *testing.T) {
 	nameA := filepath.Join(d, "A")
 	nameB := filepath.Join(d, "B")
 	putFile(t, nameA, []byte("lorem\nipsum\n"))
-	putFile(t, nameB, []byte("sit\namet\nconsequiat"))
+	putFile(t, nameB, []byte("sit\namet\nconsequiat\ndolor\namet\nalanifundum\n"))
 	app := &application{width: stdWidth, height: stdHeight}
 	t.Run("Start", func(t *testing.T) {
 		app.testNav(t, nameA)
@@ -135,6 +135,23 @@ func TestNavigation(t *testing.T) {
 		}
 		app.testNav(t, "~/$NEW_FILE")
 		app.checkLocation(t, filepath.Join(d, "C"), 0)
+	})
+	t.Run("CycleRegexMatches", func(t *testing.T) {
+		app.testNav(t, "B:[ae]t$")
+		app.checkLocation(t, nameB, 1)
+		app.gotoNextMatch()
+		app.checkLocation(t, nameB, 2)
+		app.gotoNextMatch()
+		app.checkLocation(t, nameB, 4)
+		app.testBack(t)
+		app.checkLocation(t, nameB, 2)
+		app.gotoNextMatch()
+		app.checkLocation(t, nameB, 4)
+		app.gotoNextMatch()
+		app.checkLocation(t, nameB, 1)
+		app.mainWindow.cursorPos = point{X: 1, Y: 3}
+		app.gotoNextMatch()
+		app.checkLocation(t, nameB, 4)
 	})
 }
 

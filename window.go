@@ -428,9 +428,15 @@ func (w *window) followCursor() {
 	}
 }
 
-func (w *window) searchRegexp(re *regexp.Regexp) {
-	for i, line := range w.buf.SliceLines(0, w.buf.LineCount()) {
-		if re.MatchString(line) {
+func (w *window) searchRegexp(re *regexp.Regexp, startY int) {
+	for i, line := range w.buf.SliceLines(startY, w.buf.LineCount()) {
+		if re.MatchString(strings.TrimSuffix(line, "\n")) {
+			w.gotoLine(startY + i)
+			return
+		}
+	}
+	for i, line := range w.buf.SliceLines(0, startY) {
+		if re.MatchString(strings.TrimSuffix(line, "\n")) {
 			w.gotoLine(i)
 			return
 		}

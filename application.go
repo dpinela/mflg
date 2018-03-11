@@ -17,6 +17,7 @@ import (
 )
 
 type application struct {
+	searchRE                 *regexp.Regexp // The regexp used in the last navigation command, if any
 	navStack                 []location
 	filename                 string
 	mainWindow, promptWindow *window
@@ -76,7 +77,7 @@ func (app *application) navigateTo(where string) error {
 	loc := location{filename: app.filename, line: 0}
 	switch {
 	case regex != nil:
-		app.mainWindow.searchRegexp(regex)
+		app.mainWindow.searchRegexp(regex, 0)
 		loc.line = app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
 	case line > 0:
 		app.mainWindow.gotoLine(line - 1)
@@ -85,6 +86,7 @@ func (app *application) navigateTo(where string) error {
 	if oldLocation.line >= 0 {
 		app.navStack = append(app.navStack, oldLocation)
 	}
+	app.searchRE = regex
 	return nil
 }
 
@@ -125,6 +127,14 @@ func (app *application) gotoFile(filename string) error {
 		app.filename = filename
 	}
 	return nil
+}
+
+func (app *application) gotoNextMatch() {
+	if app.searchRE != nil {
+		y := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
+		app.navStack = append(app.navStack, location{filename: app.filename, line: y})
+		app.mainWindow.searchRegexp(app.searchRE, y+1)
+	}
 }
 
 func (app *application) back() error {
@@ -218,6 +228,8 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 						must(printAtBottom(err.Error()))
 					}
 				})
+			case "\x07":
+				app.gotoNextMatch()
 			case "\x02":
 				if err := app.back(); err != nil {
 					must(printAtBottom(err.Error()))
