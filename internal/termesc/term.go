@@ -12,7 +12,10 @@ import (
 	"time"
 )
 
-const csi = "\x1B["
+const (
+	csi = "\x1B["
+	osc = "\x1B]"
+)
 
 // Escape sequences for terminal and cursor control functions.
 const (
@@ -48,6 +51,10 @@ func IsAltRightKey(s string) bool { return s == "\x1bf" || s == "\x1b\x1b[C" }
 // SetCursorPos returns a code that sets the cursor's position to (y, x).
 // Coordinates are 1-based.
 func SetCursorPos(y, x int) string { return fmt.Sprintf(csi+"%d;%dH", y, x) }
+
+// SetTitle returns a code that sets the terminal window's title to s.
+// s should not contain BEL (ASCII 7) characters.
+func SetTitle(s string) string { return osc + "2;" + s + "\a" }
 
 // ConsoleReader provides an interface for reading console input in discrete units
 // of runes and terminal escape codes.

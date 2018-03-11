@@ -28,6 +28,8 @@ type application struct {
 	saveDelay        time.Duration
 	saveTimer        *time.Timer
 	saveTimerPending bool
+
+	titleNeedsRedraw bool
 }
 
 type location struct {
@@ -125,6 +127,7 @@ func (app *application) gotoFile(filename string) error {
 		app.mainWindow = newWindow(app.width, app.height, buf)
 		app.mainWindow.onChange = app.resetSaveTimer
 		app.filename = filename
+		app.titleNeedsRedraw = true
 	}
 	return nil
 }
@@ -363,6 +366,12 @@ func (app *application) redraw(console io.Writer) error {
 		if err := app.promptWindow.redrawAtYOffset(console, app.promptYOffset()); err != nil {
 			return err
 		}
+	}
+	if app.titleNeedsRedraw {
+		if _, err := console.Write([]byte(termesc.SetTitle(app.filename))); err != nil {
+			return err
+		}
+		app.titleNeedsRedraw = false
 	}
 	nowVisible := app.activeWindow().cursorInViewport()
 	defer func() { app.cursorVisible = nowVisible }()
