@@ -76,14 +76,11 @@ func (app *application) navigateTo(where string) error {
 	if err := app.gotoFile(filename); err != nil {
 		return err
 	}
-	loc := location{filename: app.filename, line: 0}
 	switch {
 	case regex != nil:
 		app.mainWindow.searchRegexp(regex, 0)
-		loc.line = app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
 	case line > 0:
 		app.mainWindow.gotoLine(line - 1)
-		loc.line = line - 1
 	}
 	if oldLocation.line >= 0 {
 		app.navStack = append(app.navStack, oldLocation)
