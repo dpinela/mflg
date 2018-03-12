@@ -220,7 +220,7 @@ func TestResize(t *testing.T) {
 	w.resize(10, 6)
 	checkCursorPos(t, 1, w, point{0, 2})
 	w.resize(1, 6)
-	checkCursorPos(t, 2, w, point{0, 0})
+	checkCursorPos(t, 2, w, point{0, 2})
 }
 
 func TestScrollingOneLine(t *testing.T) {

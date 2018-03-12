@@ -128,9 +128,6 @@ func (w *window) resize(newHeight, newWidth int) {
 	if w.cursorPos.X+gw >= newWidth {
 		w.cursorPos.X = newWidth - gw - 1
 	}
-	if w.cursorPos.Y >= newHeight {
-		w.cursorPos.Y = newHeight - 1
-	}
 	w.width = newWidth
 	w.height = newHeight
 	w.updateWrapWidth()

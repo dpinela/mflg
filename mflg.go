@@ -58,7 +58,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error finding terminal size:", err)
 		os.Exit(1)
 	}
-	app := application{saveDelay: 1 * time.Second, width: w, height: h}
+	app := application{saveDelay: 1 * time.Second, width: w, height: h, cursorVisible: true}
 	if err := app.navigateTo(os.Args[1]); err != nil {
 		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
 		os.Exit(1)
@@ -71,7 +71,6 @@ func main() {
 	defer terminal.Restore(0, oldMode)
 	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
 	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.ShowCursor + termesc.DisableMouseReporting)
-	app.resize(h, w)
 	resizeCh := make(chan os.Signal, 32)
 	signal.Notify(resizeCh, unix.SIGWINCH)
 	if err := app.run(os.Stdin, resizeCh, os.Stdout); err != nil {
