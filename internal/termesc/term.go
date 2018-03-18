@@ -19,11 +19,13 @@ const (
 
 // Escape sequences for terminal and cursor control functions.
 const (
-	ClearScreenForward   = csi + "J"      // Clears the visible area of the console ahead of the current cursor position
-	ClearScreen          = csi + "2J"     // Clears the entire visible area of the console
-	ClearLine            = csi + "2K"     // Clears the line the cursor is on
-	EnterAlternateScreen = csi + "?1049h" // Switches to the alternate screen
-	ExitAlternateScreen  = csi + "?1049l" // Switches from the alternate screen to the regular one
+	ClearScreenForward    = csi + "J"      // Clears the visible area of the console ahead of the current cursor position
+	ClearScreen           = csi + "2J"     // Clears the entire visible area of the console
+	ClearLine             = csi + "2K"     // Clears the line the cursor is on
+	EnterAlternateScreen  = csi + "?1049h" // Switches to the alternate screen
+	ExitAlternateScreen   = csi + "?1049l" // Switches from the alternate screen to the regular one
+	EnableBracketedPaste  = csi + "?2004h"
+	DisableBracketedPaste = csi + "?2004l"
 
 	// The mouse enabling escape sequence does three things:
 	// 1000: enable mouse click reporting (using the old xterm format)
@@ -40,6 +42,9 @@ const (
 
 	HideCursor = csi + "?25l"
 	ShowCursor = csi + "?25h"
+
+	PastedTextBegin = csi + "200~"
+	PastedTextEnd   = csi + "201~"
 )
 
 // IsAltLeftKey reports whether s represents a left arrow key press with Alt held.

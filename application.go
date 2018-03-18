@@ -29,6 +29,10 @@ type application struct {
 	saveTimer        *time.Timer
 	saveTimerPending bool
 
+	// These fields are used when receiving a bracketed paste
+	pasteBuffer      []byte
+	inBracketedPaste bool
+
 	titleNeedsRedraw bool
 }
 
@@ -206,6 +210,18 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			if !ok {
 				return nil
 			}
+			if app.inBracketedPaste {
+				if c == termesc.PastedTextEnd {
+					aw.insertText(app.pasteBuffer)
+					app.inBracketedPaste = false
+				} else {
+					if c == "\r" {
+						c = "\n"
+					}
+					app.pasteBuffer = append(app.pasteBuffer, c...)
+				}
+				continue
+			}
 			switch c {
 			case termesc.UpKey:
 				aw.repeatMove(aw.moveCursorUp)
@@ -215,6 +231,9 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 				aw.moveCursorLeft()
 			case termesc.RightKey:
 				aw.moveCursorRight()
+			case termesc.PastedTextBegin:
+				app.inBracketedPaste = true
+				app.pasteBuffer = app.pasteBuffer[:0]
 			case "\x11":
 				if app.saveTimerPending {
 					saveBuffer(app.filename, app.mainWindow.buf)

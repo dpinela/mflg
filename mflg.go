@@ -69,8 +69,8 @@ func main() {
 		os.Exit(1)
 	}
 	defer terminal.Restore(0, oldMode)
-	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnterAlternateScreen)
-	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.ShowCursor + termesc.DisableMouseReporting)
+	os.Stdout.WriteString(termesc.EnableMouseReporting + termesc.EnableBracketedPaste + termesc.EnterAlternateScreen)
+	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableBracketedPaste + termesc.ShowCursor + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
 	signal.Notify(resizeCh, unix.SIGWINCH)
 	if err := app.run(os.Stdin, resizeCh, os.Stdout); err != nil {

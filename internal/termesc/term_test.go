@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-const testInput = "\x1B[M#U7Á €50.0\x1B+25c, \x1B[Afoo\x1B[32;10;15M\x1B[Cπ\x1bb\x1bf\x1b\x1b[D"
+const testInput = "\x1B[M#U7Á €50.0\x1B+25c, \x1B[Afoo\x1B[32;10;15M\x1B[C\x1b[200~π\x1b[201~\x1bb\x1bf\x1b\x1b[D"
 
 var wantOutput = []string{"\x1B[M#U7", "Á", " ", "€", "5", "0", ".", "0", "\x1B", "+", "2", "5", "c",
-	",", " ", "\x1B[A", "f", "o", "o", "\x1B[32;10;15M", "\x1B[C", "π", "\x1bb", "\x1bf", "\x1b\x1b[D"}
+	",", " ", "\x1B[A", "f", "o", "o", "\x1B[32;10;15M", "\x1B[C", "\x1b[200~", "π", "\x1b[201~", "\x1bb", "\x1bf", "\x1b\x1b[D"}
 
 func TestInputParsing(t *testing.T) {
 	c := NewConsoleReader(strings.NewReader(testInput))

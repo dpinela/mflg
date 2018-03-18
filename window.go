@@ -684,7 +684,14 @@ func (w *window) cutSelection() {
 
 func (w *window) paste() {
 	data, err := clipboard.Paste()
-	if err != nil || len(data) == 0 {
+	if err != nil {
+		return
+	}
+	w.insertText(data)
+}
+
+func (w *window) insertText(data []byte) {
+	if len(data) == 0 {
 		return
 	}
 	// backspace() already takes a snapshot, so in that case, we don't have to.
