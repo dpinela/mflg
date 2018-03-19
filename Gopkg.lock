@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/BurntSushi/toml"
+  packages = ["."]
+  revision = "b26d9c308763d68093482582cea63d69be07a0f0"
+  version = "v0.3.0"
+
+[[projects]]
   name = "github.com/dpinela/charseg"
   packages = ["."]
   revision = "040dd2efc4b144b1cb5c0de851ca0ffb90ddeba8"
@@ -43,6 +49,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0cd62c469b0ed3c7eadc95a752808b5b1e5c147da1d4d753dba2c6b271045947"
+  inputs-digest = "d2bba5079c3da94d41d4a749bd4592ea796bff5a06dcdd528142fa046d56a661"
   solver-name = "gps-cdcl"
   solver-version = 1
