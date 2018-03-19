@@ -37,7 +37,7 @@ func newTestWindow(t testing.TB, width, height int, content string) *window {
 	if _, err := buf.ReadFrom(strings.NewReader(content)); err != nil {
 		t.Fatal(err)
 	}
-	w := newWindow(width, height, buf)
+	w := newWindow(width, height, buf, 4)
 	return w
 }
 
@@ -100,7 +100,7 @@ func checkNeedsRedraw(t *testing.T, w *window) {
 // complicated in some cases.
 func TestArrowKeyNavigation(t *testing.T) {
 	w := newTestWindowA(t)
-	tab := w.tabWidth()
+	tab := w.getTabWidth()
 	checkCursorPos(t, 0, w, point{0, 0})
 	w.moveCursorLeft()
 	checkCursorPos(t, 1, w, point{0, 0})
@@ -176,7 +176,7 @@ func TestMouseNavigation(t *testing.T) {
 		{ev: termesc.MouseEvent{X: 50, Y: 0, Button: termesc.ReleaseButton}, wantPos: point{12, 0}},
 		{ev: termesc.MouseEvent{X: 45, Y: 22, Button: termesc.ReleaseButton}, wantPos: point{1, 14}},
 		// Click inside a tab
-		{ev: termesc.MouseEvent{X: 4, Y: 5, Button: termesc.ReleaseButton}, wantPos: point{w.tabWidth(), 5}},
+		{ev: termesc.MouseEvent{X: 4, Y: 5, Button: termesc.ReleaseButton}, wantPos: point{w.getTabWidth(), 5}},
 	}
 	for _, tt := range mouseNavTests {
 		w.handleMouseEvent(tt.ev)
@@ -331,7 +331,7 @@ func TestBackspace(t *testing.T) {
 
 func TestAutoIndent(t *testing.T) {
 	w := newTestWindowEmpty(t)
-	tab := w.tabWidth()
+	tab := w.getTabWidth()
 	w.typeText("\t")
 	checkCursorPos(t, 0, w, point{tab, 0})
 	w.typeText("\r")
@@ -361,7 +361,7 @@ func main() {
 		M     = 2
 		chunk = "func main() {"
 	)
-	if n := w.tabWidth(); n != M {
+	if n := w.getTabWidth(); n != M {
 		t.Errorf("got tabWidth() = %d, want %d", n, M)
 	}
 	w.cursorPos = point{0, 1}
@@ -427,12 +427,12 @@ func TestPasteWideChar(t *testing.T) {
 /*func TestPasteMultiline(t *testing.T) {
 	const chunk = "blub\nblub\nblub"
 	w := newTestWindow(t, 160, 20, testDocument)
-	w.cursorPos = point{w.tabWidth() + 2, 10}
+	w.cursorPos = point{w.getTabWidth() + 2, 10}
 	if err := clipboard.Copy([]byte(chunk)); err != nil {
 		t.Fatal(err)
 	}
 	w.paste()
-	checkCursorPos(t, 1, w, point{w.tabWidth() + 4, 12})
+	checkCursorPos(t, 1, w, point{w.getTabWidth() + 4, 12})
 	checkLineContent(t, 1, w, 10, "\telblub")
 	checkLineContent(t, 1, w, 11, "\tblub")
 	checkLineContent(t, 1, w, 12, "\tblubeifend {")

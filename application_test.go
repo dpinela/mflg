@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/dpinela/mflg/internal/buffer"
+	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/termesc"
 	"testing"
 
@@ -20,7 +21,7 @@ const (
 )
 
 func TestMouseEventsOutsidePrompt(t *testing.T) {
-	app := &application{mainWindow: newWindow(stdWidth, stdHeight, buffer.New()), promptWindow: newWindow(stdWidth, 1, buffer.New()), width: stdWidth, height: stdHeight}
+	app := &application{mainWindow: newWindow(stdWidth, stdHeight, buffer.New(), 4), promptWindow: newWindow(stdWidth, 1, buffer.New(), 4), width: stdWidth, height: stdHeight}
 	app.handleMouseEvent(termesc.MouseEvent{X: 5, Y: 5, Move: true, Button: termesc.NoButton})
 	if app.promptWindow == nil {
 		t.Error("after mouse move outside prompt, prompt window was closed, shouldn't have been")
@@ -49,7 +50,7 @@ func TestAutoSave(t *testing.T) {
 	f.Close()
 	defer os.Remove(name)
 	const saveDelay = time.Second / 20
-	app := &application{width: stdWidth, height: stdHeight, saveDelay: saveDelay}
+	app := &application{width: stdWidth, height: stdHeight, saveDelay: saveDelay, config: &config.Config{TabWidth: 4}}
 	if err := app.navigateTo(name); err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +89,7 @@ func TestNavigation(t *testing.T) {
 	nameB := filepath.Join(d, "B")
 	putFile(t, nameA, []byte("lorem\nipsum\n"))
 	putFile(t, nameB, []byte("sit\namet\nconsequiat\ndolor\namet\nalanifundum\n"))
-	app := &application{width: stdWidth, height: stdHeight}
+	app := &application{width: stdWidth, height: stdHeight, config: &config.Config{TabWidth: 4}}
 	t.Run("Start", func(t *testing.T) {
 		app.testNav(t, nameA)
 		app.checkLocation(t, nameA, 0)

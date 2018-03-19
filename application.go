@@ -128,7 +128,7 @@ func (app *application) gotoFile(filename string) error {
 			return err
 		}
 		app.saveNow()
-		app.mainWindow = newWindow(app.width, app.height, buf)
+		app.mainWindow = newWindow(app.width, app.height, buf, app.config.TabWidth)
 		app.mainWindow.onChange = app.resetSaveTimer
 		app.filename = filename
 		app.titleNeedsRedraw = true
@@ -344,7 +344,7 @@ func (app *application) openFile(filename string) error {
 // openPrompt opens a prompt window at the bottom of the viewport.
 // When the user hits Enter, whenDone is called with the entered text.
 func (app *application) openPrompt(prompt string, whenDone func(string)) {
-	app.promptWindow = newWindow(app.width, 1, buffer.New())
+	app.promptWindow = newWindow(app.width, 1, buffer.New(), 4)
 	app.promptWindow.setGutterText(prompt)
 	app.promptHandler = whenDone
 }

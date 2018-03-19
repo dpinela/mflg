@@ -48,6 +48,7 @@ type window struct {
 	buf        *buffer.Buffer        // The buffer being edited in the window
 	wrappedBuf *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
 	tabString  string                // The string that should be inserted when typing a tab
+	tabWidth   int                   // The width with which hard tabs are displayed
 }
 
 // The maximum time between two changes such that they will be undone together.
@@ -92,16 +93,16 @@ func (otr *optionalTextRange) Put(tr textRange) {
 	otr.Set = true
 }
 
-func newWindow(width, height int, buf *buffer.Buffer) *window {
+func newWindow(width, height int, buf *buffer.Buffer, tabWidth int) *window {
 	w := &window{
 		width: width, height: height,
-		buf:         buf,
-		tabString:   tabString(buf.IndentType()),
+		buf:       buf,
+		tabString: tabString(buf.IndentType()), tabWidth: tabWidth,
 		needsRedraw: true, moveTicker: streak.Tracker{Interval: time.Second / 5},
 	}
 	// We leave one space at the right end of the window so that we can always type
 	// at the end of lines
-	w.wrappedBuf = buffer.NewWrapped(buf, w.textAreaWidth(), displayLenChar)
+	w.wrappedBuf = buffer.NewWrapped(buf, w.textAreaWidth(), w.displayLenChar)
 	return w
 }
 
@@ -145,14 +146,14 @@ func (w *window) setGutterText(text string) {
 }
 
 // Returns the length of line, as visually seen on the console.
-func displayLen(line string) int {
+func (w *window) displayLen(line string) int {
 	n := 0
 	for i := 0; i < len(line); {
 		p := buffer.NextCharBoundary(line)
 		if p == 1 && line[0] == '\n' {
 			break
 		} else {
-			n += displayLenChar(line[:p])
+			n += w.displayLenChar(line[:p])
 		}
 		line = line[p:]
 	}
@@ -173,9 +174,9 @@ func ndigits(x int) int {
 
 // This is here mainly so tests don't break when we introduce configurable
 // tab widths.
-func (w *window) tabWidth() int {
+func (w *window) getTabWidth() int {
 	if w.tabString == "\t" {
-		return 4
+		return w.tabWidth
 	}
 	return len(w.tabString)
 }
@@ -204,7 +205,7 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 	}
 	lines := w.wrappedBuf.Lines(w.topLine, w.topLine+w.height)
 	tf := textFormatter{src: lines,
-		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText}
+		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText, tabWidth: w.getTabWidth()}
 	for wy := 0; wy < w.height; wy++ {
 		line, ok := tf.formatNextLine(wy+1 >= w.height)
 		if !ok {
@@ -223,12 +224,11 @@ type textFormatter struct {
 	invertedRegion optionalTextRange
 	gutterText     string
 	gutterWidth    int
+	tabWidth       int
 
 	line int
 	buf  []byte
 }
-
-const tabWidth = 4
 
 // Pre-compute the SGR escape sequences used in formatNextLine to avoid the expense of recomputing them repeatedly.
 var (
@@ -273,7 +273,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 		}
 		n := buffer.NextCharBoundary(line)
 		if line[:n] == "\t" {
-			tf.appendSpaces(tabWidth)
+			tf.appendSpaces(tf.tabWidth)
 		} else if line[:n] != "\n" {
 			tf.buf = append(tf.buf, line[:n]...)
 		}
@@ -516,21 +516,21 @@ func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 	}
 }
 
-func displayLenChar(char string) int {
+func (w *window) displayLenChar(char string) int {
 	if char == "\t" {
-		return 4
+		return w.tabWidth
 	}
 	return runewidth.StringWidth(char)
 }
 
-func scanLineUntil(line string, startTx int, stopAt func(wx, tx int) bool) (wx, tx int) {
+func (w *window) scanLineUntil(line string, startTx int, stopAt func(wx, tx int) bool) (wx, tx int) {
 	tx = startTx
 	for len(line) != 0 && !stopAt(wx, tx) {
 		p := buffer.NextCharBoundary(line)
 		if line[:p] == "\n" {
 			break
 		}
-		wx += displayLenChar(line[:p])
+		wx += w.displayLenChar(line[:p])
 		tx++
 		line = line[p:]
 	}
@@ -539,14 +539,14 @@ func scanLineUntil(line string, startTx int, stopAt func(wx, tx int) bool) (wx, 
 
 func (w *window) windowCoordsToTextCoords(wp point) (tp point) {
 	line := w.wrappedBuf.Line(wp.Y)
-	_, tx := scanLineUntil(line.Text, line.Start.X, func(wx, _ int) bool { return wx >= wp.X })
+	_, tx := w.scanLineUntil(line.Text, line.Start.X, func(wx, _ int) bool { return wx >= wp.X })
 	return point{tx, line.Start.Y}
 }
 
 func (w *window) textCoordsToWindowCoords(tp point) (wp point) {
 	wy := w.wrappedBuf.WindowYForTextPos(tp)
 	line := w.wrappedBuf.Line(wy)
-	wx, _ := scanLineUntil(line.Text, line.Start.X, func(_, tx int) bool { return tx >= tp.X })
+	wx, _ := w.scanLineUntil(line.Text, line.Start.X, func(_, tx int) bool { return tx >= tp.X })
 	return point{X: wx, Y: wy}
 }
 
@@ -604,7 +604,7 @@ func (w *window) backspace() {
 	}
 	newX := 0
 	if w.cursorPos.Y > 0 {
-		newX = displayLen(w.wrappedBuf.Line(w.cursorPos.Y - 1).Text)
+		newX = w.displayLen(w.wrappedBuf.Line(w.cursorPos.Y - 1).Text)
 	}
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.wrappedBuf.DeleteChar(tp)

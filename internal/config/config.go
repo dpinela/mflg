@@ -8,9 +8,8 @@ import (
 )
 
 type Config struct {
-	TabWidth        int
-	DefaultSoftTabs bool
-	Lang            map[string]*LangConfig
+	TabWidth int
+	Lang     map[string]*LangConfig
 }
 
 type LangConfig struct {
