@@ -199,7 +199,7 @@ func TestScrolling(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		w.moveCursorDown()
 	}
-	checkCursorPos(t, 3, w, point{tabWidth + 1, 13})
+	checkCursorPos(t, 3, w, point{w.getTabWidth() + 1, 13})
 	checkTopLine(t, 3, w, 4)
 	w.moveCursorDown()
 	checkCursorPos(t, 4, w, point{1, 14})
