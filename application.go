@@ -41,15 +41,15 @@ type application struct {
 
 type location struct {
 	filename string
-	line     int
+	pos      point
 }
 
 func (app *application) navigateTo(where string) error {
 	// If this isn't the very first navigation command, save the current location and add it to the
 	// navigation stack once the command completes successfully.
-	oldLocation := location{filename: app.filename, line: -1}
+	oldLocation := location{filename: app.filename, pos: point{-1, -1}}
 	if app.filename != "" {
-		oldLocation.line = app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
+		oldLocation.pos = app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos)
 	}
 	line := 1
 	regex := (*regexp.Regexp)(nil)
@@ -89,7 +89,7 @@ func (app *application) navigateTo(where string) error {
 	case line > 0:
 		app.mainWindow.gotoLine(line - 1)
 	}
-	if oldLocation.line >= 0 {
+	if oldLocation.pos.Y >= 0 {
 		app.navStack = append(app.navStack, oldLocation)
 	}
 	app.searchRE = regex
@@ -138,9 +138,9 @@ func (app *application) gotoFile(filename string) error {
 
 func (app *application) gotoNextMatch() {
 	if app.searchRE != nil {
-		y := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
-		app.navStack = append(app.navStack, location{filename: app.filename, line: y})
-		app.mainWindow.searchRegexp(app.searchRE, y+1)
+		tp := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos)
+		app.navStack = append(app.navStack, location{filename: app.filename, pos: tp})
+		app.mainWindow.searchRegexp(app.searchRE, tp.Y+1)
 	}
 }
 
@@ -153,7 +153,7 @@ func (app *application) back() error {
 	if err := app.gotoFile(loc.filename); err != nil {
 		return err
 	}
-	app.mainWindow.gotoLine(loc.line)
+	app.mainWindow.gotoTextPos(loc.pos)
 	app.navStack = s[:len(s)-1]
 	return nil
 }

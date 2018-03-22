@@ -106,12 +106,13 @@ func TestNavigation(t *testing.T) {
 	t.Run("DifferentFiles", func(t *testing.T) {
 		app.testNav(t, nameB)
 		app.checkLocation(t, nameB, 0)
+		app.mainWindow.moveCursorRight()
 		app.testNav(t, nameA+":2")
 		app.checkLocation(t, nameA, 1)
 	})
 	t.Run("Back", func(t *testing.T) {
 		app.testBack(t)
-		app.checkLocation(t, nameB, 0)
+		app.checkFullLocation(t, nameB, point{X: 1, Y: 0})
 		app.testBack(t)
 		app.checkLocation(t, nameA, 0)
 		// Avoid passing this last test by coincidence; the location before this sub-test is nameA:1
@@ -172,9 +173,14 @@ func (app *application) testBack(t *testing.T) {
 
 func (app *application) checkLocation(t *testing.T, filename string, lineNum int) {
 	t.Helper()
-	y := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos).Y
-	if app.currentFile() != filename || y != lineNum {
-		t.Errorf("editor at %s:%d, want %s:%d", app.currentFile(), y, filename, lineNum)
+	app.checkFullLocation(t, filename, buffer.Point{X: 0, Y: lineNum})
+}
+
+func (app *application) checkFullLocation(t *testing.T, filename string, wantTP buffer.Point) {
+	t.Helper()
+	tp := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos)
+	if app.currentFile() != filename || tp != wantTP {
+		t.Errorf("editor at %s:%v, want %[1]s:%[3]v", app.currentFile(), tp, wantTP)
 	}
 }
 
