@@ -21,8 +21,12 @@ func TestWrite(t *testing.T) {
 	td, err := ioutil.TempDir("", "atomicwrite-testdir")
 	fatalErr(t, err)
 	defer os.RemoveAll(td)
-	name := filepath.Join(td, "token")
-	if err := Write(name, func(w io.Writer) error { _, err := w.Write(testContent); return err }); err != nil {
+	t.Run("ExistingDir", func(t *testing.T) { testWriteFile(t, filepath.Join(td, "token"), testContent) })
+	t.Run("NonexistentDir", func(t *testing.T) { testWriteFile(t, filepath.Join(td, "X", "Y", "token"), testContent) })
+}
+
+func testWriteFile(t *testing.T, name string, content []byte) {
+	if err := Write(name, func(w io.Writer) error { _, err := w.Write(content); return err }); err != nil {
 		t.Error(err)
 	}
 	data, err := ioutil.ReadFile(name)

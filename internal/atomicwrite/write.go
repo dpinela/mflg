@@ -5,16 +5,21 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/pkg/errors"
 )
 
-const defaultPerms = os.FileMode(0640)
+const (
+	defaultPerms    = os.FileMode(0644)
+	defaultDirPerms = os.FileMode(0755)
+)
 
 // Write atomically overwrites the file at filename with the content written by the
 // given function.
-// The file is created with mode 0640 if it doesn't already exist; if it does, its permissions will be
+// The file is created with mode 0644 if it doesn't already exist; if it does, its permissions will be
 // preserved if possible.
+// If some of the directories on the path don't already exist, they are created with mode 0755.
 func Write(filename string, contentWriter func(io.Writer) error) error {
 	tf, err := ioutil.TempFile("", "mflg-atomic-write")
 	if err != nil {
@@ -36,6 +41,10 @@ func Write(filename string, contentWriter func(io.Writer) error) error {
 	if err = tf.Close(); err != nil {
 		os.Remove(name)
 		return errors.Wrap(err, errString(filename))
+	}
+	if err = os.MkdirAll(filepath.Dir(filename), defaultDirPerms); err != nil {
+		os.Remove(name)
+		return errors.WithMessage(err, errString(filename))
 	}
 	if err = os.Rename(name, filename); err != nil {
 		os.Remove(name)
