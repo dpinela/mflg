@@ -63,7 +63,7 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}
-	app := application{saveDelay: 1 * time.Second, width: w, height: h, cursorVisible: true, config: conf}
+	app := application{saveDelay: 1 * time.Second, width: w, height: h, cursorVisible: true, config: conf, taskQueue: make(chan func(), 16)}
 	if err := app.navigateTo(os.Args[1]); err != nil {
 		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
 		os.Exit(1)

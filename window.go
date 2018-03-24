@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -10,6 +13,7 @@ import (
 
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/clipboard"
+	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/streak"
 	"github.com/dpinela/mflg/internal/termesc"
 
@@ -38,8 +42,8 @@ type window struct {
 
 	lastMouseRelease, lastMouseLeftPress timedMouseEvent
 
-	onChange         func()    // If not nil, called whenever the window's buffer is modified
-	dirty            bool      //Indicates whether the contents of the window's buffer have been modified
+	onChange         func() // If not nil, called whenever the window's buffer is modified
+	readonly         bool
 	modificationTime time.Time // The time when the last edit occurred
 	undoStack        []snapshot
 
@@ -49,6 +53,9 @@ type window struct {
 	wrappedBuf *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
 	tabString  string                // The string that should be inserted when typing a tab
 	tabWidth   int                   // The width with which hard tabs are displayed
+	langConfig config.LangConfig
+
+	app *application // The application that owns this window
 }
 
 // The maximum time between two changes such that they will be undone together.
@@ -143,6 +150,31 @@ func (w *window) updateWrapWidth() { w.wrappedBuf.SetWidth(w.textAreaWidth()) }
 func (w *window) setGutterText(text string) {
 	w.customGutterText = text
 	w.wrappedBuf.SetWidth(w.textAreaWidth())
+}
+
+func (w *window) formatBuffer() {
+	if len(w.langConfig.Formatter) == 0 {
+		return
+	}
+	w.readonly = true
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, w.langConfig.Formatter[0], w.langConfig.Formatter[1:]...)
+		cmd.Stdin = w.buf.Reader()
+		formattedText, err := cmd.Output()
+		w.app.do(func() {
+			w.readonly = false
+			if err != nil {
+				w.app.setNotification(err.Error())
+				return
+			}
+			w.takeSnapshot()
+			w.buf.ReadFrom(bytes.NewReader(formattedText))
+			w.onChange()
+			w.needsRedraw = true
+		})
+	}()
 }
 
 // Returns the length of line, as visually seen on the console.
@@ -466,7 +498,6 @@ func (w *window) notifyChange() {
 	if w.onChange != nil {
 		w.onChange()
 	}
-	w.dirty = true
 }
 
 func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {

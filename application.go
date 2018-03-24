@@ -29,6 +29,7 @@ type application struct {
 	saveDelay        time.Duration
 	saveTimer        *time.Timer
 	saveTimerPending bool
+	taskQueue        chan func() // Used by asynchronous tasks to run code on the main event loop
 
 	// These fields are used when receiving a bracketed paste
 	pasteBuffer      []byte
@@ -130,6 +131,10 @@ func (app *application) gotoFile(filename string) error {
 		app.saveNow()
 		app.mainWindow = newWindow(app.width, app.height, buf, app.config.TabWidth)
 		app.mainWindow.onChange = app.resetSaveTimer
+		if ext := filepath.Ext(filename); ext != "" {
+			app.mainWindow.langConfig = app.config.ConfigForExt(ext[1:])
+		}
+		app.mainWindow.app = app
 		app.filename = filename
 		app.titleNeedsRedraw = true
 	}
@@ -256,6 +261,8 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 				if err := app.back(); err != nil {
 					must(printAtBottom(err.Error()))
 				}
+			case "\x06":
+				aw.formatBuffer()
 			case "\x12":
 				app.openPrompt("Replace:", func(searchRE string) {
 					re, err := regexp.Compile(searchRE)
@@ -324,8 +331,17 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			if err := saveBuffer(app.filename, app.mainWindow.buf); err != nil {
 				printAtBottom(err.Error())
 			}
+		case f := <-app.taskQueue:
+			f()
 		}
 	}
+}
+
+// do schedules f to run on the main event loop.
+// It is safe to call it concurrently only from outside the goroutine running app.run.
+// Calling it from that goroutine may deadlock.
+func (app *application) do(f func()) {
+	app.taskQueue <- f
 }
 
 func (app *application) resize(height, width int) {
@@ -362,6 +378,11 @@ func (app *application) finishPrompt() {
 	app.cancelPrompt()
 	handler(response)
 }
+
+// setNotification displays a string at the bottom line of the viewport until the next
+// call to this or openPrompt.
+// TODO: actually implement this.
+func (app *application) setNotification(note string) {}
 
 func (app *application) activeWindow() *window {
 	if app.promptWindow != nil {

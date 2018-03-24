@@ -81,7 +81,8 @@ lineScan:
 	return IndentTabs
 }
 
-// ReadFrom reads data from r until EOF, splicing it in at the current insertion point position.
+// ReadFrom clears the buffer and replaces its content with the data read from r, reading
+// until EOF.
 func (b *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
 	b.lines = nil
 	br := bufio.NewReader(r)
@@ -108,6 +109,27 @@ func (b *Buffer) WriteTo(w io.Writer) (int64, error) {
 		if err != nil {
 			return n, err
 		}
+	}
+	return n, nil
+}
+
+// Reader returns an io.Reader that implements Read by reading the full contents of b.
+// It is not safe to modify b concurrently with calls to Read on the Reader.
+func (b *Buffer) Reader() io.Reader { return &reader{lines: b.lines} }
+
+type reader struct {
+	i     int
+	lines []string
+}
+
+func (r *reader) Read(b []byte) (int, error) {
+	if len(r.lines) == 0 {
+		return 0, io.EOF
+	}
+	n := copy(b, r.lines[0][r.i:])
+	if r.i += n; r.i == len(r.lines[0]) {
+		r.lines = r.lines[1:]
+		r.i = 0
 	}
 	return n, nil
 }

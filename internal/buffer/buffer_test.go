@@ -2,6 +2,7 @@ package buffer
 
 import (
 	"bytes"
+	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
@@ -65,6 +66,17 @@ func TestSliceLines(t *testing.T) {
 		if lines := buf.SliceLines(tt.start, tt.end); !reflect.DeepEqual(lines, tt.want) {
 			t.Errorf("SliceLines(%d, %d) = %q, want %q", tt.start, tt.end, lines, tt.want)
 		}
+	}
+}
+
+func TestReader(t *testing.T) {
+	buf := bufFromData(t, multilineTestData)
+	data, err := ioutil.ReadAll(buf.Reader())
+	if err != nil {
+		t.Error(err)
+	}
+	if string(data) != multilineTestData {
+		t.Errorf("got %q from Reader, want %q", data, multilineTestData)
 	}
 }
 
