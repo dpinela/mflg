@@ -71,24 +71,15 @@ func TestAutoSave(t *testing.T) {
 }
 
 func TestNavigation(t *testing.T) {
-	d, err := ioutil.TempDir("", "mflg-nav-test")
+	d, err := filepath.Abs("testdata")
 	if err != nil {
-		t.Fatal(err)
-	}
-	if d, err = filepath.Abs(d); err != nil {
 		t.Fatal(err)
 	}
 	if strings.IndexByte(d, ':') != -1 || filepath.Separator == ':' {
 		t.Fatal("generated file names will contain colons; some navigation syntax is ambiguous in this case")
 	}
-	if err := os.Mkdir(filepath.Join(d, "X"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(d)
 	nameA := filepath.Join(d, "A")
 	nameB := filepath.Join(d, "B")
-	putFile(t, nameA, []byte("lorem\nipsum\n"))
-	putFile(t, nameB, []byte("sit\namet\nconsequiat\ndolor\namet\nalanifundum\n"))
 	app := &application{width: stdWidth, height: stdHeight, config: &config.Config{TabWidth: 4}}
 	t.Run("Start", func(t *testing.T) {
 		app.testNav(t, nameA)
