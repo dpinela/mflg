@@ -171,7 +171,8 @@ func (w *window) formatBuffer() {
 			}
 			w.takeSnapshot()
 			w.buf.ReadFrom(bytes.NewReader(formattedText))
-			w.onChange()
+			w.wrappedBuf.Reset(w.buf)
+			w.notifyChange()
 			w.needsRedraw = true
 		})
 	}()

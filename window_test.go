@@ -706,13 +706,6 @@ func typeStringsWithPause(w *window, strings ...string) {
 	}
 }
 
-func checkNotDirty(t *testing.T, w *window) {
-	t.Helper()
-	if w.dirty {
-		t.Error("after undoing everything, got dirty window")
-	}
-}
-
 func TestUndoWithSelection(t *testing.T) {
 	w := newTestWindow(t, 20, 10, shortTestDocument)
 	selectionEnd := point{9, 1}
