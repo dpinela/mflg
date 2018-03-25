@@ -26,6 +26,7 @@ In other words, more like an advanced nano and less like vi or emacs.
 - **Undo**: Control-Z
 - **Undo All/Discard Changes**: Control-U (will ask for confirmation)
 - **Replace**: Control-R, then type a regex, then the replacement. You may use $1, $2, $3... to refer to captured groups, and $name or ${name} to refer to named groups. To insert a literal $, use $$ (see [the Go regexp docs][go-regexp]).
+- **Format**: Control-F - pipes the contents of the buffer through the formatter program for the current file's language, then replaces the buffer with the result.
 - **Quit**: Control-Q
 
 mflg saves your files automatically as you make changes, so there is no Save command as in other editors; except for a small delay, what you see on screen is what is on disk.
@@ -62,3 +63,15 @@ You can also double-click and double-click-and-drag to select by words.
 
 - **Anchor**: Control-A
 - **Clear Selection**: ESC (cancels any in-progress selection as well)
+
+## Configuration
+
+mflg's configuration file is written in TOML. It looks for the file in each of the [XDG config directories][xdg-basedir-spec], under mflg/config.toml. (Only the first such file encountered is used at the moment.) The following keys are available:
+
+- TabWidth: controls how many spaces a tab character is rendered as
+
+Language-specific settings are put under `[lang.AAA]` sections, where AAA is the file name extension used for that language's source files. Keys:
+
+- Formatter: array containing the name of a formatter program (ex.: gofmt for Go), followed by optional arguments.
+
+[xdg-basedir-spec]: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
