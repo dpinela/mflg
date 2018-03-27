@@ -11,6 +11,8 @@ import (
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/termesc"
+
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/sys/unix"
 )
@@ -60,7 +62,7 @@ func main() {
 		os.Exit(1)
 	}
 	conf, err := config.Load()
-	if err != nil {
+	if err != nil && !os.IsNotExist(errors.Cause(err)) {
 		fmt.Fprintln(os.Stderr, err)
 	}
 	app := application{saveDelay: 1 * time.Second, width: w, height: h, cursorVisible: true, config: conf, taskQueue: make(chan func(), 16)}
