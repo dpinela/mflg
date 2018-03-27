@@ -23,13 +23,13 @@ const (
 func Write(filename string, contentWriter func(io.Writer) error) error {
 	tf, err := ioutil.TempFile("", "mflg-atomic-write")
 	if err != nil {
-		return errors.Wrap(err, errString(filename))
+		return errors.WithMessage(err, errString(filename))
 	}
 	name := tf.Name()
 	if err = contentWriter(tf); err != nil {
 		os.Remove(name)
 		tf.Close()
-		return errors.Wrap(err, errString(filename))
+		return errors.WithMessage(err, errString(filename))
 	}
 	// Keep existing file's permissions, when possible. This may race with a chmod() on the file.
 	perms := defaultPerms
@@ -40,7 +40,7 @@ func Write(filename string, contentWriter func(io.Writer) error) error {
 	tf.Chmod(perms)
 	if err = tf.Close(); err != nil {
 		os.Remove(name)
-		return errors.Wrap(err, errString(filename))
+		return errors.WithMessage(err, errString(filename))
 	}
 	if err = os.MkdirAll(filepath.Dir(filename), defaultDirPerms); err != nil {
 		os.Remove(name)
@@ -48,7 +48,7 @@ func Write(filename string, contentWriter func(io.Writer) error) error {
 	}
 	if err = os.Rename(name, filename); err != nil {
 		os.Remove(name)
-		return errors.Wrap(err, errString(filename))
+		return errors.WithMessage(err, errString(filename))
 	}
 	return nil
 }

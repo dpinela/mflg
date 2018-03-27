@@ -20,14 +20,14 @@ import (
 
 // Copy overwrites the clipboard's contents with the given data.
 func Copy(data []byte) error {
-	return errors.Wrap(copyGeneric(data), "copy failed")
+	return errors.WithMessage(copyGeneric(data), "copy failed")
 }
 
 // Paste returns the last data stored with Copy by any instance of mflg of the same user,
 // or the last data copied into the system clipboard if that is supported.
 func Paste() ([]byte, error) {
 	data, err := pasteGeneric()
-	return data, errors.Wrap(err, "paste failed")
+	return data, errors.WithMessage(err, "paste failed")
 }
 
 func copyGeneric(data []byte) error {
