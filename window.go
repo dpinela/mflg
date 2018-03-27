@@ -502,6 +502,9 @@ func (w *window) notifyChange() {
 }
 
 func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
+	if w.readonly {
+		return
+	}
 	var lines []string
 	// Process only the lines within the selection Y bounds.
 	if w.selection.Set {
@@ -594,6 +597,9 @@ func leadingIndentation(text string) string {
 }
 
 func (w *window) typeText(text string) {
+	if w.readonly {
+		return
+	}
 	if w.selection.Set {
 		// This already takes a snapshot, since it's callable by itself.
 		w.backspace()
@@ -622,6 +628,9 @@ func (w *window) typeText(text string) {
 }
 
 func (w *window) backspace() {
+	if w.readonly {
+		return
+	}
 	if w.selection.Set || w.cursorPos.X > 0 || w.cursorPos.Y > 0 {
 		w.takeSnapshot()
 		w.needsRedraw = true
@@ -708,13 +717,16 @@ func (w *window) copySelection() {
 }
 
 func (w *window) cutSelection() {
-	if w.selection.Set {
+	if w.selection.Set && !w.readonly {
 		w.copySelection()
 		w.backspace()
 	}
 }
 
 func (w *window) paste() {
+	if w.readonly {
+		return
+	}
 	data, err := clipboard.Paste()
 	if err != nil {
 		return
@@ -723,7 +735,7 @@ func (w *window) paste() {
 }
 
 func (w *window) insertText(data []byte) {
-	if len(data) == 0 {
+	if w.readonly || len(data) == 0 {
 		return
 	}
 	// backspace() already takes a snapshot, so in that case, we don't have to.
@@ -760,7 +772,7 @@ func (w *window) undoAll() { w.undoSince(0) }
 
 // undoSince reverts all changes made since the i-th snapshot.
 func (w *window) undoSince(i int) {
-	if len(w.undoStack) == 0 {
+	if w.readonly || len(w.undoStack) == 0 {
 		return
 	}
 	oldState := w.undoStack[i]
