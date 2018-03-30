@@ -282,20 +282,6 @@ func (b *Buffer) Insert(text string, p Point) {
 	b.lines[p.Y] = line[:insPoint] + text + line[insPoint:]
 }
 
-func dup(b []byte) []byte {
-	c := make([]byte, len(b))
-	copy(c, b)
-	return c
-}
-
-// Returns a copy of b with a newline added at the end.
-func dupToLine(b []byte) []byte {
-	c := make([]byte, len(b)+1)
-	copy(c, b)
-	c[len(b)] = '\n'
-	return c
-}
-
 func (b *Buffer) InsertLineBreak(p Point) {
 	line := b.lines[p.Y]
 	b.lines = append(b.lines, "")
