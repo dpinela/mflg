@@ -514,6 +514,15 @@ func TestWordSelection(t *testing.T) {
 	checkNeedsRedraw(t, w)
 }
 
+// Test for selection of a word in a buffer containing only that word and nothing else.
+func TestLoneWordSelection(t *testing.T) {
+	w := newTestWindow(t, 80, 3, "dégradé")
+	w.needsRedraw = false
+	doubleClick(w, 4, 0)
+	checkSelection(t, 1, w, optionalTextRange{textRange{point{0, 0}, point{7, 0}}, true})
+	checkNeedsRedraw(t, w)
+}
+
 func TestFailedWordSelection(t *testing.T) {
 	w := newTestWindowA(t)
 	w.needsRedraw = false

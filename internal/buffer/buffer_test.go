@@ -152,6 +152,7 @@ var wordBoundsTests = []struct {
 	{in: wordBoundsBracketsTest, p: Point{15, 0}, want: Range{Point{15, 0}, Point{17, 0}}},
 	{in: wordBoundsBracketsTest, p: Point{20, 0}, want: Range{Point{19, 0}, Point{23, 0}}},
 	{in: wordBoundsBracketsTest, p: Point{25, 0}, want: Range{Point{24, 0}, Point{27, 0}}},
+	{in: "limão", p: Point{1, 0}, want: Range{Point{0, 0}, Point{5, 0}}},
 
 	// Points outside of words
 	{in: multilineTestData, p: Point{5, 0}, want: Range{Point{5, 0}, Point{5, 0}}},

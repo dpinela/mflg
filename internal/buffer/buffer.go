@@ -159,7 +159,15 @@ func (b *Buffer) LineCount() int { return len(b.lines) }
 func (b *Buffer) WordBoundsAt(p Point) Range {
 	line := b.lines[p.Y]
 	lastWordStart := -1
-	for i, x := 0, 0; i < len(line); x++ {
+	x := 0
+	lastWord := func() Range {
+		// If a word ends right before p, p doesn't contain it.
+		if lastWordStart == -1 || x == p.X {
+			return Range{p, p}
+		}
+		return Range{Point{lastWordStart, p.Y}, Point{x, p.Y}}
+	}
+	for i := 0; i < len(line); x++ {
 		c := charseg.FirstGraphemeCluster(line[i:])
 		if isWordChar(c) {
 			if lastWordStart == -1 {
@@ -167,15 +175,15 @@ func (b *Buffer) WordBoundsAt(p Point) Range {
 			}
 		} else {
 			if x >= p.X {
-				// If a word ends right before p, p doesn't contain it.
-				if lastWordStart == -1 || x == p.X {
-					return Range{p, p}
-				}
-				return Range{Point{lastWordStart, p.Y}, Point{x, p.Y}}
+				return lastWord()
 			}
 			lastWordStart = -1
 		}
 		i += len(c)
+	}
+	// If the line doesn't end with a newline, the end of the line is a word ending too.
+	if x >= p.X {
+		return lastWord()
 	}
 	return Range{p, p}
 }
