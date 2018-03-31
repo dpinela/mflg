@@ -84,7 +84,7 @@ lineScan:
 // ReadFrom clears the buffer and replaces its content with the data read from r, reading
 // until EOF.
 func (b *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
-	b.lines = nil
+	b.lines = b.lines[:0]
 	br := bufio.NewReader(r)
 	for {
 		var line string
