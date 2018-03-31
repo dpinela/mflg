@@ -153,7 +153,7 @@ func (w *window) setGutterText(text string) {
 }
 
 func (w *window) formatBuffer() {
-	if len(w.langConfig.Formatter) == 0 {
+	if w.readonly || len(w.langConfig.Formatter) == 0 {
 		return
 	}
 	w.readonly = true
