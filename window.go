@@ -473,14 +473,6 @@ func (w *window) searchRegexp(re *regexp.Regexp, startY int) {
 	}
 }
 
-func separateSuffix(s, suffix string) (begin, foundSuffix string) {
-	t := strings.TrimSuffix(s, suffix)
-	if len(t) < len(s) {
-		return t, suffix
-	}
-	return s, ""
-}
-
 // takeSnapshot puts a new snapshot on the undo stack if the last change occurred long enough ago.
 // It should be called by each edit operation, before the edit actually takes place.
 func (w *window) takeSnapshot() {
