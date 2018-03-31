@@ -16,11 +16,6 @@ import (
 // - Window space <=> viewport space - requires only an addition/subtraction;
 //   (window coords) = (viewport coords) + (window coords of top left corner of viewport)
 
-// Big difference from the current implementation: window space covers the whole file.
-// We'll need to implement wrapping carefully so that each edit - and resize - doesn't have to reprocess
-// the whole file. We also want to avoid wrapping everything immediately on startup, to avoid slowing
-// that down.
-
 // WrappedLine is a segment of a line of text that fits in one viewport line,
 // annotated with the text space coordinates of its first character.
 type WrappedLine struct {
@@ -212,7 +207,7 @@ func (wb *WrappedBuffer) wrapUntil(i int) {
 				break
 			}
 			w := wb.displayWidth(c)
-			if wx+w > wb.lineWidth {
+			if wx+w > wb.lineWidth && wx > 0 {
 				wb.lines = append(wb.lines, WrappedLine{Point{lastStart, j}, srcLine[lastStart:k]})
 				lastStart = k
 				wx = 0
