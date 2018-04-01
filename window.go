@@ -308,9 +308,15 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 			}
 		}
 		n := buffer.NextCharBoundary(line)
-		if line[:n] == "\t" {
+		switch {
+		case line[:n] == "\t":
 			tf.appendSpaces(tf.tabWidth)
-		} else if line[:n] != "\n" {
+		case line[:n] == "\n":
+		case n == 1 && line[0] < ' ':
+			tf.buf = append(tf.buf, string('\u2400'+rune(line[0]))...)
+		case line[:n] == "\x7f":
+			tf.buf = append(tf.buf, "\u2421"...)
+		default:
 			tf.buf = append(tf.buf, line[:n]...)
 		}
 		line = line[n:]
@@ -549,6 +555,9 @@ func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 func (w *window) displayLenChar(char string) int {
 	if char == "\t" {
 		return w.tabWidth
+	}
+	if len(char) == 1 && (char[0] < ' ' && char[0] != '\n' || char[0] == '\x7f') {
+		return runewidth.RuneWidth('\u2421')
 	}
 	return runewidth.StringWidth(char)
 }
