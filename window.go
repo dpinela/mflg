@@ -222,7 +222,10 @@ func (w *window) gutterWidth() int {
 }
 
 func (w *window) textAreaWidth() int {
-	return w.width - w.gutterWidth() - 1
+	if n := w.width - w.gutterWidth() - 1; n >= 1 {
+		return n
+	}
+	return 1
 }
 
 func (w *window) redraw(console io.Writer) error { return w.redrawAtYOffset(console, 0) }
