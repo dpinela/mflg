@@ -43,7 +43,7 @@ type window struct {
 	lastMouseRelease, lastMouseLeftPress timedMouseEvent
 
 	onChange         func() // If not nil, called whenever the window's buffer is modified
-	readonly         bool
+	formatPending    bool
 	modificationTime time.Time // The time when the last edit occurred
 	undoStack        []snapshot
 
@@ -153,18 +153,19 @@ func (w *window) setGutterText(text string) {
 }
 
 func (w *window) formatBuffer() {
-	if w.readonly || len(w.langConfig.Formatter) == 0 {
+	if w.formatPending || len(w.langConfig.Formatter) == 0 {
 		return
 	}
-	w.readonly = true
+	w.formatPending = true
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, w.langConfig.Formatter[0], w.langConfig.Formatter[1:]...)
 		cmd.Stdin = w.buf.Reader()
+		// TODO: load the output directly into a new buffer?
 		formattedText, err := cmd.Output()
 		w.app.do(func() {
-			w.readonly = false
+			w.formatPending = false
 			if err != nil {
 				w.app.setNotification(err.Error())
 				return
@@ -173,6 +174,7 @@ func (w *window) formatBuffer() {
 			w.buf.ReadFrom(bytes.NewReader(formattedText))
 			w.wrappedBuf.Reset(w.buf)
 			w.notifyChange()
+			w.roundCursorPos()
 			w.needsRedraw = true
 		})
 	}()
@@ -503,7 +505,7 @@ func (w *window) notifyChange() {
 }
 
 func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
-	if w.readonly {
+	if w.formatPending {
 		return
 	}
 	var lines []string
@@ -601,7 +603,7 @@ func leadingIndentation(text string) string {
 }
 
 func (w *window) typeText(text string) {
-	if w.readonly {
+	if w.formatPending {
 		return
 	}
 	if w.selection.Set {
@@ -632,7 +634,7 @@ func (w *window) typeText(text string) {
 }
 
 func (w *window) backspace() {
-	if w.readonly {
+	if w.formatPending {
 		return
 	}
 	if w.selection.Set || w.cursorPos.X > 0 || w.cursorPos.Y > 0 {
@@ -721,14 +723,14 @@ func (w *window) copySelection() {
 }
 
 func (w *window) cutSelection() {
-	if w.selection.Set && !w.readonly {
+	if w.selection.Set && !w.formatPending {
 		w.copySelection()
 		w.backspace()
 	}
 }
 
 func (w *window) paste() {
-	if w.readonly {
+	if w.formatPending {
 		return
 	}
 	data, err := clipboard.Paste()
@@ -739,7 +741,7 @@ func (w *window) paste() {
 }
 
 func (w *window) insertText(data []byte) {
-	if w.readonly || len(data) == 0 {
+	if w.formatPending || len(data) == 0 {
 		return
 	}
 	// backspace() already takes a snapshot, so in that case, we don't have to.
@@ -776,7 +778,7 @@ func (w *window) undoAll() { w.undoSince(0) }
 
 // undoSince reverts all changes made since the i-th snapshot.
 func (w *window) undoSince(i int) {
-	if w.readonly || len(w.undoStack) == 0 {
+	if w.formatPending || len(w.undoStack) == 0 {
 		return
 	}
 	oldState := w.undoStack[i]

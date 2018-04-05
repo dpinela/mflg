@@ -128,6 +128,7 @@ func (app *application) gotoFile(filename string) error {
 		} else if !os.IsNotExist(err) {
 			return err
 		}
+		app.finishFormatNow()
 		app.saveNow()
 		app.mainWindow = newWindow(app.width, app.height, buf, app.config.TabWidth)
 		app.mainWindow.onChange = app.resetSaveTimer
@@ -180,6 +181,7 @@ func (app *application) resetSaveTimer() {
 
 func (app *application) saveNow() {
 	if app.saveTimerPending {
+
 		if !app.saveTimer.Stop() {
 			<-app.saveTimer.C
 		}
@@ -193,6 +195,12 @@ func (app *application) saveTimerChan() <-chan time.Time {
 		return nil
 	}
 	return app.saveTimer.C
+}
+
+func (app *application) finishFormatNow() {
+	for app.mainWindow != nil && app.mainWindow.formatPending {
+		(<-app.taskQueue)()
+	}
 }
 
 func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.Writer) error {
@@ -243,6 +251,7 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 				app.inBracketedPaste = true
 				app.pasteBuffer = app.pasteBuffer[:0]
 			case "\x11":
+				app.finishFormatNow()
 				if app.saveTimerPending {
 					saveBuffer(app.filename, app.mainWindow.buf)
 				}
