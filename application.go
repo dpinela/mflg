@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
+
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/termesc"
@@ -30,6 +32,7 @@ type application struct {
 	saveTimer        *time.Timer
 	saveTimerPending bool
 	taskQueue        chan func() // Used by asynchronous tasks to run code on the main event loop
+	fsWatcher        *fsnotify.Watcher
 
 	// These fields are used when receiving a bracketed paste
 	pasteBuffer      []byte

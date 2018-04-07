@@ -14,6 +14,12 @@
   version = "v1.0"
 
 [[projects]]
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
+
+[[projects]]
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
   revision = "9e777a8366cce605130a531d2cd6363d07ad7317"
@@ -49,6 +55,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d2bba5079c3da94d41d4a749bd4592ea796bff5a06dcdd528142fa046d56a661"
+  inputs-digest = "69c75e2f0403d419ad1ec02bfbeaa2675319f87f7289894c35c8e214e7b3c339"
   solver-name = "gps-cdcl"
   solver-version = 1
