@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dpinela/charseg"
 	"github.com/fsnotify/fsnotify"
+	"github.com/mattn/go-runewidth"
 
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/config"
@@ -423,7 +425,7 @@ func (app *application) redraw(console io.Writer) error {
 	case app.promptWindow != nil:
 		err = app.promptWindow.redrawAtYOffset(console, app.promptYOffset())
 	case app.note != "":
-		_, err = console.Write([]byte(termesc.SetCursorPos(app.height, 0) + styleResetToBold + app.note))
+		_, err = console.Write([]byte(termesc.SetCursorPos(app.height, 0) + styleResetToBold + ellipsify(app.note, app.width)))
 	}
 	if err != nil {
 		return err
@@ -450,6 +452,38 @@ func (app *application) redraw(console io.Writer) error {
 		return err
 	}
 	return nil
+}
+
+var ellipses = [...]string{"", ".", "..", "..."}
+
+// ellipsify truncates text to fit within width columns, adding an ellipsis at the end if it
+// must be truncated.
+func ellipsify(text string, width int) string {
+	if i := strings.IndexByte(text, '\n'); i != -1 {
+		text = text[:i]
+	}
+	text = strings.Replace(text, "\t", " ", -1)
+	if n := runewidth.StringWidth(text); n <= width {
+		return text
+	}
+	n := 0
+	prefix := ""
+	prefixSet := false
+	for i := 0; i < len(text); {
+		c := charseg.FirstGraphemeCluster(text[i:])
+		w := runewidth.StringWidth(c)
+		// Record the part of the string that fits without counting the ellipsis.
+		if n+w > width-3 && !prefixSet {
+			prefix = text[:i]
+			prefixSet = true
+		}
+		if n+w > width {
+			return prefix + ellipses[min(3, width)]
+		}
+		n += w
+		i += len(c)
+	}
+	return text
 }
 
 func (app *application) cursorPos() point {

@@ -20,6 +20,28 @@ const (
 	stdHeight = 20
 )
 
+var ellipsifyTests = []struct {
+	in    string
+	width int
+	out   string
+}{
+	{"érrôr writing lápis.txt", 23, "érrôr writing lápis.txt"},
+	{"érrôr wrîting lápis.txt", 10, "érrôr w..."},
+	{"error", 2, ".."},
+	{"error", 1, "."},
+	{"error", 0, ""},
+	{"er", 3, "er"},
+	{"er", 2, "er"},
+}
+
+func TestEllipsify(t *testing.T) {
+	for _, tt := range ellipsifyTests {
+		if got := ellipsify(tt.in, tt.width); got != tt.out {
+			t.Errorf("ellipsify(%q, %d) = %q; want %q", tt.in, tt.width, got, tt.out)
+		}
+	}
+}
+
 func TestMouseEventsOutsidePrompt(t *testing.T) {
 	app := &application{mainWindow: newWindow(stdWidth, stdHeight, buffer.New(), 4), promptWindow: newWindow(stdWidth, 1, buffer.New(), 4), width: stdWidth, height: stdHeight}
 	app.handleMouseEvent(termesc.MouseEvent{X: 5, Y: 5, Move: true, Button: termesc.NoButton})
@@ -172,13 +194,6 @@ func (app *application) checkFullLocation(t *testing.T, filename string, wantTP 
 	tp := app.mainWindow.windowCoordsToTextCoords(app.mainWindow.cursorPos)
 	if app.currentFile() != filename || tp != wantTP {
 		t.Errorf("editor at %s:%v, want %[1]s:%[3]v", app.currentFile(), tp, wantTP)
-	}
-}
-
-func putFile(t *testing.T, name string, content []byte) {
-	t.Helper()
-	if err := ioutil.WriteFile(name, content, 0600); err != nil {
-		t.Fatal(err)
 	}
 }
 
