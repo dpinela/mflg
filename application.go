@@ -27,6 +27,7 @@ type application struct {
 	cursorVisible            bool
 	width, height            int
 	promptHandler            func(string) // What to do with the prompt input when the user hits Enter
+	note                     string
 
 	saveDelay        time.Duration
 	saveTimer        *time.Timer
@@ -264,14 +265,14 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			case "\x0c":
 				app.openPrompt("Go to:", func(response string) {
 					if err := app.navigateTo(response); err != nil {
-						must(printAtBottom(err.Error()))
+						app.setNotification(err.Error())
 					}
 				})
 			case "\x07":
 				app.gotoNextMatch()
 			case "\x02":
 				if err := app.back(); err != nil {
-					must(printAtBottom(err.Error()))
+					app.setNotification(err.Error())
 				}
 			case "\x06":
 				aw.formatBuffer()
@@ -279,7 +280,7 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 				app.openPrompt("Replace:", func(searchRE string) {
 					re, err := regexp.Compile(searchRE)
 					if err != nil {
-						must(printAtBottom(err.Error()))
+						app.setNotification(err.Error())
 						return
 					}
 					app.openPrompt("With:", func(replacement string) {
@@ -341,7 +342,7 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 		case <-app.saveTimerChan():
 			app.saveTimerPending = false
 			if err := saveBuffer(app.filename, app.mainWindow.buf); err != nil {
-				printAtBottom(err.Error())
+				app.setNotification(err.Error())
 			}
 		case f := <-app.taskQueue:
 			f()
@@ -375,6 +376,7 @@ func (app *application) openPrompt(prompt string, whenDone func(string)) {
 	app.promptWindow = newWindow(app.width, 1, buffer.New(), 4)
 	app.promptWindow.setGutterText(prompt)
 	app.promptHandler = whenDone
+	app.note = ""
 }
 
 func (app *application) cancelPrompt() {
@@ -394,7 +396,9 @@ func (app *application) finishPrompt() {
 // setNotification displays a string at the bottom line of the viewport until the next
 // call to this or openPrompt.
 // TODO: actually implement this.
-func (app *application) setNotification(note string) {}
+func (app *application) setNotification(note string) {
+	app.note = note
+}
 
 func (app *application) activeWindow() *window {
 	if app.promptWindow != nil {
@@ -411,13 +415,18 @@ func (app *application) promptYOffset() int {
 }
 
 func (app *application) redraw(console io.Writer) error {
+	var err error
 	if err := app.mainWindow.redraw(console); err != nil {
 		return err
 	}
-	if app.promptWindow != nil {
-		if err := app.promptWindow.redrawAtYOffset(console, app.promptYOffset()); err != nil {
-			return err
-		}
+	switch {
+	case app.promptWindow != nil:
+		err = app.promptWindow.redrawAtYOffset(console, app.promptYOffset())
+	case app.note != "":
+		_, err = console.Write([]byte(termesc.SetCursorPos(app.height, 0) + styleResetToBold + app.note))
+	}
+	if err != nil {
+		return err
 	}
 	if app.titleNeedsRedraw {
 		if _, err := console.Write([]byte(termesc.SetTitle(app.filename))); err != nil {
@@ -434,10 +443,10 @@ func (app *application) redraw(console io.Writer) error {
 			}
 		}
 		p := app.cursorPos()
-		_, err := console.Write([]byte(termesc.SetCursorPos(p.Y+1, p.X+app.activeWindow().gutterWidth()+1)))
+		_, err = console.Write([]byte(termesc.SetCursorPos(p.Y+1, p.X+app.activeWindow().gutterWidth()+1)))
 		return err
 	} else if app.cursorVisible {
-		_, err := console.Write([]byte(termesc.HideCursor))
+		_, err = console.Write([]byte(termesc.HideCursor))
 		return err
 	}
 	return nil

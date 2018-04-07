@@ -24,17 +24,6 @@ func saveBuffer(fname string, buf *buffer.Buffer) error {
 	return atomicwrite.Write(fname, func(w io.Writer) error { _, err := buf.WriteTo(w); return err })
 }
 
-func must(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-func printAtBottom(text string) error {
-	_, err := fmt.Printf("%s%s%s", termesc.SetCursorPos(2000, 1), termesc.ClearLine, text)
-	return err
-}
-
 func allASCIIDigits(s string) bool {
 	for i := range s {
 		if !(s[i] >= '0' && s[i] <= '9') {
