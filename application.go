@@ -30,12 +30,12 @@ type application struct {
 	width, height            int
 	promptHandler            func(string) // What to do with the prompt input when the user hits Enter
 	note                     string
+	noteClearTimer           timer
 
-	saveDelay        time.Duration
-	saveTimer        *time.Timer
-	saveTimerPending bool
-	taskQueue        chan func() // Used by asynchronous tasks to run code on the main event loop
-	fsWatcher        *fsnotify.Watcher
+	saveDelay time.Duration
+	saveTimer timer
+	taskQueue chan func() // Used by asynchronous tasks to run code on the main event loop
+	fsWatcher *fsnotify.Watcher
 
 	// These fields are used when receiving a bracketed paste
 	pasteBuffer      []byte
@@ -44,6 +44,34 @@ type application struct {
 	titleNeedsRedraw bool
 
 	config *config.Config
+}
+
+// A wrapper for time.Timer that can be safely reset.
+// The zero value is an inactive, usable timer.
+// After receiving on the timer t's channel, the receiver must set t.pending to false.
+type timer struct {
+	timer   *time.Timer
+	pending bool
+}
+
+func (t *timer) reset(dt time.Duration) {
+	if t.timer == nil {
+		t.timer = time.NewTimer(dt)
+		t.pending = true
+		return
+	}
+	if !t.timer.Stop() && t.pending {
+		<-t.timer.C
+	}
+	t.timer.Reset(dt)
+	t.pending = true
+}
+
+func (t *timer) channel() <-chan time.Time {
+	if t.timer == nil {
+		return nil
+	}
+	return t.timer.C
 }
 
 type location struct {
@@ -172,35 +200,16 @@ func (app *application) back() error {
 
 func (app *application) currentFile() string { return app.filename }
 
-func (app *application) resetSaveTimer() {
-	if app.saveTimer == nil {
-		app.saveTimer = time.NewTimer(app.saveDelay)
-		app.saveTimerPending = true
-		return
-	}
-	if !app.saveTimer.Stop() && app.saveTimerPending {
-		<-app.saveTimer.C
-	}
-	app.saveTimer.Reset(app.saveDelay)
-	app.saveTimerPending = true
-}
+func (app *application) resetSaveTimer() { app.saveTimer.reset(app.saveDelay) }
 
 func (app *application) saveNow() {
-	if app.saveTimerPending {
-
-		if !app.saveTimer.Stop() {
-			<-app.saveTimer.C
+	if app.saveTimer.pending {
+		if !app.saveTimer.timer.Stop() {
+			<-app.saveTimer.timer.C
 		}
 		saveBuffer(app.filename, app.mainWindow.buf)
-		app.saveTimerPending = false
+		app.saveTimer.pending = false
 	}
-}
-
-func (app *application) saveTimerChan() <-chan time.Time {
-	if app.saveTimer == nil {
-		return nil
-	}
-	return app.saveTimer.C
 }
 
 func (app *application) finishFormatNow() {
@@ -258,7 +267,7 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 				app.pasteBuffer = app.pasteBuffer[:0]
 			case "\x11":
 				app.finishFormatNow()
-				if app.saveTimerPending {
+				if app.saveTimer.pending {
 					saveBuffer(app.filename, app.mainWindow.buf)
 				}
 				return nil
@@ -341,11 +350,15 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			} else {
 				app.resize(h, w)
 			}
-		case <-app.saveTimerChan():
-			app.saveTimerPending = false
+		case <-app.saveTimer.channel():
+			app.saveTimer.pending = false
 			if err := saveBuffer(app.filename, app.mainWindow.buf); err != nil {
 				app.setNotification(err.Error())
 			}
+		case <-app.noteClearTimer.channel():
+			app.noteClearTimer.pending = false
+			app.note = ""
+			app.mainWindow.needsRedraw = true
 		case f := <-app.taskQueue:
 			f()
 		}
@@ -366,10 +379,6 @@ func (app *application) resize(height, width int) {
 	if app.promptWindow != nil {
 		app.promptWindow.resize(1, app.width)
 	}
-}
-
-func (app *application) openFile(filename string) error {
-	return nil
 }
 
 // openPrompt opens a prompt window at the bottom of the viewport.
@@ -397,9 +406,9 @@ func (app *application) finishPrompt() {
 
 // setNotification displays a string at the bottom line of the viewport until the next
 // call to this or openPrompt.
-// TODO: actually implement this.
 func (app *application) setNotification(note string) {
 	app.note = note
+	app.noteClearTimer.reset(5 * time.Second)
 }
 
 func (app *application) activeWindow() *window {
