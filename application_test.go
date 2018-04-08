@@ -92,6 +92,52 @@ func TestAutoSave(t *testing.T) {
 	close(fakeConsole)
 }
 
+func TestAutoReload(t *testing.T) {
+	const reloadMaxDelay = 30 * time.Millisecond
+
+	dir, err := ioutil.TempDir("", "mflg-auto-reload-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	app := &application{width: stdWidth, height: stdHeight, config: &config.Config{TabWidth: 2}, taskQueue: make(chan func(), 8)}
+	fakeConsole := make(inactiveReader)
+	defer close(fakeConsole)
+	done := make(chan struct{}, 1)
+	fileA := filepath.Join(dir, "A")
+	f, err := os.Create(fileA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	f.WriteString("Hello.")
+	if err := app.navigateTo(f.Name()); err != nil {
+		t.Fatal(err)
+	}
+	go app.run(fakeConsole, nil, ioutil.Discard)
+	t.Run("OnWrite", func(t *testing.T) {
+		f.WriteString(" LOOK, NEW TEXT!")
+		time.Sleep(reloadMaxDelay)
+		app.do(func() {
+			checkLineContent(t, 1, app.mainWindow, 0, "Hello. LOOK, NEW TEXT!")
+			done <- struct{}{}
+		})
+		<-done
+	})
+	t.Run("OnDelete", func(t *testing.T) {
+		os.Remove(fileA)
+		time.Sleep(reloadMaxDelay)
+		app.do(func() {
+			checkLineContent(t, 1, app.mainWindow, 0, "")
+			if app.mainWindow.buf.LineCount() != 1 {
+				t.Error("after delete, ", fileA, " is not empty in-editor")
+			}
+			done <- struct{}{}
+		})
+		<-done
+	})
+}
+
 func TestNavigation(t *testing.T) {
 	d, err := filepath.Abs("testdata")
 	if err != nil {
