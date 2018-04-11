@@ -32,10 +32,11 @@ type application struct {
 	note                     string
 	noteClearTimer           timer
 
-	saveDelay time.Duration
-	saveTimer timer
-	taskQueue chan func() // Used by asynchronous tasks to run code on the main event loop
-	fsWatcher *fsnotify.Watcher
+	saveDelay   time.Duration
+	saveTimer   timer
+	taskQueue   chan func() // Used by asynchronous tasks to run code on the main event loop
+	fsWatcher   *fsnotify.Watcher
+	removeTimer timer
 
 	// These fields are used when receiving a bracketed paste
 	pasteBuffer      []byte
@@ -60,11 +61,16 @@ func (t *timer) reset(dt time.Duration) {
 		t.pending = true
 		return
 	}
+	t.stop()
+	t.timer.Reset(dt)
+	t.pending = true
+}
+
+func (t *timer) stop() {
 	if !t.timer.Stop() && t.pending {
 		<-t.timer.C
 	}
-	t.timer.Reset(dt)
-	t.pending = true
+	t.pending = false
 }
 
 func (t *timer) channel() <-chan time.Time {
@@ -162,6 +168,18 @@ func (app *application) gotoFile(filename string) error {
 		} else if !os.IsNotExist(err) {
 			return err
 		}
+		// If we fail to set up the watch, we still want to open the file.
+		if app.fsWatcher == nil {
+			if w, err := fsnotify.NewWatcher(); err == nil {
+				app.fsWatcher = w
+			}
+		}
+		if app.fsWatcher != nil {
+			if app.filename != "" {
+				app.fsWatcher.Remove(app.filename)
+			}
+			app.fsWatcher.Add(filename)
+		}
 		app.finishFormatNow()
 		app.saveNow()
 		app.mainWindow = newWindow(app.width, app.height, buf, app.config.TabWidth)
@@ -174,6 +192,34 @@ func (app *application) gotoFile(filename string) error {
 		app.titleNeedsRedraw = true
 	}
 	return nil
+}
+
+func (app *application) reloadFile() error {
+	buf := buffer.New()
+	if f, err := os.Open(app.filename); err == nil {
+		_, err = buf.ReadFrom(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	app.mainWindow.buf = buf
+	app.mainWindow.wrappedBuf.Reset(buf)
+	app.mainWindow.roundCursorPos()
+	app.mainWindow.needsRedraw = true
+	if app.promptWindow != nil {
+		app.promptWindow.needsRedraw = true
+	}
+	return nil
+}
+
+func (app *application) fsWatcherChannels() (<-chan fsnotify.Event, <-chan error) {
+	if app.fsWatcher != nil {
+		return app.fsWatcher.Events, app.fsWatcher.Errors
+	}
+	return nil, nil
 }
 
 func (app *application) gotoNextMatch() {
@@ -236,6 +282,7 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			return err
 		}
 		aw := app.activeWindow()
+		fsEvents, fsWatchErrors := app.fsWatcherChannels()
 		select {
 		case c, ok := <-inputCh:
 			if !ok {
@@ -359,6 +406,21 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			app.noteClearTimer.pending = false
 			app.note = ""
 			app.mainWindow.needsRedraw = true
+		case <-app.removeTimer.channel():
+			app.removeTimer.pending = false
+			app.reloadFile()
+		case ev := <-fsEvents:
+			if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+				app.reloadFile()
+			}
+			if ev.Op&fsnotify.Remove != 0 {
+				app.removeTimer.reset(time.Second / 10)
+			}
+			if ev.Op&fsnotify.Create != 0 {
+				app.removeTimer.stop()
+			}
+		case err := <-fsWatchErrors:
+			app.setNotification(err.Error())
 		case f := <-app.taskQueue:
 			f()
 		}

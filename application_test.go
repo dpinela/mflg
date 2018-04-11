@@ -93,8 +93,6 @@ func TestAutoSave(t *testing.T) {
 }
 
 func TestAutoReload(t *testing.T) {
-	const reloadMaxDelay = 30 * time.Millisecond
-
 	dir, err := ioutil.TempDir("", "mflg-auto-reload-test")
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +115,7 @@ func TestAutoReload(t *testing.T) {
 	go app.run(fakeConsole, nil, ioutil.Discard)
 	t.Run("OnWrite", func(t *testing.T) {
 		f.WriteString(" LOOK, NEW TEXT!")
-		time.Sleep(reloadMaxDelay)
+		time.Sleep(30 * time.Millisecond)
 		app.do(func() {
 			checkLineContent(t, 1, app.mainWindow, 0, "Hello. LOOK, NEW TEXT!")
 			done <- struct{}{}
@@ -126,9 +124,9 @@ func TestAutoReload(t *testing.T) {
 	})
 	t.Run("OnDelete", func(t *testing.T) {
 		os.Remove(fileA)
-		time.Sleep(reloadMaxDelay)
+		time.Sleep(200 * time.Millisecond)
 		app.do(func() {
-			checkLineContent(t, 1, app.mainWindow, 0, "")
+			checkLineContent(t, 2, app.mainWindow, 0, "")
 			if app.mainWindow.buf.LineCount() != 1 {
 				t.Error("after delete, ", fileA, " is not empty in-editor")
 			}
