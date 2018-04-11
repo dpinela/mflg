@@ -78,6 +78,7 @@ func TestAutoSave(t *testing.T) {
 	}
 	app.resize(stdWidth, stdHeight)
 	fakeConsole := make(inactiveReader)
+	defer close(fakeConsole)
 	go app.run(fakeConsole, nil, ioutil.Discard)
 	typeString(app.mainWindow, "ABC")
 	time.Sleep(2 * saveDelay)
@@ -89,7 +90,6 @@ func TestAutoSave(t *testing.T) {
 	app.mainWindow.backspace()
 	time.Sleep(2 * saveDelay)
 	checkFileContents(t, name, "ABC\nrp")
-	close(fakeConsole)
 }
 
 func TestAutoReload(t *testing.T) {
@@ -130,6 +130,20 @@ func TestAutoReload(t *testing.T) {
 			if app.mainWindow.buf.LineCount() != 1 {
 				t.Error("after delete, ", fileA, " is not empty in-editor")
 			}
+			done <- struct{}{}
+		})
+		<-done
+	})
+	t.Run("OnCreate", func(t *testing.T) {
+		const surprise = "Surprise!!!"
+		nameB := filepath.Join(dir, "B")
+		if err := app.navigateTo(nameB); err != nil {
+			t.Fatal(err)
+		}
+		ioutil.WriteFile(nameB, []byte(surprise), 0644)
+		time.Sleep(30 * time.Millisecond)
+		app.do(func() {
+			checkLineContent(t, 3, app.mainWindow, 0, surprise)
 			done <- struct{}{}
 		})
 		<-done

@@ -413,6 +413,10 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
 				app.reloadFile()
 			}
+			// When a file is renamed on top of the one we're looking at,
+			// fsnotify may report that as a Remove immediately followed
+			// by a Create. To avoid the window flickering briefly when
+			// that happens, we wait a bit to confirm the file really was deleted.
 			if ev.Op&fsnotify.Remove != 0 {
 				app.removeTimer.reset(time.Second / 10)
 			}
