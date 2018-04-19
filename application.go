@@ -32,11 +32,12 @@ type application struct {
 	note                     string
 	noteClearTimer           timer
 
-	saveDelay   time.Duration
-	saveTimer   timer
-	taskQueue   chan func() // Used by asynchronous tasks to run code on the main event loop
-	fsWatcher   *fsnotify.Watcher
-	removeTimer timer
+	saveDelay     time.Duration
+	saveTimer     timer
+	taskQueue     chan func() // Used by asynchronous tasks to run code on the main event loop
+	fsWatcher     *fsnotify.Watcher
+	mainFileWatch fileWatch
+	removeTimer   timer
 
 	// These fields are used when receiving a bracketed paste
 	pasteBuffer      []byte
@@ -78,6 +79,11 @@ func (t *timer) channel() <-chan time.Time {
 		return nil
 	}
 	return t.timer.C
+}
+
+type fileWatch struct {
+	targetPath string
+	watchPath  string
 }
 
 type location struct {
@@ -178,7 +184,23 @@ func (app *application) gotoFile(filename string) error {
 			if app.filename != "" {
 				app.fsWatcher.Remove(app.filename)
 			}
-			app.fsWatcher.Add(filename)
+			parent := filepath.Dir(filename)
+			var err error
+			for {
+				if err = app.fsWatcher.Add(parent); err == nil {
+					break
+				}
+				next := filepath.Dir(parent)
+				if next == parent {
+					break
+				}
+				parent = next
+			}
+			if err == nil {
+				app.mainFileWatch = fileWatch{targetPath: filename, watchPath: parent}
+			} else {
+				app.mainFileWatch = fileWatch{}
+			}
 		}
 		app.finishFormatNow()
 		app.saveNow()
@@ -410,18 +432,24 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			app.removeTimer.pending = false
 			app.reloadFile()
 		case ev := <-fsEvents:
-			if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
-				app.reloadFile()
+			p, err := filepath.Abs(ev.Name)
+			if err != nil {
+				continue
 			}
-			// When a file is renamed on top of the one we're looking at,
-			// fsnotify may report that as a Remove immediately followed
-			// by a Create. To avoid the window flickering briefly when
-			// that happens, we wait a bit to confirm the file really was deleted.
-			if ev.Op&fsnotify.Remove != 0 {
-				app.removeTimer.reset(time.Second / 10)
-			}
-			if ev.Op&fsnotify.Create != 0 {
-				app.removeTimer.stop()
+			if p == app.mainFileWatch.targetPath {
+				if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+					app.reloadFile()
+				}
+				// When a file is renamed on top of the one we're looking at,
+				// fsnotify may report that as a Remove immediately followed
+				// by a Create. To avoid the window flickering briefly when
+				// that happens, we wait a bit to confirm the file really was deleted.
+				if ev.Op&fsnotify.Remove != 0 {
+					app.removeTimer.reset(time.Second / 10)
+				}
+				if ev.Op&fsnotify.Create != 0 {
+					app.removeTimer.stop()
+				}
 			}
 		case err := <-fsWatchErrors:
 			app.setNotification(err.Error())
