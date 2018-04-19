@@ -68,7 +68,7 @@ func (t *timer) reset(dt time.Duration) {
 }
 
 func (t *timer) stop() {
-	if !t.timer.Stop() && t.pending {
+	if t.timer != nil && !t.timer.Stop() && t.pending {
 		<-t.timer.C
 	}
 	t.pending = false
