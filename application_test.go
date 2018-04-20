@@ -148,6 +148,43 @@ func TestAutoReload(t *testing.T) {
 		})
 		<-done
 	})
+	nameC := filepath.Join(dir, "Animals", "Felidae", "cat")
+	t.Run("OnParentDirCreate", func(t *testing.T) {
+		const greeting = "meow"
+		if err := app.navigateTo(nameC); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Dir(nameC), 0755); err != nil {
+			t.Error(err)
+		}
+		ioutil.WriteFile(nameC, []byte(greeting), 0644)
+		time.Sleep(30 * time.Millisecond)
+		app.do(func() {
+			checkLineContent(t, 4, app.mainWindow, 0, greeting)
+			done <- struct{}{}
+		})
+		<-done
+	})
+	t.Run("OnParentDirDelete", func(t *testing.T) {
+		app.do(func() {
+			// Make sure the file is loaded, even if the previous test failed
+			app.reloadFile()
+			done <- struct{}{}
+		})
+		<-done
+		if err := os.RemoveAll(filepath.Dir(nameC)); err != nil {
+			t.Error(err)
+		}
+		time.Sleep(30 * time.Millisecond)
+		app.do(func() {
+			checkLineContent(t, 5, app.mainWindow, 0, "")
+			if app.mainWindow.buf.LineCount() != 1 {
+				t.Error("after delete, ", nameC, " is not empty in-editor")
+			}
+			done <- struct{}{}
+		})
+		<-done
+	})
 }
 
 func TestNavigation(t *testing.T) {

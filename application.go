@@ -32,12 +32,13 @@ type application struct {
 	note                     string
 	noteClearTimer           timer
 
-	saveDelay     time.Duration
-	saveTimer     timer
-	taskQueue     chan func() // Used by asynchronous tasks to run code on the main event loop
-	fsWatcher     *fsnotify.Watcher
-	mainFileWatch fileWatch
-	removeTimer   timer
+	saveDelay      time.Duration
+	saveTimer      timer
+	taskQueue      chan func() // Used by asynchronous tasks to run code on the main event loop
+	fsWatcher      *fsnotify.Watcher
+	watchTarget    string
+	removeTimer    timer
+	createDirTimer timer
 
 	// These fields are used when receiving a bracketed paste
 	pasteBuffer      []byte
@@ -68,7 +69,7 @@ func (t *timer) reset(dt time.Duration) {
 }
 
 func (t *timer) stop() {
-	if !t.timer.Stop() && t.pending {
+	if t.timer != nil && !t.timer.Stop() && t.pending {
 		<-t.timer.C
 	}
 	t.pending = false
@@ -79,11 +80,6 @@ func (t *timer) channel() <-chan time.Time {
 		return nil
 	}
 	return t.timer.C
-}
-
-type fileWatch struct {
-	targetPath string
-	watchPath  string
 }
 
 type location struct {
@@ -180,27 +176,10 @@ func (app *application) gotoFile(filename string) error {
 				app.fsWatcher = w
 			}
 		}
+		app.removeTimer.stop()
+		app.createDirTimer.stop()
 		if app.fsWatcher != nil {
-			if app.filename != "" {
-				app.fsWatcher.Remove(app.filename)
-			}
-			parent := filepath.Dir(filename)
-			var err error
-			for {
-				if err = app.fsWatcher.Add(parent); err == nil {
-					break
-				}
-				next := filepath.Dir(parent)
-				if next == parent {
-					break
-				}
-				parent = next
-			}
-			if err == nil {
-				app.mainFileWatch = fileWatch{targetPath: filename, watchPath: parent}
-			} else {
-				app.mainFileWatch = fileWatch{}
-			}
+			app.setupMainWatch(filename)
 		}
 		app.finishFormatNow()
 		app.saveNow()
@@ -214,6 +193,30 @@ func (app *application) gotoFile(filename string) error {
 		app.titleNeedsRedraw = true
 	}
 	return nil
+}
+
+func (app *application) setupMainWatch(filename string) error {
+	if app.watchTarget != "" {
+		app.fsWatcher.Remove(app.watchTarget)
+	}
+	parent := filepath.Dir(filename)
+	var err error
+	for {
+		if err = app.fsWatcher.Add(parent); err == nil {
+			break
+		}
+		next := filepath.Dir(parent)
+		if next == parent {
+			break
+		}
+		parent = next
+	}
+	if err == nil {
+		app.watchTarget = parent
+	} else {
+		app.watchTarget = ""
+	}
+	return err
 }
 
 func (app *application) reloadFile() error {
@@ -431,12 +434,17 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 		case <-app.removeTimer.channel():
 			app.removeTimer.pending = false
 			app.reloadFile()
+		case <-app.createDirTimer.channel():
+			app.createDirTimer.pending = false
+			app.reloadFile()
+			app.setupMainWatch(app.filename)
 		case ev := <-fsEvents:
 			p, err := filepath.Abs(ev.Name)
 			if err != nil {
 				continue
 			}
-			if p == app.mainFileWatch.targetPath {
+			switch {
+			case p == app.filename:
 				if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
 					app.reloadFile()
 				}
@@ -450,6 +458,14 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 				if ev.Op&fsnotify.Create != 0 {
 					app.removeTimer.stop()
 				}
+			case strings.HasPrefix(app.filename, addTrailingSeparator(p)):
+				switch ev.Op & (fsnotify.Create | fsnotify.Remove) {
+				case fsnotify.Create:
+					app.createDirTimer.reset(15 * time.Millisecond)
+				case fsnotify.Remove, fsnotify.Create | fsnotify.Remove:
+					app.reloadFile()
+					app.setupMainWatch(app.filename)
+				}
 			}
 		case err := <-fsWatchErrors:
 			app.setNotification(err.Error())
@@ -457,6 +473,13 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 			f()
 		}
 	}
+}
+
+func addTrailingSeparator(path string) string {
+	if strings.HasSuffix(path, string(filepath.Separator)) {
+		return path
+	}
+	return path + string(filepath.Separator)
 }
 
 // do schedules f to run on the main event loop.
