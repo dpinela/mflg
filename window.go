@@ -609,8 +609,9 @@ func (w *window) typeText(text string) {
 	if w.selection.Set {
 		// This already takes a snapshot, since it's callable by itself.
 		w.backspace()
+	} else {
+		w.takeSnapshot()
 	}
-	w.takeSnapshot()
 	w.needsRedraw = true
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	switch text[0] {
