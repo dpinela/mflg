@@ -347,6 +347,13 @@ func min(x, y int) int {
 	return y
 }
 
+func max(x, y int) int {
+	if x < y {
+		return y
+	}
+	return x
+}
+
 // updateMoveSpeed updates the arrow key streak count and returns the corresponding
 // cursor movement speed.
 func (w *window) updateMoveSpeed() int {
@@ -407,7 +414,7 @@ func (w *window) scrollUp() {
 func (w *window) gotoLine(ty int) {
 	wy := w.wrappedBuf.WindowYForTextPos(buffer.Point{X: 0, Y: ty})
 	if w.wrappedBuf.HasLine(wy) {
-		w.topLine = wy
+		w.topLine = max(0, wy-w.height/2)
 		w.cursorPos = point{X: 0, Y: wy}
 		w.needsRedraw = true
 	}
