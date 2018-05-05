@@ -74,6 +74,10 @@ var (
 	goLiteralStart = regexp.MustCompile("[\"'`]|/[\\*/]")
 )
 
+// Maps string delimiters to the characters to look for within the string:
+// the delimiter itself or the backslash.
+var goStrEvents = map[byte]string{'\'': `'\`, '"': `"\`, '`': "`"}
+
 func lexGo(lines []string, pal *Palette) (out []StyledRegion) {
 	const (
 		textNeutral = iota
@@ -81,12 +85,13 @@ func lexGo(lines []string, pal *Palette) (out []StyledRegion) {
 		textString
 	)
 	state := textNeutral
+	strEvents := ""
 	var strDelimiter byte
 
 	var line string
 	for i, j := 0, 0; j < len(lines); {
 		line = lines[j]
-		if i == len(line) {
+		if i >= len(line) {
 			j++
 			i = 0
 			continue
@@ -103,6 +108,7 @@ func lexGo(lines []string, pal *Palette) (out []StyledRegion) {
 				out = appendRegion(out, StyledRegion{Line: j, Start: i + next[0], End: i + next[1], Style: &pal.String})
 				state = textString
 				strDelimiter = line[i+next[0]]
+				strEvents = goStrEvents[strDelimiter]
 				i += next[1]
 			case "//":
 				out = appendRegion(out, StyledRegion{Line: j, Start: i + next[0], End: len(line), Style: &pal.Comment})
@@ -122,12 +128,19 @@ func lexGo(lines []string, pal *Palette) (out []StyledRegion) {
 				i += next + 2
 			}
 		case textString:
-			if next := strings.IndexByte(line[i:], strDelimiter); next != -1 {
-				out = appendRegion(out, StyledRegion{Line: j, Start: i, End: i + next + 1, Style: &pal.String})
-				if !(strDelimiter != '`' && next > 0 && line[i+next-1] == '\\') {
+			if next := strings.IndexAny(line[i:], strEvents); next != -1 {
+				switch line[i+next] {
+				// If we find an escaped anything - including, in particular, a quote -
+				// skip over it. Some escape sequences are longer than 2 characters, but
+				// none of them are supposed to contain quotes, so this shortcut is OK.
+				case '\\':
+					out = appendRegion(out, StyledRegion{Line: j, Start: i, End: i + next + 2, Style: &pal.String})
+					i += next + 2
+				default:
+					out = appendRegion(out, StyledRegion{Line: j, Start: i, End: i + next + 1, Style: &pal.String})
 					state = textNeutral
+					i += next + 1
 				}
-				i += next + 1
 			} else {
 				if strDelimiter != '`' {
 					state = textNeutral

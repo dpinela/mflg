@@ -26,7 +26,9 @@ var gocode = []string{
 	`	"//Shark", //whee` + "\n",
 	`	"Carp /*",` + "\n",
 	`	"Tuna \"*/",` + "\n",
-	"}",
+	`	"\\", name,` + "\n",
+	"}\n",
+	`var R = []rune{'\\', 25, 10}`,
 }
 
 func TestGoStyle(t *testing.T) {
@@ -41,6 +43,8 @@ func TestGoStyle(t *testing.T) {
 		{Line: 5, Start: 12, End: len(gocode[5]), Style: &pal.Comment},
 		{Line: 6, Start: 1, End: 10, Style: &pal.String},
 		{Line: 7, Start: 1, End: 12, Style: &pal.String},
+		{Line: 8, Start: 1, End: 5, Style: &pal.String},
+		{Line: 10, Start: 15, End: 19, Style: &pal.String},
 	}
 	if got := lexGo(gocode, pal); !reflect.DeepEqual(got, want) {
 		t.Errorf("got:\n%+v\nwant:\n%+v", styledDoc(got), styledDoc(want))
