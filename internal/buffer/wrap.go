@@ -19,8 +19,9 @@ import (
 // WrappedLine is a segment of a line of text that fits in one viewport line,
 // annotated with the text space coordinates of its first character.
 type WrappedLine struct {
-	Start Point
-	Text  string
+	Start     Point
+	ByteStart int // The byte index of Start within the original line
+	Text      string
 }
 
 // Point represents a two-dimensional integer point in text or window space.
@@ -194,13 +195,14 @@ func (wb *WrappedBuffer) wrapUntil(i int) {
 		// line, adjusted for tabs, is shorter than the viewport width, then so is the visual width, and
 		// we don't need to wrap that line.
 		if len(srcLine)+strings.Count(srcLine, "\t")*(wb.tabWidth-1) <= wb.lineWidth {
-			wb.lines = append(wb.lines, WrappedLine{Point{0, j}, srcLine})
+			wb.lines = append(wb.lines, WrappedLine{Point{0, j}, 0, srcLine})
 			continue
 		}
 		k := 0
 		wx := 0
 		tx := 0
-		lastStart := 0
+		lastStartByte := 0
+		lastStartTX := 0
 		for k < len(srcLine) && len(wb.lines) <= i {
 			c := srcLine[k : k+NextCharBoundary(srcLine[k:])]
 			if c == "\n" {
@@ -208,8 +210,9 @@ func (wb *WrappedBuffer) wrapUntil(i int) {
 			}
 			w := wb.displayWidth(c)
 			if wx+w > wb.lineWidth && wx > 0 {
-				wb.lines = append(wb.lines, WrappedLine{Point{lastStart, j}, srcLine[lastStart:k]})
-				lastStart = k
+				wb.lines = append(wb.lines, WrappedLine{Point{lastStartTX, j}, lastStartByte, srcLine[lastStartByte:k]})
+				lastStartByte = k
+				lastStartTX = tx
 				wx = 0
 			} else {
 				k += len(c)
@@ -218,7 +221,7 @@ func (wb *WrappedBuffer) wrapUntil(i int) {
 			}
 		}
 		if len(wb.lines) <= i {
-			wb.lines = append(wb.lines, WrappedLine{Point{lastStart, j}, srcLine[lastStart:]})
+			wb.lines = append(wb.lines, WrappedLine{Point{lastStartTX, j}, lastStartByte, srcLine[lastStartByte:]})
 		}
 	}
 }

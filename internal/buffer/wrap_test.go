@@ -14,11 +14,12 @@ var wrapTests = []struct {
 	out   []WrappedLine
 }{
 	{"Basic", wrapTestCode, 20, []WrappedLine{
-		{Point{0, 0}, "// wrapUntil wraps t"}, {Point{20, 0}, "he source buffer unt"}, {Point{40, 0}, "il the end of wrappe"}, {Point{60, 0}, "d line i.\n"},
-		{Point{0, 1}, "func (wb *WrappedBuf"}, {Point{20, 1}, "fer) wrapUntil(i int"}, {Point{40, 1}, ") {"},
+		{Point{0, 0}, 0, "// wrapUntil wraps t"}, {Point{20, 0}, 20, "he source buffer unt"}, {Point{40, 0}, 40, "il the end of wrappe"}, {Point{60, 0}, 60, "d line i.\n"},
+		{Point{0, 1}, 0, "func (wb *WrappedBuf"}, {Point{20, 1}, 20, "fer) wrapUntil(i int"}, {Point{40, 1}, 40, ") {"},
 	}},
-	{"Tabs", ":)\t\t\t\t\t:)\n", 20, []WrappedLine{{Point{0, 0}, ":)\t\t\t\t"}, {Point{6, 0}, "\t:)\n"}, {Point{0, 1}, ""}}},
-	{"CrampedTabs", "\t\t\t", 3, []WrappedLine{{Point{0, 0}, "\t"}, {Point{1, 0}, "\t"}, {Point{2, 0}, "\t"}}},
+	{"Tabs", ":)\t\t\t\t\t:)\n", 20, []WrappedLine{{Point{0, 0}, 0, ":)\t\t\t\t"}, {Point{6, 0}, 6, "\t:)\n"}, {Point{0, 1}, 0, ""}}},
+	{"CrampedTabs", "\t\t\t", 3, []WrappedLine{{Point{0, 0}, 0, "\t"}, {Point{1, 0}, 1, "\t"}, {Point{2, 0}, 2, "\t"}}},
+	{"NonASCII", "áá", 1, []WrappedLine{{Point{0, 0}, 0, "á"}, {Point{1, 0}, 2, "á"}}},
 }
 
 const wrapTestCode = `// wrapUntil wraps the source buffer until the end of wrapped line i.
@@ -38,7 +39,9 @@ func initWrapTest(t *testing.T, text string, width int) *WrappedBuffer {
 	})
 }
 
-func (wl WrappedLine) String() string { return fmt.Sprintf("{%d %q}", wl.Start, wl.Text) }
+func (wl WrappedLine) String() string {
+	return fmt.Sprintf("{%d %d %q}", wl.Start, wl.ByteStart, wl.Text)
+}
 
 func TestWrap(t *testing.T) {
 	for _, tt := range wrapTests {
