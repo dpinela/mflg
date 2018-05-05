@@ -25,7 +25,7 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 		return err
 	}
 	lines := w.wrappedBuf.Lines(w.topLine, w.topLine+w.height)
-	hr := w.highlightFunc(w.buf.SliceLines(0, lines[len(lines)-1].Start.Y), &highlight.Palette{
+	hr := w.highlightFunc(w.buf.SliceLines(0, lines[len(lines)-1].Start.Y+1), &highlight.Palette{
 		Comment: highlight.Style{Foreground: highlight.Color{G: 200, Alpha: true}},
 		String:  highlight.Style{Foreground: highlight.Color{B: 200, Alpha: true}},
 	})
@@ -103,15 +103,25 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 				tf.buf = append(tf.buf, styleReset...)
 			}
 		}
-		if tf.currentHighlight == nil {
-			if len(tf.highlightedRegions) != 0 && tp.Y == tf.highlightedRegions[0].Line && bx >= tf.highlightedRegions[0].Start && bx < tf.highlightedRegions[0].End {
-				tf.currentHighlight = &tf.highlightedRegions[0]
-				tf.highlightedRegions = tf.highlightedRegions[1:]
-				tf.buf = append(tf.buf, makeSGRString(tf.currentHighlight.Style)...)
-			}
-		} else if tp.Y > tf.currentHighlight.Line || bx >= tf.currentHighlight.End {
+		if tf.currentHighlight != nil && (tp.Y > tf.currentHighlight.Line || bx >= tf.currentHighlight.End) {
 			tf.currentHighlight = nil
 			tf.buf = append(tf.buf, styleResetColor...)
+		}
+		if tf.currentHighlight == nil {
+			// Find the next highlighted region that covers the current point.
+			// Break early to avoid wasting time with ones that can possibly apply.
+			// TODO: make this search more efficient.
+			for i, r := range tf.highlightedRegions {
+				if tp.Y < r.Line || (tp.Y == r.Line && bx < r.Start) {
+					break
+				}
+				if tp.Y == r.Line && bx >= r.Start && bx < r.End {
+					tf.currentHighlight = &tf.highlightedRegions[i]
+					tf.highlightedRegions = tf.highlightedRegions[i+1:]
+					tf.buf = append(tf.buf, makeSGRString(tf.currentHighlight.Style)...)
+					break
+				}
+			}
 		}
 		n := buffer.NextCharBoundary(line)
 		switch {
