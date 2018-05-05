@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/dpinela/mflg/internal/buffer"
+	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"github.com/mattn/go-runewidth"
@@ -24,7 +25,11 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 		return err
 	}
 	lines := w.wrappedBuf.Lines(w.topLine, w.topLine+w.height)
-	tf := textFormatter{src: lines,
+	hr := w.highlightFunc(w.buf.SliceLines(0, lines[len(lines)-1].Start.Y), &highlight.Palette{
+		Comment: highlight.Style{Foreground: highlight.Color{G: 200, Alpha: true}},
+		String:  highlight.Style{Foreground: highlight.Color{B: 200, Alpha: true}},
+	})
+	tf := textFormatter{src: lines, highlightedRegions: hr,
 		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText, tabWidth: w.getTabWidth()}
 	for wy := 0; wy < w.height; wy++ {
 		line, ok := tf.formatNextLine(wy+1 >= w.height)
@@ -40,11 +45,12 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 }
 
 type textFormatter struct {
-	src            []buffer.WrappedLine
-	invertedRegion optionalTextRange
-	gutterText     string
-	gutterWidth    int
-	tabWidth       int
+	src                []buffer.WrappedLine
+	highlightedRegions []highlight.StyledRegion
+	invertedRegion     optionalTextRange
+	gutterText         string
+	gutterWidth        int
+	tabWidth           int
 
 	line int
 	buf  []byte
@@ -56,6 +62,7 @@ var (
 	styleResetToBold  = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.StyleBold)
 	styleResetToWhite = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.ColorWhite)
 	styleReset        = termesc.SetGraphicAttributes(termesc.StyleNone)
+	styleResetColor   = termesc.SetGraphicAttributes(termesc.ColorDefault)
 )
 
 func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
@@ -64,7 +71,9 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	}
 	line := strings.TrimSuffix(tf.src[tf.line].Text, "\n")
 	tp := tf.src[tf.line].Start
+	bx := tf.src[tf.line].ByteStart
 	var gutterLen int
+	var currentHighlight *highlight.StyledRegion
 	if tf.gutterText != "" {
 		tf.buf = append(tf.buf[:0], styleResetToBold...)
 		gutterLen = runewidth.StringWidth(tf.gutterText)
@@ -91,6 +100,16 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 				tf.buf = append(tf.buf, styleReset...)
 			}
 		}
+		if currentHighlight == nil {
+			if len(tf.highlightedRegions) != 0 && tp.Y == tf.highlightedRegions[0].Line && bx >= tf.highlightedRegions[0].Start && bx < tf.highlightedRegions[0].End {
+				currentHighlight = &tf.highlightedRegions[0]
+				tf.highlightedRegions = tf.highlightedRegions[1:]
+				tf.buf = append(tf.buf, makeSGRString(currentHighlight.Style)...)
+			}
+		} else if bx >= currentHighlight.End {
+			currentHighlight = nil
+			tf.buf = append(tf.buf, styleResetColor...)
+		}
 		n := buffer.NextCharBoundary(line)
 		switch {
 		case line[:n] == "\t":
@@ -103,12 +122,11 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 		default:
 			tf.buf = append(tf.buf, line[:n]...)
 		}
+		bx += n
 		line = line[n:]
 		tp.X++
 	}
-	if tf.invertedRegion.Set && ((tp.Y >= tf.invertedRegion.Begin.Y && tp.Y < tf.invertedRegion.End.Y) || tf.invertedRegion.End == tp) {
-		tf.buf = append(tf.buf, styleReset...)
-	}
+	tf.buf = append(tf.buf, styleReset...)
 	if !last {
 		tf.buf = append(tf.buf, '\r', '\n')
 	}
@@ -120,4 +138,14 @@ func (tf *textFormatter) appendSpaces(n int) {
 	for i := 0; i < n; i++ {
 		tf.buf = append(tf.buf, ' ')
 	}
+}
+
+func makeSGRString(s *highlight.Style) string {
+	var params []termesc.GraphicAttribute
+	if fg := s.Foreground; fg.Alpha {
+		params = append(params, termesc.Color24{R: uint8(fg.R), G: uint8(fg.G), B: uint8(fg.B)})
+	} else {
+		params = append(params, termesc.ColorDefault)
+	}
+	return termesc.SetGraphicAttributes(params...)
 }

@@ -10,6 +10,7 @@ const (
 	StyleNone     GraphicFlag = 0
 	StyleBold     GraphicFlag = 1
 	StyleInverted GraphicFlag = 7
+	ColorDefault  GraphicFlag = 39
 )
 
 // Constants for the 3-bit ANSI color palette.
@@ -24,10 +25,23 @@ const (
 	ColorWhite
 )
 
+// Color24 is a 24-bit RGB color, with 8 bits per channel.
+type Color24 struct {
+	R, G, B uint8
+}
+
+func (c Color24) forEachSGRCode(f func(int)) {
+	f(38)
+	f(2)
+	f(int(c.R))
+	f(int(c.G))
+	f(int(c.B))
+}
+
 func (c GraphicFlag) forEachSGRCode(f func(int)) { f(int(c)) }
 
 // A GraphicAttribute is any graphic attribute that can be define by ANSI escape codes.
-// Currently it can only be a GraphicFlag; Color8 and Color24 will be implemented in the future.
+// Currently it can only be a GraphicFlag or Color24; Color8 will be implemented in the future.
 type GraphicAttribute interface {
 	// Yields the numbers to put in the CSI ... ; ... m sequence for this attribute.
 	forEachSGRCode(func(int))

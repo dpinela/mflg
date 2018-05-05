@@ -11,9 +11,9 @@ import (
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/clipboard"
 	"github.com/dpinela/mflg/internal/config"
+	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/streak"
 	"github.com/dpinela/mflg/internal/termesc"
-	"github.com/dpinela/mflg/internal/highlight"
 
 	"github.com/mattn/go-runewidth"
 )
@@ -47,11 +47,11 @@ type window struct {
 
 	needsRedraw bool // Indicates whether the visible part of the window has changed since it was last drawn
 
-	buf        *buffer.Buffer        // The buffer being edited in the window
-	wrappedBuf *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
-	tabString  string                // The string that should be inserted when typing a tab
-	tabWidth   int                   // The width with which hard tabs are displayed
-	langConfig config.LangConfig
+	buf           *buffer.Buffer        // The buffer being edited in the window
+	wrappedBuf    *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
+	tabString     string                // The string that should be inserted when typing a tab
+	tabWidth      int                   // The width with which hard tabs are displayed
+	langConfig    config.LangConfig
 	highlightFunc highlight.Func
 
 	app *application // The application that owns this window

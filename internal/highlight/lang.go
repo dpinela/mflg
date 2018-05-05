@@ -6,6 +6,19 @@ import (
 	"strings"
 )
 
+type Func = func([]string, *Palette) []StyledRegion
+
+// FuncForLanguage returns a function that highlights text in the specified language.
+// The returned function is always non-nil.
+func FuncForLanguage(lang string) Func {
+	switch lang {
+	case "go":
+		return lexGo
+	default:
+		return func([]string, *Palette) []StyledRegion { return nil }
+	}
+}
+
 // A Palette defines the colours to be used to highlight the types of text
 // recognized by the highlighter.
 // Typically, Default will be left blank, to use the output device's defaults.
@@ -36,11 +49,25 @@ type Color struct {
 	Alpha   bool // Indicates that we don't want to set this color.
 }
 
+// String returns the hex color code for c.
 func (c Color) String() string {
 	if !c.Alpha {
 		return "#DEFAULT"
 	}
 	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
+}
+
+// appendRegion appends r to out, coalescing it with the last region in out
+// if they're adjacent. It returns the extended slice, just like append.
+func appendRegion(out []StyledRegion, r StyledRegion) []StyledRegion {
+	if r.Start == r.End {
+		return out
+	}
+	if n := len(out); n != 0 && out[n-1].Line == r.Line && out[n-1].End == r.Start {
+		out[n-1].End = r.End
+		return out
+	}
+	return append(out, r)
 }
 
 var (
@@ -73,30 +100,30 @@ func lexGo(lines []string, pal *Palette) (out []StyledRegion) {
 			}
 			switch line[i+next[0] : i+next[1]] {
 			case `"`, "'", "`":
-				out = append(out, StyledRegion{Line: j, Start: i + next[0], End: i + next[1], Style: &pal.String})
+				out = appendRegion(out, StyledRegion{Line: j, Start: i + next[0], End: i + next[1], Style: &pal.String})
 				state = textString
 				strDelimiter = line[i+next[0]]
 				i += next[1]
 			case "//":
-				out = append(out, StyledRegion{Line: j, Start: i + next[0], End: len(line), Style: &pal.Comment})
+				out = appendRegion(out, StyledRegion{Line: j, Start: i + next[0], End: len(line), Style: &pal.Comment})
 				i = len(line)
 			case "/*":
-				out = append(out, StyledRegion{Line: j, Start: i + next[0], End: i + next[1], Style: &pal.Comment})
+				out = appendRegion(out, StyledRegion{Line: j, Start: i + next[0], End: i + next[1], Style: &pal.Comment})
 				state = textComment
 				i += next[1]
 			}
 		case textComment:
 			if next := strings.Index(line[i:], "*/"); next == -1 {
-				out = append(out, StyledRegion{Line: j, Start: i, End: len(line), Style: &pal.Comment})
+				out = appendRegion(out, StyledRegion{Line: j, Start: i, End: len(line), Style: &pal.Comment})
 				i = len(line)
 			} else {
-				out = append(out, StyledRegion{Line: j, Start: i, End: i + next + 2, Style: &pal.Comment})
+				out = appendRegion(out, StyledRegion{Line: j, Start: i, End: i + next + 2, Style: &pal.Comment})
 				state = textNeutral
 				i += next + 2
 			}
 		case textString:
 			if next := strings.IndexByte(line[i:], strDelimiter); next != -1 {
-				out = append(out, StyledRegion{Line: j, Start: i, End: i + next + 1, Style: &pal.String})
+				out = appendRegion(out, StyledRegion{Line: j, Start: i, End: i + next + 1, Style: &pal.String})
 				if !(strDelimiter != '`' && next > 0 && line[i+next-1] == '\\') {
 					state = textNeutral
 				}
@@ -105,7 +132,7 @@ func lexGo(lines []string, pal *Palette) (out []StyledRegion) {
 				if strDelimiter != '`' {
 					state = textNeutral
 				}
-				out = append(out, StyledRegion{Line: j, Start: i, End: len(line), Style: &pal.String})
+				out = appendRegion(out, StyledRegion{Line: j, Start: i, End: len(line), Style: &pal.String})
 				i = len(line)
 			}
 		}

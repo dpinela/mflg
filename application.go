@@ -16,6 +16,7 @@ import (
 
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/config"
+	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -187,6 +188,7 @@ func (app *application) gotoFile(filename string) error {
 		app.mainWindow.onChange = app.resetSaveTimer
 		if ext := filepath.Ext(filename); ext != "" {
 			app.mainWindow.langConfig = app.config.ConfigForExt(ext[1:])
+			app.mainWindow.highlightFunc = highlight.FuncForLanguage(ext[1:])
 		}
 		app.mainWindow.app = app
 		app.filename = filename
@@ -503,6 +505,7 @@ func (app *application) resize(height, width int) {
 func (app *application) openPrompt(prompt string, whenDone func(string)) {
 	app.promptWindow = newWindow(app.width, 1, buffer.New(), 4)
 	app.promptWindow.setGutterText(prompt)
+	app.promptWindow.highlightFunc = highlight.FuncForLanguage("")
 	app.promptHandler = whenDone
 	app.note = ""
 }
