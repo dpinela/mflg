@@ -46,6 +46,7 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 
 type textFormatter struct {
 	src                []buffer.WrappedLine
+	currentHighlight   *highlight.StyledRegion
 	highlightedRegions []highlight.StyledRegion
 	invertedRegion     optionalTextRange
 	gutterText         string
@@ -73,7 +74,6 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	tp := tf.src[tf.line].Start
 	bx := tf.src[tf.line].ByteStart
 	var gutterLen int
-	var currentHighlight *highlight.StyledRegion
 	if tf.gutterText != "" {
 		tf.buf = append(tf.buf[:0], styleResetToBold...)
 		gutterLen = runewidth.StringWidth(tf.gutterText)
@@ -91,6 +91,9 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 	if tf.invertedRegion.Set && !tp.Less(tf.invertedRegion.Begin) && tp.Less(tf.invertedRegion.End) {
 		tf.buf = append(tf.buf, styleInverted...)
 	}
+	if tf.currentHighlight != nil && tp.Y == tf.currentHighlight.Line && bx >= tf.currentHighlight.Start && bx < tf.currentHighlight.End {
+		tf.buf = append(tf.buf, makeSGRString(tf.currentHighlight.Style)...)
+	}
 	for len(line) > 0 {
 		if tf.invertedRegion.Set {
 			switch tp {
@@ -100,14 +103,14 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 				tf.buf = append(tf.buf, styleReset...)
 			}
 		}
-		if currentHighlight == nil {
+		if tf.currentHighlight == nil {
 			if len(tf.highlightedRegions) != 0 && tp.Y == tf.highlightedRegions[0].Line && bx >= tf.highlightedRegions[0].Start && bx < tf.highlightedRegions[0].End {
-				currentHighlight = &tf.highlightedRegions[0]
+				tf.currentHighlight = &tf.highlightedRegions[0]
 				tf.highlightedRegions = tf.highlightedRegions[1:]
-				tf.buf = append(tf.buf, makeSGRString(currentHighlight.Style)...)
+				tf.buf = append(tf.buf, makeSGRString(tf.currentHighlight.Style)...)
 			}
-		} else if bx >= currentHighlight.End {
-			currentHighlight = nil
+		} else if tp.Y > tf.currentHighlight.Line || bx >= tf.currentHighlight.End {
+			tf.currentHighlight = nil
 			tf.buf = append(tf.buf, styleResetColor...)
 		}
 		n := buffer.NextCharBoundary(line)
