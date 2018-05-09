@@ -17,7 +17,11 @@ func (st styledDoc) String() string {
 	return sb.String()
 }
 
-var gocode = []string{
+type testSource []string
+
+func (ts testSource) SliceLines(i, j int) []string { return ts[i:j] }
+
+var gocode = testSource{
 	"/* Package fish implements fish-related services.\n",
 	" It cannot be used on land. */\n",
 	"package fish\n",
@@ -46,7 +50,8 @@ func TestGoStyle(t *testing.T) {
 		{Line: 8, Start: 1, End: 5, Style: &pal.String},
 		{Line: 10, Start: 15, End: 19, Style: &pal.String},
 	}
-	if got := lexGo(gocode, pal); !reflect.DeepEqual(got, want) {
+	h := &goHighlighter{src: gocode, palette: pal}
+	if got := h.Regions(0, len(gocode)); !reflect.DeepEqual(got, want) {
 		t.Errorf("got:\n%+v\nwant:\n%+v", styledDoc(got), styledDoc(want))
 	}
 }

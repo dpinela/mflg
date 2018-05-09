@@ -25,10 +25,7 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 		return err
 	}
 	lines := w.wrappedBuf.Lines(w.topLine, w.topLine+w.height)
-	hr := w.highlightFunc(w.buf.SliceLines(0, lines[len(lines)-1].Start.Y+1), &highlight.Palette{
-		Comment: highlight.Style{Foreground: highlight.Color{G: 200, Alpha: true}},
-		String:  highlight.Style{Foreground: highlight.Color{B: 200, Alpha: true}},
-	})
+	hr := w.highlighter.Regions(lines[0].Start.Y, lines[len(lines)-1].Start.Y+1)
 	tf := textFormatter{src: lines, highlightedRegions: hr,
 		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText, tabWidth: w.getTabWidth()}
 	for wy := 0; wy < w.height; wy++ {
@@ -109,7 +106,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 		}
 		if tf.currentHighlight == nil {
 			// Find the next highlighted region that covers the current point.
-			// Break early to avoid wasting time with ones that can possibly apply.
+			// Break early to avoid wasting time with ones that can't possibly apply.
 			// TODO: make this search more efficient.
 			for i, r := range tf.highlightedRegions {
 				if tp.Y < r.Line || (tp.Y == r.Line && bx < r.Start) {

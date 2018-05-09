@@ -47,12 +47,12 @@ type window struct {
 
 	needsRedraw bool // Indicates whether the visible part of the window has changed since it was last drawn
 
-	buf           *buffer.Buffer        // The buffer being edited in the window
-	wrappedBuf    *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
-	tabString     string                // The string that should be inserted when typing a tab
-	tabWidth      int                   // The width with which hard tabs are displayed
-	langConfig    config.LangConfig
-	highlightFunc highlight.Func
+	buf         *buffer.Buffer        // The buffer being edited in the window
+	wrappedBuf  *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
+	tabString   string                // The string that should be inserted when typing a tab
+	tabWidth    int                   // The width with which hard tabs are displayed
+	langConfig  config.LangConfig
+	highlighter highlight.Highlighter
 
 	app *application // The application that owns this window
 }
@@ -119,6 +119,9 @@ func tabString(width int) string {
 	return strings.Repeat(" ", width)
 }
 
+// SliceLines implements the highlight.LineSource interface by reading from the current buffer.
+func (w *window) SliceLines(i, j int) []string { return w.buf.SliceLines(i, j) }
+
 func (w *window) viewportCursorPos() point { return point{w.cursorPos.X, w.cursorPos.Y - w.topLine} }
 func (w *window) windowPosInViewport(wp point) bool {
 	return wp.Y >= w.topLine && wp.Y < w.topLine+w.height
@@ -172,6 +175,7 @@ func (w *window) formatBuffer() {
 			w.takeSnapshot()
 			w.buf.ReadFrom(bytes.NewReader(formattedText))
 			w.wrappedBuf.Reset(w.buf)
+			w.highlighter.Invalidate(0)
 			w.notifyChange()
 			w.roundCursorPos()
 			w.needsRedraw = true
@@ -437,6 +441,7 @@ func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 			}
 			changed = true
 			w.wrappedBuf.ReplaceLine(i, line[:begin]+newLine+line[end:])
+			w.highlighter.Invalidate(i)
 			// We only need to adjust the selection in its final line, and then only at the bottom-right
 			// end. The rest of it is guaranteed to stay in place, regardless of which replacements are
 			// made, since newlines cannot be taken out and the replacement doesn't touch anything
@@ -527,6 +532,7 @@ func (w *window) typeText(text string) {
 		w.updateWrapWidth()
 		w.moveCursorRight()
 	}
+	w.highlighter.Invalidate(tp.Y)
 	w.notifyChange()
 }
 
@@ -540,6 +546,7 @@ func (w *window) backspace() {
 	}
 	if w.selection.Set {
 		w.wrappedBuf.DeleteRange(w.selection.textRange)
+		w.highlighter.Invalidate(w.selection.Begin.Y)
 		w.updateWrapWidth()
 		w.gotoTextPos(w.selection.Begin)
 		w.selection = optionalTextRange{}
@@ -557,7 +564,9 @@ func (w *window) backspace() {
 	switch {
 	case tp.X > 0:
 		w.gotoTextPos(point{Y: tp.Y, X: tp.X - 1})
+		w.highlighter.Invalidate(tp.Y)
 	case tp.Y > 0:
+		w.highlighter.Invalidate(tp.Y - 1)
 		w.moveCursorUp()
 		w.cursorPos.X = newX
 		w.roundCursorPos()
@@ -650,6 +659,7 @@ func (w *window) insertText(data []byte) {
 	s := string(data)
 	tp := w.windowCoordsToTextCoords(w.cursorPos)
 	w.wrappedBuf.Insert(s, tp)
+	w.highlighter.Invalidate(tp.Y)
 	w.updateWrapWidth()
 	w.gotoTextPos(posAfterInsertion(tp, s))
 	w.needsRedraw = true
@@ -682,6 +692,7 @@ func (w *window) undoSince(i int) {
 	w.undoStack = w.undoStack[:i]
 	w.buf = oldState.content
 	w.wrappedBuf.Reset(w.buf)
+	w.highlighter.Invalidate(0)
 	w.selection = oldState.selection
 	w.cursorPos = oldState.cursorPos
 	w.notifyChange()

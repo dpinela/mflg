@@ -188,7 +188,12 @@ func (app *application) gotoFile(filename string) error {
 		app.mainWindow.onChange = app.resetSaveTimer
 		if ext := filepath.Ext(filename); ext != "" {
 			app.mainWindow.langConfig = app.config.ConfigForExt(ext[1:])
-			app.mainWindow.highlightFunc = highlight.FuncForLanguage(ext[1:])
+			app.mainWindow.highlighter = highlight.Language(ext[1:], app.mainWindow, &highlight.Palette{
+				Comment: highlight.Style{Foreground: highlight.Color{G: 200, Alpha: true}},
+				String:  highlight.Style{Foreground: highlight.Color{B: 200, Alpha: true}},
+			})
+		} else {
+			app.mainWindow.highlighter = highlight.Language(ext, app.mainWindow, &highlight.Palette{})
 		}
 		app.mainWindow.app = app
 		app.filename = filename
@@ -505,7 +510,7 @@ func (app *application) resize(height, width int) {
 func (app *application) openPrompt(prompt string, whenDone func(string)) {
 	app.promptWindow = newWindow(app.width, 1, buffer.New(), 4)
 	app.promptWindow.setGutterText(prompt)
-	app.promptWindow.highlightFunc = highlight.FuncForLanguage("")
+	app.promptWindow.highlighter = highlight.Language("", app.promptWindow, &highlight.Palette{})
 	app.promptHandler = whenDone
 	app.note = ""
 }
