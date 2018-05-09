@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/clipboard"
+	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"bytes"
@@ -38,6 +39,7 @@ func newTestWindow(t testing.TB, width, height int, content string) *window {
 		t.Fatal(err)
 	}
 	w := newWindow(width, height, buf, 4)
+	w.highlighter = highlight.Language("", w, &highlight.Palette{})
 	return w
 }
 
@@ -642,7 +644,7 @@ func TestGutterResize(t *testing.T) {
 	w := newTestWindow(t, 9, 15, "a\nb\nc\nd\nefghij\nl\nm\nn\no")
 	w.typeText("\r")
 	checkWrappedLine(t, w, 5, buffer.WrappedLine{Start: buffer.Point{X: 0, Y: 5}, Text: "efghi"})
-	checkWrappedLine(t, w, 6, buffer.WrappedLine{Start: buffer.Point{X: 5, Y: 5}, Text: "j\n"})
+	checkWrappedLine(t, w, 6, buffer.WrappedLine{ByteStart: 5, Start: buffer.Point{X: 5, Y: 5}, Text: "j\n"})
 }
 
 const shortTestDocument = `func A() int { return 4 }

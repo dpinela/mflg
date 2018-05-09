@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
 )
 
@@ -11,6 +12,7 @@ import (
 
 func TestUndoPastSelectionBound(t *testing.T) {
 	w := newTestWindow(t, 80, 25, "")
+	w.highlighter = highlight.Language("", w, &highlight.Palette{})
 	w.typeText("\r")
 	w.markSelectionBound()
 	w.undo()
