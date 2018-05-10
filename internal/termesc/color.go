@@ -1,6 +1,11 @@
 package termesc
 
-import "strconv"
+import (
+	"os"
+	"strconv"
+)
+
+var hasTruecolor = os.Getenv("COLORTERM") == "truecolor"
 
 // A GraphicFlag is a graphic attribute that can be defined by a single number in an ANSI escape code.
 type GraphicFlag int
@@ -25,6 +30,22 @@ const (
 	ColorWhite
 )
 
+// OutputColor returns the input color, reducing the color depth if the terminal does
+// not support full 24-bit color codes.
+func OutputColor(c Color24) GraphicAttribute {
+	if hasTruecolor {
+		return c
+	}
+	nr := narrowChannel(c.R)
+	ng := narrowChannel(c.G)
+	nb := narrowChannel(c.B)
+	return color8(16 + 36*nr + 6*ng + nb)
+}
+
+func narrowChannel(x uint8) int {
+	return int(x) * 5 / 255
+}
+
 // Color24 is a 24-bit RGB color, with 8 bits per channel.
 type Color24 struct {
 	R, G, B uint8
@@ -36,6 +57,14 @@ func (c Color24) forEachSGRCode(f func(int)) {
 	f(int(c.R))
 	f(int(c.G))
 	f(int(c.B))
+}
+
+type color8 int
+
+func (c color8) forEachSGRCode(f func(int)) {
+	f(38)
+	f(5)
+	f(int(c))
 }
 
 func (c GraphicFlag) forEachSGRCode(f func(int)) { f(int(c)) }
