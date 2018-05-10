@@ -57,6 +57,7 @@ type textFormatter struct {
 // Pre-compute the SGR escape sequences used in formatNextLine to avoid the expense of recomputing them repeatedly.
 var (
 	styleInverted     = termesc.SetGraphicAttributes(termesc.StyleInverted)
+	styleNotInverted  = termesc.SetGraphicAttributes(termesc.StyleNotInverted)
 	styleResetToBold  = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.StyleBold)
 	styleResetToWhite = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.ColorWhite)
 	styleReset        = termesc.SetGraphicAttributes(termesc.StyleNone)
@@ -97,7 +98,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 			case tf.invertedRegion.Begin:
 				tf.buf = append(tf.buf, styleInverted...)
 			case tf.invertedRegion.End:
-				tf.buf = append(tf.buf, styleReset...)
+				tf.buf = append(tf.buf, styleNotInverted...)
 			}
 		}
 		if tf.currentHighlight != nil && (tp.Y > tf.currentHighlight.Line || bx >= tf.currentHighlight.End) {
