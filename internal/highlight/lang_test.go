@@ -50,7 +50,7 @@ func TestGoStyle(t *testing.T) {
 		{Line: 8, Start: 1, End: 5, Style: &pal.String},
 		{Line: 10, Start: 15, End: 19, Style: &pal.String},
 	}
-	h := &goHighlighter{src: gocode, palette: pal}
+	h := Language("go", gocode, pal)
 	if got := h.Regions(0, len(gocode)); !reflect.DeepEqual(got, want) {
 		t.Errorf("got:\n%+v\nwant:\n%+v", styledDoc(got), styledDoc(want))
 	}
