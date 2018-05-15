@@ -7,10 +7,10 @@ import (
 
 var (
 	goLiteralStart = regexp.MustCompile("[\"'`]|/[\\*/]")
-	cLiteralStart  = regexp.MustCompile(`["']|/[\*/]`)
-)
+	goStrEvents    = map[byte]string{'\'': `'\`, '"': `"\`, '`': "`", '/': `/\`}
 
-var goStrEvents = map[byte]string{'\'': `'\`, '"': `"\`, '`': "`", '/': `/\`}
+	cLiteralStart = regexp.MustCompile(`["']|/[\*/]`)
+)
 
 type cStyleHighlighter struct {
 	// state contains the formatter state at the start of each input line, except for the first;
@@ -64,7 +64,7 @@ func (f *cStyleHighlighter) run(startY int, lines []string) {
 	state := f.currentState()
 	mode := state.mode
 	strDelimiter := state.strDelimiter
-	strEvents := goStrEvents[state.strDelimiter]
+	strEvents := f.strEvents[state.strDelimiter]
 
 	var line string
 	for i, j := 0, 0; j < len(lines); {
@@ -80,7 +80,7 @@ func (f *cStyleHighlighter) run(startY int, lines []string) {
 		ty := startY + j
 		switch mode {
 		case textNeutral:
-			next := goLiteralStart.FindStringIndex(line[i:])
+			next := f.literalStart.FindStringIndex(line[i:])
 			if next == nil {
 				i = len(line)
 				continue
@@ -90,7 +90,7 @@ func (f *cStyleHighlighter) run(startY int, lines []string) {
 				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i + next[0], End: i + next[1], Style: &f.palette.String})
 				mode = textString
 				strDelimiter = line[i+next[0]]
-				strEvents = goStrEvents[strDelimiter]
+				strEvents = f.strEvents[strDelimiter]
 				i += next[1]
 			case "//":
 				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i + next[0], End: len(line), Style: &f.palette.Comment})

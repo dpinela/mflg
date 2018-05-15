@@ -30,6 +30,8 @@ func Language(lang string, src LineSource, pal *Palette) Highlighter {
 	switch lang {
 	case "go":
 		return &cStyleHighlighter{src: src, palette: pal, strEvents: goStrEvents, literalStart: goLiteralStart}
+	case "c":
+		return &cStyleHighlighter{src: src, palette: pal, strEvents: goStrEvents, literalStart: cLiteralStart}
 	default:
 		// If no formatter is available for the desired language, return one
 		// that doesn't do anything.
