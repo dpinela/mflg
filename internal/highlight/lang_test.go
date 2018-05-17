@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/dpinela/mflg/internal/color"
 )
 
 type styledDoc []StyledRegion
@@ -38,8 +40,8 @@ var gocode = testSource{
 }
 
 var testPalette = &Palette{
-	Comment: Style{Foreground: Color{0, 200, 0, true}},
-	String:  Style{Foreground: Color{0, 0, 200, true}},
+	Comment: Style{Foreground: Color{color.Color{0, 200, 0}, true}},
+	String:  Style{Foreground: Color{color.Color{0, 0, 200}, true}},
 }
 
 func goHighlightList(pal *Palette) []StyledRegion {

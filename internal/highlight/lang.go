@@ -3,6 +3,8 @@ package highlight
 import (
 	"fmt"
 	"sort"
+
+	"github.com/dpinela/mflg/internal/color"
 )
 
 // A Highlighter provides syntax highlighting for a specific language.
@@ -65,8 +67,8 @@ type Style struct {
 // Color describes a 8-bit-per-channel RGB color.
 // The zero Color is the default color for the output device.
 type Color struct {
-	R, G, B uint8
-	Alpha   bool // Indicates that we don't want to set this color.
+	color.Color
+	Alpha bool // Indicates that we don't want to set this color.
 }
 
 // String returns the hex color code for c.
