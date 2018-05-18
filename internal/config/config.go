@@ -5,12 +5,21 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
 	"github.com/tajtiattila/basedir"
+	"github.com/dpinela/mflg/internal/color"
+	
 	"path/filepath"
 )
 
 type Config struct {
-	TabWidth int
-	Lang     map[string]LangConfig
+	TabWidth  int
+	TextStyle struct {
+		Comment, String Style
+	}
+	Lang map[string]LangConfig
+}
+
+type Style struct {
+	Foreground, Background *color.Color
 }
 
 type LangConfig struct {
@@ -26,7 +35,12 @@ func (c *Config) ConfigForExt(ext string) LangConfig { return c.Lang[ext] }
 // even if it also returns a non-nil error.
 // The file is expected to be at mflg/config.toml in one of the appropriate configuration directories.
 func Load() (*Config, error) {
-	c := Config{TabWidth: 4, Lang: make(map[string]LangConfig)}
+	c := Config{
+		TabWidth: 4,
+		Lang: make(map[string]LangConfig),
+	}
+	c.TextStyle.Comment.Foreground = &color.Color{R: 0, G: 200, B: 0}
+	c.TextStyle.String.Foreground = &color.Color{R: 0, G: 0, B: 200}
 	f, err := basedir.Config.Open(filepath.Join("mflg", "config.toml"))
 	if err != nil {
 		return &c, errors.WithMessage(err, "error loading config file")

@@ -15,7 +15,6 @@ import (
 	"github.com/mattn/go-runewidth"
 
 	"github.com/dpinela/mflg/internal/buffer"
-	"github.com/dpinela/mflg/internal/color"
 	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
@@ -190,8 +189,8 @@ func (app *application) gotoFile(filename string) error {
 		if ext := filepath.Ext(filename); ext != "" {
 			app.mainWindow.langConfig = app.config.ConfigForExt(ext[1:])
 			app.mainWindow.highlighter = highlight.Language(ext[1:], app.mainWindow, &highlight.Palette{
-				Comment: highlight.Style{Foreground: highlight.Color{Color: color.Color{G: 200}, Alpha: true}},
-				String:  highlight.Style{Foreground: highlight.Color{Color: color.Color{B: 200}, Alpha: true}},
+				Comment: highlight.Style{Foreground: highlight.Color{Color: *app.config.TextStyle.Comment.Foreground, Alpha: true}},
+				String:  highlight.Style{Foreground: highlight.Color{Color: *app.config.TextStyle.String.Foreground, Alpha: true}},
 			})
 		} else {
 			app.mainWindow.highlighter = highlight.Language(ext, app.mainWindow, &highlight.Palette{})

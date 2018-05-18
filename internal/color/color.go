@@ -23,3 +23,11 @@ func Parse(s string) (Color, error) {
 	}
 	return Color{uint8(n >> 16), uint8(n >> 8), uint8(n)}, nil
 }
+
+func (c *Color) UnmarshalText(b []byte) (err error) {
+	in, err := Parse(string(b))
+	if err == nil {
+		*c = in
+	}
+	return
+}
