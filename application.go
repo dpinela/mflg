@@ -189,8 +189,8 @@ func (app *application) gotoFile(filename string) error {
 		if ext := filepath.Ext(filename); ext != "" {
 			app.mainWindow.langConfig = app.config.ConfigForExt(ext[1:])
 			app.mainWindow.highlighter = highlight.Language(ext[1:], app.mainWindow, &highlight.Palette{
-				Comment: highlight.Style{Foreground: highlight.Color{Color: *app.config.TextStyle.Comment.Foreground, Alpha: true}},
-				String:  highlight.Style{Foreground: highlight.Color{Color: *app.config.TextStyle.String.Foreground, Alpha: true}},
+				Comment: highlight.Style(app.config.TextStyle.Comment),
+				String:  highlight.Style(app.config.TextStyle.String),
 			})
 		} else {
 			app.mainWindow.highlighter = highlight.Language(ext, app.mainWindow, &highlight.Palette{})

@@ -11,6 +11,9 @@ type Color struct {
 	R, G, B uint8
 }
 
+// String returns the hex color code for c.
+func (c Color) String() string { return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B) }
+
 // Parse returns the RGB values corresponding to the color described by s.
 // The string may be a CSS-style hex code (#ABCDEF).
 func Parse(s string) (Color, error) {

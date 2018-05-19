@@ -40,8 +40,8 @@ var gocode = testSource{
 }
 
 var testPalette = &Palette{
-	Comment: Style{Foreground: Color{color.Color{0, 200, 0}, true}},
-	String:  Style{Foreground: Color{color.Color{0, 0, 200}, true}},
+	Comment: Style{Foreground: &color.Color{0, 200, 0}},
+	String:  Style{Foreground: &color.Color{0, 0, 200}},
 }
 
 func goHighlightList(pal *Palette) []StyledRegion {

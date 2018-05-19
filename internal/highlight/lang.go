@@ -1,7 +1,6 @@
 package highlight
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/dpinela/mflg/internal/color"
@@ -60,23 +59,8 @@ type StyledRegion struct {
 // The zero Style means non-bold, non-underline text with the default colors
 // for the output device.
 type Style struct {
-	Foreground, Background Color
+	Foreground, Background *color.Color
 	Bold, Underline        bool
-}
-
-// Color describes a 8-bit-per-channel RGB color.
-// The zero Color is the default color for the output device.
-type Color struct {
-	color.Color
-	Alpha bool // Indicates that we don't want to set this color.
-}
-
-// String returns the hex color code for c.
-func (c Color) String() string {
-	if !c.Alpha {
-		return "#DEFAULT"
-	}
-	return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B)
 }
 
 // appendRegion appends r to out, coalescing it with the last region in out
