@@ -438,10 +438,10 @@ func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 		if newLine := re.ReplaceAllString(oldLine, replacement); newLine != oldLine {
 			if !changed {
 				w.takeSnapshot()
+				w.highlighter.Invalidate(i)
 			}
 			changed = true
 			w.wrappedBuf.ReplaceLine(i, line[:begin]+newLine+line[end:])
-			w.highlighter.Invalidate(i)
 			// We only need to adjust the selection in its final line, and then only at the bottom-right
 			// end. The rest of it is guaranteed to stay in place, regardless of which replacements are
 			// made, since newlines cannot be taken out and the replacement doesn't touch anything
