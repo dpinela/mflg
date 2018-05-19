@@ -239,6 +239,7 @@ func (app *application) reloadFile() error {
 	}
 	app.mainWindow.buf = buf
 	app.mainWindow.wrappedBuf.Reset(buf)
+	app.mainWindow.highlighter.Invalidate(0)
 	app.mainWindow.roundCursorPos()
 	app.mainWindow.needsRedraw = true
 	if app.promptWindow != nil {
