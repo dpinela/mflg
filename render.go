@@ -64,7 +64,7 @@ var (
 	styleResetToBold  = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.StyleBold)
 	styleResetToWhite = termesc.SetGraphicAttributes(termesc.StyleNone, termesc.ColorWhite)
 	styleReset        = termesc.SetGraphicAttributes(termesc.StyleNone)
-	styleResetColor   = termesc.SetGraphicAttributes(termesc.ColorDefault)
+	styleResetColor   = termesc.SetGraphicAttributes(termesc.ColorDefault, termesc.ColorDefaultBackground, termesc.StyleNotBold, termesc.StyleNotUnderline)
 )
 
 func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
