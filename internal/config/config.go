@@ -3,10 +3,10 @@ package config
 
 import (
 	"github.com/BurntSushi/toml"
+	"github.com/dpinela/mflg/internal/color"
 	"github.com/pkg/errors"
 	"github.com/tajtiattila/basedir"
-	"github.com/dpinela/mflg/internal/color"
-	
+
 	"path/filepath"
 )
 
@@ -37,7 +37,7 @@ func (c *Config) ConfigForExt(ext string) LangConfig { return c.Lang[ext] }
 func Load() (*Config, error) {
 	c := Config{
 		TabWidth: 4,
-		Lang: make(map[string]LangConfig),
+		Lang:     make(map[string]LangConfig),
 	}
 	c.TextStyle.Comment.Foreground = &color.Color{R: 0, G: 200, B: 0}
 	c.TextStyle.String.Foreground = &color.Color{R: 0, G: 0, B: 200}
