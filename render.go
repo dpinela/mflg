@@ -157,9 +157,24 @@ func (tf *textFormatter) appendSpaces(n int) {
 func makeSGRString(s *highlight.Style) string {
 	var params []termesc.GraphicAttribute
 	if fg := s.Foreground; fg.Alpha {
-		params = append(params, termesc.OutputColor(termesc.Color24{R: uint8(fg.R), G: uint8(fg.G), B: uint8(fg.B)}))
+		params = append(params, termesc.OutputColor(fg.Color))
 	} else {
 		params = append(params, termesc.ColorDefault)
+	}
+	if bg := s.Background; bg.Alpha {
+		params = append(params, termesc.OutputColorBackground(bg.Color))
+	} else {
+		params = append(params, termesc.ColorDefaultBackground)
+	}
+	if s.Bold {
+		params = append(params, termesc.StyleBold)
+	} else {
+		params = append(params, termesc.StyleNotBold)
+	}
+	if s.Underline {
+		params = append(params, termesc.StyleUnderline)
+	} else {
+		params = append(params, termesc.StyleNotUnderline)
 	}
 	return termesc.SetGraphicAttributes(params...)
 }

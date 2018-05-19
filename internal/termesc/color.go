@@ -3,6 +3,8 @@ package termesc
 import (
 	"os"
 	"strconv"
+
+	"github.com/dpinela/mflg/internal/color"
 )
 
 var hasTruecolor = os.Getenv("COLORTERM") == "truecolor"
@@ -12,11 +14,15 @@ type GraphicFlag int
 
 // Constants for non-color graphic attributes.
 const (
-	StyleNone        GraphicFlag = 0
-	StyleBold        GraphicFlag = 1
-	StyleInverted    GraphicFlag = 7
-	StyleNotInverted GraphicFlag = 27
-	ColorDefault     GraphicFlag = 39
+	StyleNone              GraphicFlag = 0
+	StyleBold              GraphicFlag = 1
+	StyleNotBold           GraphicFlag = 22
+	StyleUnderline         GraphicFlag = 4
+	StyleNotUnderline      GraphicFlag = 24
+	StyleInverted          GraphicFlag = 7
+	StyleNotInverted       GraphicFlag = 27
+	ColorDefault           GraphicFlag = 39
+	ColorDefaultBackground GraphicFlag = 49
 )
 
 // Constants for the 3-bit ANSI color palette.
@@ -33,39 +39,57 @@ const (
 
 // OutputColor returns the input color, reducing the color depth if the terminal does
 // not support full 24-bit color codes.
-func OutputColor(c Color24) GraphicAttribute {
+func OutputColor(c color.Color) GraphicAttribute { return outputColor(c, false) }
+
+// OutputColorBackground is like OutputColor, but returns a code that sets the background
+// color instead.
+func OutputColorBackground(c color.Color) GraphicAttribute { return outputColor(c, true) }
+
+func outputColor(c color.Color, bg bool) GraphicAttribute {
 	if hasTruecolor {
-		return c
+		return color24{c.R, c.G, c.B, bg}
 	}
 	nr := narrowChannel(c.R)
 	ng := narrowChannel(c.G)
 	nb := narrowChannel(c.B)
-	return color8(16 + 36*nr + 6*ng + nb)
+	return color8{16 + 36*nr + 6*ng + nb, bg}
 }
 
 func narrowChannel(x uint8) int {
 	return int(x) * 5 / 255
 }
 
-// Color24 is a 24-bit RGB color, with 8 bits per channel.
-type Color24 struct {
-	R, G, B uint8
+// color24 is a 24-bit RGB color, with 8 bits per channel.
+type color24 struct {
+	R, G, B    uint8
+	Background bool
 }
 
-func (c Color24) forEachSGRCode(f func(int)) {
-	f(38)
+func (c color24) forEachSGRCode(f func(int)) {
+	if c.Background {
+		f(48)
+	} else {
+		f(38)
+	}
 	f(2)
 	f(int(c.R))
 	f(int(c.G))
 	f(int(c.B))
 }
 
-type color8 int
+type color8 struct {
+	Color      int
+	Background bool
+}
 
 func (c color8) forEachSGRCode(f func(int)) {
-	f(38)
+	if c.Background {
+		f(48)
+	} else {
+		f(38)
+	}
 	f(5)
-	f(int(c))
+	f(int(c.Color))
 }
 
 func (c GraphicFlag) forEachSGRCode(f func(int)) { f(int(c)) }
