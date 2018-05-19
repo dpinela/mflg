@@ -25,7 +25,10 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 		return err
 	}
 	lines := w.wrappedBuf.Lines(w.topLine, w.topLine+w.height)
-	hr := w.highlighter.Regions(lines[0].Start.Y, lines[len(lines)-1].Start.Y+1)
+	var hr []highlight.StyledRegion
+	if len(lines) != 0 {
+		hr = w.highlighter.Regions(lines[0].Start.Y, lines[len(lines)-1].Start.Y+1)
+	}
 	tf := textFormatter{src: lines, highlightedRegions: hr,
 		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText, tabWidth: w.getTabWidth()}
 	for wy := 0; wy < w.height; wy++ {
