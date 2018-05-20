@@ -42,9 +42,8 @@ func Language(lang string, src LineSource, pal *Palette) Highlighter {
 
 // A Palette defines the colours to be used to highlight the types of text
 // recognized by the highlighter.
-// Typically, Default will be left blank, to use the output device's defaults.
 type Palette struct {
-	Default, Comment, String Style
+	Comment, String Style
 }
 
 // A StyledRegion is a region of text that should be rendered with the associated style.
