@@ -66,12 +66,20 @@ You can also double-click and double-click-and-drag to select by words.
 
 ## Configuration
 
-mflg's configuration file is written in TOML. It looks for the file in each of the [XDG config directories][xdg-basedir-spec], under mflg/config.toml. (Only the first such file encountered is used at the moment.) The following keys are available:
+mflg's configuration file is written in [TOML][]. It looks for the file in each of the [XDG config directories][xdg-basedir-spec], under mflg/config.toml. (Only the first such file encountered is used at the moment.) The following keys are available:
 
 - TabWidth: controls how many spaces a tab character is rendered as
+
+The text styles for highlighting go in the `[textstyle]` section. Each key maps to a style descriptor with the following keys:
+
+- Foreground, Background: hex color codes for the text color
+- Bold, Italic, Underline: self-explanatory booleans
+
+Style descriptors can be set for keys `Comment` and `String`.
 
 Language-specific settings are put under `[lang.AAA]` sections, where AAA is the file name extension used for that language's source files. Keys:
 
 - Formatter: array containing the name of a formatter program (ex.: gofmt for Go), followed by optional arguments.
 
 [xdg-basedir-spec]: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+[TOML]: https://github.com/toml-lang/toml
