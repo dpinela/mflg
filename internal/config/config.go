@@ -19,8 +19,8 @@ type Config struct {
 }
 
 type Style struct {
-	Foreground, Background *color.Color
-	Bold, Underline        bool
+	Foreground, Background  *color.Color
+	Bold, Italic, Underline bool
 }
 
 type LangConfig struct {

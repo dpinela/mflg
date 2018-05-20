@@ -150,25 +150,22 @@ func appendSpaces(b []byte, n int) []byte {
 
 func makeSGRString(s *highlight.Style) string {
 	var params []termesc.GraphicAttribute
+	// At the end of each highlighted region, these flags are all reset,
+	// so at the start of this one we know that they're all off.
 	if fg := s.Foreground; fg != nil {
 		params = append(params, termesc.OutputColor(*fg))
-	} else {
-		params = append(params, termesc.ColorDefault)
 	}
 	if bg := s.Background; bg != nil {
 		params = append(params, termesc.OutputColorBackground(*bg))
-	} else {
-		params = append(params, termesc.ColorDefaultBackground)
 	}
 	if s.Bold {
 		params = append(params, termesc.StyleBold)
-	} else {
-		params = append(params, termesc.StyleNotBold)
+	}
+	if s.Italic {
+		params = append(params, termesc.StyleItalic)
 	}
 	if s.Underline {
 		params = append(params, termesc.StyleUnderline)
-	} else {
-		params = append(params, termesc.StyleNotUnderline)
 	}
 	return termesc.SetGraphicAttributes(params...)
 }

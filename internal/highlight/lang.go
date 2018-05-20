@@ -59,8 +59,8 @@ type StyledRegion struct {
 // The zero Style means non-bold, non-underline text with the default colors
 // for the output device.
 type Style struct {
-	Foreground, Background *color.Color
-	Bold, Underline        bool
+	Foreground, Background  *color.Color
+	Bold, Italic, Underline bool
 }
 
 // appendRegion appends r to out, coalescing it with the last region in out

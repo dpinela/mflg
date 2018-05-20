@@ -17,6 +17,8 @@ const (
 	StyleNone              GraphicFlag = 0
 	StyleBold              GraphicFlag = 1
 	StyleNotBold           GraphicFlag = 22
+	StyleItalic            GraphicFlag = 3
+	StyleNotItalic         GraphicFlag = 23
 	StyleUnderline         GraphicFlag = 4
 	StyleNotUnderline      GraphicFlag = 24
 	StyleInverted          GraphicFlag = 7
