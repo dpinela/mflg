@@ -46,6 +46,7 @@ type window struct {
 	undoStack        []snapshot
 
 	needsRedraw bool // Indicates whether the visible part of the window has changed since it was last drawn
+	drawBuffer  []byte
 
 	buf         *buffer.Buffer        // The buffer being edited in the window
 	wrappedBuf  *buffer.WrappedBuffer // Wrapped version of buf, for display purposes

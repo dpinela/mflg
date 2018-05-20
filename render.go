@@ -31,14 +31,14 @@ func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
 	}
 	tf := textFormatter{src: lines, highlightedRegions: hr,
 		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText, tabWidth: w.getTabWidth()}
-	for wy := 0; wy < w.height; wy++ {
-		line, ok := tf.formatNextLine(wy+1 >= w.height)
-		if !ok {
-			break
-		}
-		if _, err := console.Write(line); err != nil {
-			return err
-		}
+	buf := w.drawBuffer
+	n := min(w.height, len(lines))
+	for wy := 0; wy < n; wy++ {
+		buf = tf.formatLine(buf, wy, wy+1 >= w.height)
+	}
+	w.drawBuffer = buf[:0] // allow this buffer to be reused next time
+	if _, err := console.Write(buf); err != nil {
+		return err
 	}
 	w.needsRedraw = console == nil
 	return nil
@@ -52,9 +52,6 @@ type textFormatter struct {
 	gutterText         string
 	gutterWidth        int
 	tabWidth           int
-
-	line int
-	buf  []byte
 }
 
 // Pre-compute the SGR escape sequences used in formatNextLine to avoid the expense of recomputing them repeatedly.
@@ -67,46 +64,43 @@ var (
 	styleResetColor   = termesc.SetGraphicAttributes(termesc.ColorDefault, termesc.ColorDefaultBackground, termesc.StyleNotBold, termesc.StyleNotUnderline)
 )
 
-func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
-	if tf.line >= len(tf.src) {
-		return nil, false
-	}
-	line := strings.TrimSuffix(tf.src[tf.line].Text, "\n")
-	tp := tf.src[tf.line].Start
-	bx := tf.src[tf.line].ByteStart
+func (tf *textFormatter) formatLine(buf []byte, wy int, last bool) []byte {
+	line := strings.TrimSuffix(tf.src[wy].Text, "\n")
+	tp := tf.src[wy].Start
+	bx := tf.src[wy].ByteStart
 	var gutterLen int
 	if tf.gutterText != "" {
-		tf.buf = append(tf.buf[:0], styleResetToBold...)
+		buf = append(buf, styleResetToBold...)
 		gutterLen = runewidth.StringWidth(tf.gutterText)
-		tf.buf = append(tf.buf, tf.gutterText...)
+		buf = append(buf, tf.gutterText...)
 	} else {
-		tf.buf = append(tf.buf[:0], styleResetToWhite...)
-		n := len(tf.buf)
-		tf.buf = strconv.AppendInt(tf.buf, int64(tp.Y)+1, 10)
-		gutterLen = len(tf.buf) - n
+		buf = append(buf, styleResetToWhite...)
+		n := len(buf)
+		buf = strconv.AppendInt(buf, int64(tp.Y)+1, 10)
+		gutterLen = len(buf) - n
 	}
-	tf.buf = append(tf.buf, styleReset...)
+	buf = append(buf, styleReset...)
 	for i := gutterLen; i < tf.gutterWidth; i++ {
-		tf.buf = append(tf.buf, ' ')
+		buf = append(buf, ' ')
 	}
 	if tf.invertedRegion.Set && !tp.Less(tf.invertedRegion.Begin) && tp.Less(tf.invertedRegion.End) {
-		tf.buf = append(tf.buf, styleInverted...)
+		buf = append(buf, styleInverted...)
 	}
 	if tf.currentHighlight != nil && tp.Y == tf.currentHighlight.Line && bx >= tf.currentHighlight.Start && bx < tf.currentHighlight.End {
-		tf.buf = append(tf.buf, makeSGRString(tf.currentHighlight.Style)...)
+		buf = append(buf, makeSGRString(tf.currentHighlight.Style)...)
 	}
 	for len(line) > 0 {
 		if tf.invertedRegion.Set {
 			switch tp {
 			case tf.invertedRegion.Begin:
-				tf.buf = append(tf.buf, styleInverted...)
+				buf = append(buf, styleInverted...)
 			case tf.invertedRegion.End:
-				tf.buf = append(tf.buf, styleNotInverted...)
+				buf = append(buf, styleNotInverted...)
 			}
 		}
 		if tf.currentHighlight != nil && (tp.Y > tf.currentHighlight.Line || bx >= tf.currentHighlight.End) {
 			tf.currentHighlight = nil
-			tf.buf = append(tf.buf, styleResetColor...)
+			buf = append(buf, styleResetColor...)
 		}
 		if tf.currentHighlight == nil {
 			// Find the next highlighted region that covers the current point.
@@ -119,7 +113,7 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 				if tp.Y == r.Line && bx >= r.Start && bx < r.End {
 					tf.currentHighlight = &tf.highlightedRegions[i]
 					tf.highlightedRegions = tf.highlightedRegions[i+1:]
-					tf.buf = append(tf.buf, makeSGRString(tf.currentHighlight.Style)...)
+					buf = append(buf, makeSGRString(tf.currentHighlight.Style)...)
 					break
 				}
 			}
@@ -127,31 +121,31 @@ func (tf *textFormatter) formatNextLine(last bool) ([]byte, bool) {
 		n := buffer.NextCharBoundary(line)
 		switch {
 		case line[:n] == "\t":
-			tf.appendSpaces(tf.tabWidth)
+			buf = appendSpaces(buf, tf.tabWidth)
 		case line[:n] == "\n":
 		case n == 1 && line[0] < ' ':
-			tf.buf = append(tf.buf, string('\u2400'+rune(line[0]))...)
+			buf = append(buf, string('\u2400'+rune(line[0]))...)
 		case line[:n] == "\x7f":
-			tf.buf = append(tf.buf, "\u2421"...)
+			buf = append(buf, "\u2421"...)
 		default:
-			tf.buf = append(tf.buf, line[:n]...)
+			buf = append(buf, line[:n]...)
 		}
 		bx += n
 		line = line[n:]
 		tp.X++
 	}
-	tf.buf = append(tf.buf, styleReset...)
+	buf = append(buf, styleReset...)
 	if !last {
-		tf.buf = append(tf.buf, '\r', '\n')
+		buf = append(buf, '\r', '\n')
 	}
-	tf.line++
-	return tf.buf, true
+	return buf
 }
 
-func (tf *textFormatter) appendSpaces(n int) {
+func appendSpaces(b []byte, n int) []byte {
 	for i := 0; i < n; i++ {
-		tf.buf = append(tf.buf, ' ')
+		b = append(b, ' ')
 	}
+	return b
 }
 
 func makeSGRString(s *highlight.Style) string {
