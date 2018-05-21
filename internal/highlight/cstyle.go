@@ -10,6 +10,8 @@ var (
 	goStrEvents    = map[byte]string{'\'': `'\`, '"': `"\`, '`': "`", '/': `/\`}
 
 	cLiteralStart = regexp.MustCompile(`["']|/[\*/]`)
+
+	jsonLiteralStart = regexp.MustCompile(`"`)
 )
 
 type cStyleHighlighter struct {

@@ -23,6 +23,16 @@ type testSource []string
 
 func (ts testSource) SliceLines(i, j int) []string { return ts[i:j] }
 
+var testCases = []struct {
+	lang string
+	in   testSource
+	out  []StyledRegion
+}{
+	{"go", gocode, goHighlights},
+	{"c", gocode, goHighlights[:len(goHighlights)-1]},
+	{"json", jsoncode, jsonHighlights},
+}
+
 // This code is used to test both Go and C highlighting, since they're similar enough.
 var gocode = testSource{
 	"/* Package fish implements fish-related services.\n",
@@ -44,33 +54,33 @@ var testPalette = &Palette{
 	String:  Style{Foreground: &color.Color{0, 0, 200}},
 }
 
-func goHighlightList(pal *Palette) []StyledRegion {
-	return []StyledRegion{
-		{Line: 0, Start: 0, End: len(gocode[0]), Style: &pal.Comment},
-		{Line: 1, Start: 0, End: len(gocode[1]) - 1, Style: &pal.Comment},
-		{Line: 5, Start: 1, End: 10, Style: &pal.String},
-		{Line: 5, Start: 12, End: len(gocode[5]), Style: &pal.Comment},
-		{Line: 6, Start: 1, End: 10, Style: &pal.String},
-		{Line: 7, Start: 1, End: 12, Style: &pal.String},
-		{Line: 8, Start: 1, End: 5, Style: &pal.String},
-		{Line: 10, Start: 15, End: 19, Style: &pal.String},
-		{Line: 11, Start: 10, End: 17, Style: &pal.String},
+var goHighlights = []StyledRegion{
+	{Line: 0, Start: 0, End: len(gocode[0]), Style: &testPalette.Comment},
+	{Line: 1, Start: 0, End: len(gocode[1]) - 1, Style: &testPalette.Comment},
+	{Line: 5, Start: 1, End: 10, Style: &testPalette.String},
+	{Line: 5, Start: 12, End: len(gocode[5]), Style: &testPalette.Comment},
+	{Line: 6, Start: 1, End: 10, Style: &testPalette.String},
+	{Line: 7, Start: 1, End: 12, Style: &testPalette.String},
+	{Line: 8, Start: 1, End: 5, Style: &testPalette.String},
+	{Line: 10, Start: 15, End: 19, Style: &testPalette.String},
+	{Line: 11, Start: 10, End: 17, Style: &testPalette.String},
+}
+
+func TestHighlight(t *testing.T) {
+	for _, tt := range testCases {
+		t.Run(tt.lang, func(t *testing.T) {
+			if got := Language(tt.lang, tt.in, testPalette).Regions(0, len(tt.in)); !reflect.DeepEqual(got, tt.out) {
+				t.Errorf("got:\n%+v\nwant:\n%+v", styledDoc(got), styledDoc(tt.out))
+			}
+		})
 	}
 }
 
-func TestGoStyle(t *testing.T) {
-	want := goHighlightList(testPalette)
-	h := Language("go", gocode, testPalette)
-	if got := h.Regions(0, len(gocode)); !reflect.DeepEqual(got, want) {
-		t.Errorf("got:\n%+v\nwant:\n%+v", styledDoc(got), styledDoc(want))
-	}
+var jsoncode = testSource{
+	"// not really valid JSON\n",
+	`{"\"but\"": 'we try anyway'}`,
 }
 
-func TestCStyle(t *testing.T) {
-	want := goHighlightList(testPalette)
-	h := Language("c", gocode, testPalette)
-	want = want[:len(want)-1]
-	if got := h.Regions(0, len(gocode)); !reflect.DeepEqual(got, want) {
-		t.Errorf("got:\n%+v\nwant:\n%+v", styledDoc(got), styledDoc(want))
-	}
+var jsonHighlights = []StyledRegion{
+	{Line: 1, Start: 1, End: 10, Style: &testPalette.String},
 }

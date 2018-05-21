@@ -33,6 +33,8 @@ func Language(lang string, src LineSource, pal *Palette) Highlighter {
 		return &cStyleHighlighter{src: src, palette: pal, strEvents: goStrEvents, literalStart: goLiteralStart}
 	case "c", "java":
 		return &cStyleHighlighter{src: src, palette: pal, strEvents: goStrEvents, literalStart: cLiteralStart}
+	case "json":
+		return &cStyleHighlighter{src: src, palette: pal, strEvents: goStrEvents, literalStart: jsonLiteralStart}
 	default:
 		// If no formatter is available for the desired language, return one
 		// that doesn't do anything.
