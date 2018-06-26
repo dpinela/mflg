@@ -75,11 +75,13 @@ func NewWrapped(src *Buffer, width int, displayWidth func(string) int) *WrappedB
 	}
 }
 
-// HasLines reports whether line y is within the bounds of window space (that is, if there are at least
+// HasLine reports whether line y is within the bounds of window space (that is, if there are at least
 // y + 1 wrapped lines).
-func (wb *WrappedBuffer) HasLine(y int) bool {
+// If y is out of bounds, ylimit is the upper Y bound of window space (which equals the number of
+// wrapped lines).
+func (wb *WrappedBuffer) HasLine(y int) (ok bool, ylimit int) {
 	wb.wrapUntil(y)
-	return y < len(wb.lines)
+	return y < len(wb.lines), len(wb.lines)
 }
 
 // Lines returns the wrapped lines in the interval [begin, end[ in window space.

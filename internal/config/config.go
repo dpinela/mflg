@@ -11,8 +11,9 @@ import (
 )
 
 type Config struct {
-	TabWidth  int
-	TextStyle struct {
+	TabWidth    int
+	ScrollSpeed int
+	TextStyle   struct {
 		Comment, String Style
 	}
 	Lang map[string]LangConfig
@@ -37,8 +38,9 @@ func (c *Config) ConfigForExt(ext string) LangConfig { return c.Lang[ext] }
 // The file is expected to be at mflg/config.toml in one of the appropriate configuration directories.
 func Load() (*Config, error) {
 	c := Config{
-		TabWidth: 4,
-		Lang:     make(map[string]LangConfig),
+		TabWidth:    4,
+		ScrollSpeed: 1,
+		Lang:        make(map[string]LangConfig),
 	}
 	f, err := basedir.Config.Open(filepath.Join("mflg", "config.toml"))
 	if err != nil {

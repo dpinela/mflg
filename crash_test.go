@@ -5,6 +5,7 @@ import (
 
 	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
+	"github.com/dpinela/mflg/internal/config"
 )
 
 // This file contains tests for behaviour that was at some point found to crash mflg.
@@ -24,8 +25,9 @@ func TestUndoPastSelectionBound(t *testing.T) {
 }
 
 func TestMouseEventBelowBottom(t *testing.T) {
-	app := application{}
+	app := application{config: &config.Config{}}
 	app.mainWindow = newTestWindow(t, 80, 25, "")
+	app.mainWindow.app = &app
 	app.resize(25, 80)
 	app.handleMouseEvent(termesc.MouseEvent{Button: termesc.ScrollUpButton, Shift: true, Alt: true, Control: true, Move: false, X: 18, Y: 29})
 }

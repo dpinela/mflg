@@ -68,7 +68,8 @@ You can also double-click and double-click-and-drag to select by words.
 
 mflg's configuration file is written in [TOML][]. It looks for the file in each of the [XDG config directories][xdg-basedir-spec], under mflg/config.toml. (Only the first such file encountered is used at the moment.) The following keys are available:
 
-- TabWidth: controls how many spaces a tab character is rendered as
+- TabWidth: how many spaces a tab character is rendered as
+- ScrollSpeed: how many lines to scroll for each tick of the scroll wheel
 
 The text styles for highlighting go in the `[textstyle]` section. Each key maps to a style descriptor with the following keys:
 

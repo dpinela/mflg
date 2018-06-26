@@ -291,23 +291,30 @@ func (w *window) moveCursorUp() {
 	}
 }
 
-func (w *window) scrollDown() {
-	if w.wrappedBuf.HasLine(w.topLine + w.height) {
-		w.topLine++
+func (w *window) scrollDownBy(n int) {
+	ok, ylimit := w.wrappedBuf.HasLine(w.topLine + w.height + n - 1)
+	if !ok {
+		n = ylimit - (w.topLine + w.height)
+	}
+	if n > 0 {
+		w.topLine += n
 		w.needsRedraw = true
 	}
 }
 
-func (w *window) scrollUp() {
+func (w *window) scrollUpBy(n int) {
 	if w.topLine > 0 {
-		w.topLine--
+		w.topLine = max(w.topLine-n, 0)
 		w.needsRedraw = true
 	}
 }
+
+func (w *window) scrollDown() { w.scrollDownBy(1) }
+func (w *window) scrollUp() { w.scrollUpBy(1) }
 
 func (w *window) gotoLine(ty int) {
 	wy := w.wrappedBuf.WindowYForTextPos(buffer.Point{X: 0, Y: ty})
-	if w.wrappedBuf.HasLine(wy) {
+	if ok, _ := w.wrappedBuf.HasLine(wy); ok {
 		w.topLine = max(0, wy-w.height/2)
 		w.cursorPos = point{X: 0, Y: wy}
 		w.needsRedraw = true
@@ -756,10 +763,10 @@ func (w *window) handleMouseEvent(ev termesc.MouseEvent) {
 		w.lastMouseRelease.isDrag = w.lastMouseLeftPress.isDrag
 		w.wordSelectionAnchor = optionalTextRange{}
 	case termesc.ScrollUpButton:
-		w.scrollUp()
+		w.scrollUpBy(w.app.config.ScrollSpeed)
 		w.roundCursorPos()
 	case termesc.ScrollDownButton:
-		w.scrollDown()
+		w.scrollDownBy(w.app.config.ScrollSpeed)
 		w.roundCursorPos()
 	}
 }
