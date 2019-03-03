@@ -3,9 +3,9 @@ package main
 import (
 	"testing"
 
+	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
-	"github.com/dpinela/mflg/internal/config"
 )
 
 // This file contains tests for behaviour that was at some point found to crash mflg.

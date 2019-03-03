@@ -310,7 +310,7 @@ func (w *window) scrollUpBy(n int) {
 }
 
 func (w *window) scrollDown() { w.scrollDownBy(1) }
-func (w *window) scrollUp() { w.scrollUpBy(1) }
+func (w *window) scrollUp()   { w.scrollUpBy(1) }
 
 func (w *window) gotoLine(ty int) {
 	wy := w.wrappedBuf.WindowYForTextPos(buffer.Point{X: 0, Y: ty})
