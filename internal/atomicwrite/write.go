@@ -21,7 +21,11 @@ const (
 // preserved if possible.
 // If some of the directories on the path don't already exist, they are created with mode 0755.
 func Write(filename string, contentWriter func(io.Writer) error) error {
-	tf, err := ioutil.TempFile("", "mflg-atomic-write")
+	dir := filepath.Dir(filename)
+	if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
+		return errors.WithMessage(err, errString(filename))
+	}
+	tf, err := ioutil.TempFile(dir, "mflg-atomic-write")
 	if err != nil {
 		return errors.WithMessage(err, errString(filename))
 	}
@@ -39,10 +43,6 @@ func Write(filename string, contentWriter func(io.Writer) error) error {
 	// It's better to save a file with the default TempFile permissions than not save at all, so if this fails we just carry on.
 	tf.Chmod(perms)
 	if err = tf.Close(); err != nil {
-		os.Remove(name)
-		return errors.WithMessage(err, errString(filename))
-	}
-	if err = os.MkdirAll(filepath.Dir(filename), defaultDirPerms); err != nil {
 		os.Remove(name)
 		return errors.WithMessage(err, errString(filename))
 	}
