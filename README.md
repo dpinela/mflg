@@ -38,7 +38,9 @@ If you want to throw away the changes you've made to a file since opening it, us
 
 ### Movement
 
-When opening mflg, the argument follows the same syntax as the **Go to Location** command, except that you can't omit the filename, for obvious reasons.
+When opening mflg, the argument follows the same syntax as the **Go to Location** command. If you
+launch mflg with no arguments, it opens a new scratch file; its location is displayed in the terminal
+title as well as printed to standard error, which you can see after exiting the editor.
 
 - **Back**: Control-B - goes back to the last location from where **Go to Location** was used
 - **Go to Location**: Control-L

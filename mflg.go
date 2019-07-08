@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
@@ -13,6 +14,7 @@ import (
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"github.com/pkg/errors"
+	"github.com/tajtiattila/basedir"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/sys/unix"
 )
@@ -33,6 +35,14 @@ func allASCIIDigits(s string) bool {
 	return true
 }
 
+func newScratchFile() (name string, err error) {
+	dir, err := basedir.Data.EnsureDir("mflg", 0700)
+	if err != nil {
+		return "", errors.WithMessage(err, "error creating scratch file")
+	}
+	return filepath.Join(dir, "scratch "+time.Now().Format("2006-01-02 15.04.05.0")), nil
+}
+
 // A mflg instance is made of three components:
 // - a main window, which handles text editing for the open file
 // - a prompt window, which provides the same functionality for the text entered in response
@@ -41,9 +51,17 @@ func allASCIIDigits(s string) bool {
 //   between them as appropriate.
 
 func main() {
+	var selector string
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage:", os.Args[0], "<file>")
-		os.Exit(2)
+		name, err := newScratchFile()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stderr, "saving buffer to", name)
+		selector = name
+	} else {
+		selector = os.Args[1]
 	}
 	w, h, err := terminal.GetSize(0)
 	if err != nil {
@@ -55,7 +73,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 	}
 	app := application{saveDelay: 1 * time.Second, width: w, height: h, cursorVisible: true, config: conf, taskQueue: make(chan func(), 16)}
-	if err := app.navigateTo(os.Args[1]); err != nil {
+	if err := app.navigateTo(selector); err != nil {
 		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
 		os.Exit(1)
 	}
