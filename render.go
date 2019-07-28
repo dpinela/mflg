@@ -1,47 +1,35 @@
 package main
 
 import (
-	"fmt"
-	"io"
 	"strconv"
 	"strings"
 
 	"github.com/dpinela/mflg/internal/buffer"
+	"github.com/dpinela/mflg/internal/color"
 	"github.com/dpinela/mflg/internal/highlight"
+	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
 
+	"github.com/dpinela/charseg"
 	"github.com/mattn/go-runewidth"
 )
 
-func (w *window) redraw(console io.Writer) error { return w.redrawAtYOffset(console, 0) }
+func (w *window) redraw(console *termdraw.Screen) { w.redrawAtYOffset(console, 0) }
 
 // redrawAtYOffset renders the window's contents onto a console.
-// If the console is nil, it only updates the window's layout.
-func (w *window) redrawAtYOffset(console io.Writer, yOffset int) error {
-	if !w.needsRedraw {
-		return nil
-	}
-	if _, err := fmt.Fprint(console, termesc.SetCursorPos(yOffset+1, 1), termesc.ClearScreenForward); err != nil {
-		return err
-	}
+func (w *window) redrawAtYOffset(console *termdraw.Screen, yOffset int) {
 	lines := w.wrappedBuf.Lines(w.topLine, w.topLine+w.height)
 	var hr []highlight.StyledRegion
 	if len(lines) != 0 {
 		hr = w.highlighter.Regions(lines[0].Start.Y, lines[len(lines)-1].Start.Y+1)
 	}
+
 	tf := textFormatter{src: lines, highlightedRegions: hr,
 		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText, tabWidth: w.getTabWidth()}
-	buf := w.drawBuffer
 	n := min(w.height, len(lines))
-	for wy := 0; wy < n; wy++ {
-		buf = tf.formatLine(buf, wy, wy+1 >= w.height)
+	for j := 0; j < n; j++ {
+		tf.formatLine(console, yOffset, j)
 	}
-	w.drawBuffer = buf[:0] // allow this buffer to be reused next time
-	if _, err := console.Write(buf); err != nil {
-		return err
-	}
-	w.needsRedraw = console == nil
-	return nil
 }
 
 type textFormatter struct {
@@ -64,43 +52,46 @@ var (
 	styleResetColor   = termesc.SetGraphicAttributes(termesc.ColorDefault, termesc.ColorDefaultBackground, termesc.StyleNotBold, termesc.StyleNotItalic, termesc.StyleNotUnderline)
 )
 
-func (tf *textFormatter) formatLine(buf []byte, wy int, last bool) []byte {
-	line := strings.TrimSuffix(tf.src[wy].Text, "\n")
-	tp := tf.src[wy].Start
-	bx := tf.src[wy].ByteStart
-	var gutterLen int
-	if tf.gutterText != "" {
-		buf = append(buf, styleResetToBold...)
-		gutterLen = runewidth.StringWidth(tf.gutterText)
-		buf = append(buf, tf.gutterText...)
-	} else {
-		buf = append(buf, styleResetToWhite...)
-		n := len(buf)
-		buf = strconv.AppendInt(buf, int64(tp.Y)+1, 10)
-		gutterLen = len(buf) - n
+func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
+	line := strings.TrimSuffix(tf.src[j].Text, "\n")
+	tp := tf.src[j].Start
+	bx := tf.src[j].ByteStart
+	wp := termdraw.Point{X: 0, Y: yOffset + j}
+	gutterStyle := termdraw.Style{Bold: true}
+	gutterText := tf.gutterText
+	if gutterText == "" {
+		gutterText = strconv.Itoa(tp.Y + 1)
+		gutterStyle = termdraw.Style{Foreground: &color.Color{R: 200, G: 200, B: 200}}
 	}
-	buf = append(buf, styleReset...)
-	for i := gutterLen; i < tf.gutterWidth; i++ {
-		buf = append(buf, ' ')
+	for gutterText != "" {
+		c := charseg.FirstGraphemeCluster(gutterText)
+		console.Put(wp, termdraw.Cell{Content: c, Style: gutterStyle})
+		wp.X += runewidth.StringWidth(c)
+		gutterText = gutterText[len(c):]
 	}
+	for wp.X < tf.gutterWidth {
+		console.Put(wp, termdraw.Cell{})
+		wp.X++
+	}
+	style := termdraw.Style{}
 	if tf.invertedRegion.Set && !tp.Less(tf.invertedRegion.Begin) && tp.Less(tf.invertedRegion.End) {
-		buf = append(buf, styleInverted...)
+		style.Inverted = true
 	}
 	if tf.currentHighlight != nil && tp.Y == tf.currentHighlight.Line && bx >= tf.currentHighlight.Start && bx < tf.currentHighlight.End {
-		buf = append(buf, makeSGRString(tf.currentHighlight.Style)...)
+		copyStyle(&style, tf.currentHighlight.Style)
 	}
 	for len(line) > 0 {
 		if tf.invertedRegion.Set {
 			switch tp {
 			case tf.invertedRegion.Begin:
-				buf = append(buf, styleInverted...)
+				style.Inverted = true
 			case tf.invertedRegion.End:
-				buf = append(buf, styleNotInverted...)
+				style.Inverted = false
 			}
 		}
 		if tf.currentHighlight != nil && (tp.Y > tf.currentHighlight.Line || bx >= tf.currentHighlight.End) {
 			tf.currentHighlight = nil
-			buf = append(buf, styleResetColor...)
+			style = termdraw.Style{Inverted: style.Inverted} // reset other attributes
 		}
 		if tf.currentHighlight == nil {
 			// Find the next highlighted region that covers the current point.
@@ -113,7 +104,7 @@ func (tf *textFormatter) formatLine(buf []byte, wy int, last bool) []byte {
 				if tp.Y == r.Line && bx >= r.Start && bx < r.End {
 					tf.currentHighlight = &tf.highlightedRegions[i]
 					tf.highlightedRegions = tf.highlightedRegions[i+1:]
-					buf = append(buf, makeSGRString(tf.currentHighlight.Style)...)
+					copyStyle(&style, tf.currentHighlight.Style)
 					break
 				}
 			}
@@ -121,24 +112,33 @@ func (tf *textFormatter) formatLine(buf []byte, wy int, last bool) []byte {
 		n := buffer.NextCharBoundary(line)
 		switch {
 		case line[:n] == "\t":
-			buf = appendSpaces(buf, tf.tabWidth)
+			for i := 0; i < tf.tabWidth; i++ {
+				console.Put(wp, termdraw.Cell{Style: style})
+				wp.X++
+			}
 		case line[:n] == "\n":
 		case n == 1 && line[0] < ' ':
-			buf = append(buf, string('\u2400'+rune(line[0]))...)
+			console.Put(wp, termdraw.Cell{Content: string('\u2400' + rune(line[0])), Style: style})
+			wp.X++
 		case line[:n] == "\x7f":
-			buf = append(buf, "\u2421"...)
+			console.Put(wp, termdraw.Cell{Content: "\u2421", Style: style})
+			wp.X++
 		default:
-			buf = append(buf, line[:n]...)
+			console.Put(wp, termdraw.Cell{Content: line[:n], Style: style})
+			wp.X += runewidth.StringWidth(line[:n])
 		}
 		bx += n
 		line = line[n:]
 		tp.X++
 	}
-	buf = append(buf, styleReset...)
-	if !last {
-		buf = append(buf, '\r', '\n')
-	}
-	return buf
+}
+
+func copyStyle(ts *termdraw.Style, hs *highlight.Style) {
+	ts.Foreground = hs.Foreground
+	ts.Background = hs.Background
+	ts.Bold = hs.Bold
+	ts.Italic = hs.Italic
+	ts.Underline = hs.Underline
 }
 
 func appendSpaces(b []byte, n int) []byte {

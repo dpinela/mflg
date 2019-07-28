@@ -6,7 +6,6 @@ import (
 	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
 
-	"bytes"
 	"regexp"
 	"strings"
 	"testing"
@@ -623,21 +622,6 @@ func TestDownFromFullLine(t *testing.T) {
 	w := newTestWindow(t, 16, 5, testDocument)
 	w.moveCursorDown()
 	checkCursorPos(t, 1, w, point{0, 1})
-}
-
-var controlSeqRE = regexp.MustCompile(`\x1b\[[^a-zA-Z]*[a-zA-Z]`)
-
-func TestRenderOneLine(t *testing.T) {
-	const testOutLine = "OL: ABCD"
-	w := newTestWindow(t, 9, 1, "ABCDEFGH")
-	w.setGutterText("OL:")
-	var fakeConsole bytes.Buffer
-	if err := w.redraw(&fakeConsole); err != nil {
-		t.Error(err)
-	}
-	if out := controlSeqRE.ReplaceAllString(fakeConsole.String(), ""); out != testOutLine {
-		t.Errorf("got %q, want %q", out, testOutLine)
-	}
 }
 
 func TestGutterResize(t *testing.T) {

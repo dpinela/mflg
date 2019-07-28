@@ -17,6 +17,7 @@ import (
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/highlight"
+	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -28,7 +29,7 @@ type application struct {
 	filename                 string
 	mainWindow, promptWindow *window
 	cursorVisible            bool
-	width, height            int
+	screen                   *termdraw.Screen
 	promptHandler            func(string) // What to do with the prompt input when the user hits Enter
 	note                     string
 	noteClearTimer           timer
@@ -184,7 +185,8 @@ func (app *application) gotoFile(filename string) error {
 		}
 		app.finishFormatNow()
 		app.saveNow()
-		app.mainWindow = newWindow(app.width, app.height, buf, app.config.TabWidth)
+		size := app.screen.Size()
+		app.mainWindow = newWindow(size.X, size.Y, buf, app.config.TabWidth)
 		app.mainWindow.onChange = app.resetSaveTimer
 		if ext := filepath.Ext(filename); ext != "" {
 			app.mainWindow.langConfig = app.config.ConfigForExt(ext[1:])
@@ -297,7 +299,7 @@ func (app *application) finishFormatNow() {
 	}
 }
 
-func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.Writer) error {
+func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal) error {
 	inputCh := make(chan string, 32)
 	go func() {
 		con := termesc.NewConsoleReader(in)
@@ -311,7 +313,8 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal, out io.
 		}
 	}()
 	for {
-		if err := app.redraw(out); err != nil {
+		app.redraw()
+		if err := app.screen.Flip(); err != nil {
 			return err
 		}
 		aw := app.activeWindow()
@@ -498,18 +501,17 @@ func (app *application) do(f func()) {
 }
 
 func (app *application) resize(height, width int) {
-	app.width = width
-	app.height = height
-	app.mainWindow.resize(app.height, app.width)
+	app.screen.Resize(termdraw.Point{X: width, Y: height})
+	app.mainWindow.resize(height, width)
 	if app.promptWindow != nil {
-		app.promptWindow.resize(1, app.width)
+		app.promptWindow.resize(1, width)
 	}
 }
 
 // openPrompt opens a prompt window at the bottom of the viewport.
 // When the user hits Enter, whenDone is called with the entered text.
 func (app *application) openPrompt(prompt string, whenDone func(string)) {
-	app.promptWindow = newWindow(app.width, 1, buffer.New(), 4)
+	app.promptWindow = newWindow(app.screen.Size().X, 1, buffer.New(), 4)
 	app.promptWindow.setGutterText(prompt)
 	app.promptWindow.highlighter = highlight.Language("", app.promptWindow, &highlight.Palette{})
 	app.promptHandler = whenDone
@@ -546,47 +548,46 @@ func (app *application) activeWindow() *window {
 
 func (app *application) promptYOffset() int {
 	if app.promptWindow != nil {
-		return app.height - 1
+		return app.screen.Size().Y - 1
 	}
-	return app.height
+	return app.screen.Size().Y
 }
 
-func (app *application) redraw(console io.Writer) error {
-	var err error
-	if err := app.mainWindow.redraw(console); err != nil {
-		return err
-	}
+func (app *application) redraw() {
+	app.screen.Clear()
+	app.screen.SetTitle(app.filename)
+	app.mainWindow.redraw(app.screen)
 	switch {
 	case app.promptWindow != nil:
-		err = app.promptWindow.redrawAtYOffset(console, app.promptYOffset())
+		app.promptWindow.redrawAtYOffset(app.screen, app.promptYOffset())
 	case app.note != "":
-		_, err = console.Write([]byte(termesc.SetCursorPos(app.height, 0) + styleResetToBold + ellipsify(app.note, app.width)))
+		ellipsify2(app.screen, app.note, termdraw.Style{Bold: true})
 	}
-	if err != nil {
-		return err
+	app.screen.SetCursorVisible(app.activeWindow().cursorInViewport())
+	p := app.cursorPos()
+	app.screen.SetCursorPos(termdraw.Point{X: p.X + app.activeWindow().gutterWidth(), Y: p.Y})
+}
+
+func ellipsify2(console *termdraw.Screen, text string, style termdraw.Style) {
+	if i := strings.IndexByte(text, '\n'); i != -1 {
+		text = text[:i]
 	}
-	if app.titleNeedsRedraw {
-		if _, err := console.Write([]byte(termesc.SetTitle(app.filename))); err != nil {
-			return err
-		}
-		app.titleNeedsRedraw = false
-	}
-	nowVisible := app.activeWindow().cursorInViewport()
-	defer func() { app.cursorVisible = nowVisible }()
-	if nowVisible {
-		if !app.cursorVisible {
-			if _, err := console.Write([]byte(termesc.ShowCursor)); err != nil {
-				return err
+	text = strings.Replace(text, "\t", " ", -1)
+	size := console.Size()
+	wp := termdraw.Point{X: 0, Y: size.Y - 1}
+	for i := 0; i < len(text); {
+		c := charseg.FirstGraphemeCluster(text[i:])
+		w := runewidth.StringWidth(c)
+		if wp.X+w > size.X {
+			for x := size.X - min(3, size.X); x < size.X; x++ {
+				console.Put(termdraw.Point{X: x, Y: wp.Y}, termdraw.Cell{Content: ".", Style: style})
 			}
+			return
 		}
-		p := app.cursorPos()
-		_, err = console.Write([]byte(termesc.SetCursorPos(p.Y+1, p.X+app.activeWindow().gutterWidth()+1)))
-		return err
-	} else if app.cursorVisible {
-		_, err = console.Write([]byte(termesc.HideCursor))
-		return err
+		console.Put(wp, termdraw.Cell{Content: c, Style: style})
+		wp.X += w
+		i += len(c)
 	}
-	return nil
 }
 
 var ellipses = [...]string{"", ".", "..", "..."}
