@@ -75,6 +75,9 @@ func (s *Screen) Resize(size Point) {
 		s.current = make([]Cell, n)
 		s.needsRedraw = true
 	}
+	// Force the screen to be redrawn from scratch; easier than trying
+	// to diff two screens of different sizes.
+	s.prev = nil
 }
 
 // Clear sets all cells in the Screen to blank spaces.
