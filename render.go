@@ -52,6 +52,8 @@ var (
 	styleResetColor   = termesc.SetGraphicAttributes(termesc.ColorDefault, termesc.ColorDefaultBackground, termesc.StyleNotBold, termesc.StyleNotItalic, termesc.StyleNotUnderline)
 )
 
+var numericGutterStyle = termdraw.Style{Foreground: &color.Color{R: 200, G: 200, B: 200}}
+
 func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 	line := strings.TrimSuffix(tf.src[j].Text, "\n")
 	tp := tf.src[j].Start
@@ -61,7 +63,7 @@ func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 	gutterText := tf.gutterText
 	if gutterText == "" {
 		gutterText = strconv.Itoa(tp.Y + 1)
-		gutterStyle = termdraw.Style{Foreground: &color.Color{R: 200, G: 200, B: 200}}
+		gutterStyle = numericGutterStyle
 	}
 	for gutterText != "" {
 		c := charseg.FirstGraphemeCluster(gutterText)

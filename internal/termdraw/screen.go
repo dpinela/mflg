@@ -1,7 +1,6 @@
 package termdraw
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/mattn/go-runewidth"
@@ -33,14 +32,16 @@ type Cell struct {
 // are not reflected on the terminal until Flip is called.
 type Screen struct {
 	console io.Writer
+	buf     []byte // the buffer that gets passed to console.Write
 	width   int
 
-	current           []Cell
+	prev, current     []Cell
 	cursorPos         Point
 	cursorVisible     bool
 	prevCursorVisible bool
 	title             string
 
+	needsRedraw      bool
 	titleNeedsRedraw bool
 }
 
@@ -53,7 +54,11 @@ type Point struct {
 
 // NewScreen creates a new, blank Screen connected to a terminal with the given dimensions.
 func NewScreen(out io.Writer, size Point) *Screen {
-	return &Screen{console: out, width: size.X, current: make([]Cell, size.X*size.Y)}
+	return &Screen{
+		console: out, width: size.X,
+		current:     make([]Cell, size.X*size.Y),
+		needsRedraw: true,
+	}
 }
 
 // Size returns the current dimensions of the Screen.
@@ -68,6 +73,7 @@ func (s *Screen) Resize(size Point) {
 		s.Clear()
 	} else {
 		s.current = make([]Cell, n)
+		s.needsRedraw = true
 	}
 }
 
@@ -76,10 +82,16 @@ func (s *Screen) Clear() {
 	for i := range s.current {
 		s.current[i] = Cell{}
 	}
+	s.needsRedraw = true
 }
 
 // Put replaces the content of the cell at position p.
-func (s *Screen) Put(p Point, c Cell) { s.current[p.Y*s.width+p.X] = c }
+func (s *Screen) Put(p Point, c Cell) {
+	if i := p.Y*s.width + p.X; s.current[i] != c {
+		s.current[i] = c
+		s.needsRedraw = true
+	}
+}
 
 // SetTitle sets the terminal's title.
 func (s *Screen) SetTitle(t string) {
@@ -107,36 +119,15 @@ func (s *Screen) Flip() error {
 		}
 		s.titleNeedsRedraw = false
 	}
-	if _, err := fmt.Fprint(s.console, termesc.SetCursorPos(1, 1), termesc.ClearScreenForward); err != nil {
-		return err
-	}
-	curStyle := Style{}
-	var buf []byte
-	for i := 0; i < len(s.current); i += s.width {
-		buf = buf[:0]
-		row := trimTrailingBlanks(s.current[i : i+s.width])
-		for x := 0; x < len(row); x++ {
-			c := row[x]
-			if c.Style != curStyle {
-				buf = append(buf, styleReset...)
-				buf = append(buf, makeSGRString(&c.Style)...)
-				curStyle = c.Style
-			}
-			if c.Content == "" {
-				c.Content = " "
-			}
-			if runewidth.StringWidth(c.Content) > 1 {
-				x++ // skip next cell
-			}
-			buf = append(buf, c.Content...)
-		}
-		buf = append(buf, styleReset...)
-		if i+s.width < len(s.current) {
-			buf = append(buf, '\r', '\n')
-		}
-		if _, err := s.console.Write(buf); err != nil {
+	if s.needsRedraw {
+		if err := s.flipContent(); err != nil {
 			return err
 		}
+		if s.prev == nil {
+			s.prev = make([]Cell, len(s.current))
+		}
+		s.prev, s.current = s.current, s.prev
+		s.needsRedraw = false
 	}
 	if s.cursorVisible != s.prevCursorVisible {
 		code := termesc.HideCursor
@@ -154,6 +145,73 @@ func (s *Screen) Flip() error {
 		}
 	}
 	return nil
+}
+
+func (s *Screen) flipContent() error {
+	if s.prev == nil {
+		return s.fullRedraw()
+	}
+	for y, i := 1, 0; i < len(s.current); y, i = y+1, i+s.width {
+		if rowEquals(s.prev[i:i+s.width], s.current[i:i+s.width]) {
+			continue
+		}
+		s.buf = append(s.buf[:0], termesc.SetCursorPos(y, 1)...)
+		s.buf = append(s.buf, termesc.ClearLine...)
+		s.renderRow(s.current[i : i+s.width])
+		if _, err := s.console.Write(s.buf); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func rowEquals(a, b []Cell) bool {
+	for i, x := range a {
+		if x != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Screen) fullRedraw() error {
+	s.buf = append(s.buf[:0], termesc.SetCursorPos(1, 1)...)
+	s.buf = append(s.buf, termesc.ClearScreenForward...)
+	if _, err := s.console.Write(s.buf); err != nil {
+		return err
+	}
+	for i := 0; i < len(s.current); i += s.width {
+		s.buf = s.buf[:0]
+		s.renderRow(s.current[i : i+s.width])
+		if i+s.width < len(s.current) {
+			s.buf = append(s.buf, '\r', '\n')
+		}
+		if _, err := s.console.Write(s.buf); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Screen) renderRow(row []Cell) {
+	curStyle := Style{}
+	row = trimTrailingBlanks(row)
+	for x := 0; x < len(row); x++ {
+		c := row[x]
+		if c.Style != curStyle {
+			s.buf = append(s.buf, styleReset...)
+			s.buf = append(s.buf, makeSGRString(&c.Style)...)
+			curStyle = c.Style
+		}
+		if c.Content == "" {
+			c.Content = " "
+		}
+		if runewidth.StringWidth(c.Content) > 1 {
+			x++ // skip next cell
+		}
+		s.buf = append(s.buf, c.Content...)
+	}
+	s.buf = append(s.buf, styleReset...)
 }
 
 func trimTrailingBlanks(cs []Cell) []Cell {
