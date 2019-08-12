@@ -5,8 +5,8 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/dpinela/mflg/internal/color"
 	"github.com/pkg/errors"
-	"github.com/tajtiattila/basedir"
 
+	"os"
 	"path/filepath"
 )
 
@@ -42,7 +42,11 @@ func Load() (*Config, error) {
 		ScrollSpeed: 1,
 		Lang:        make(map[string]LangConfig),
 	}
-	f, err := basedir.Config.Open(filepath.Join("mflg", "config.toml"))
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return &c, errors.WithMessage(err, "error loading config file")
+	}
+	f, err := os.Open(filepath.Join(dir, "mflg", "config.toml"))
 	if err != nil {
 		return &c, errors.WithMessage(err, "error loading config file")
 	}

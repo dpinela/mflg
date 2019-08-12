@@ -68,7 +68,12 @@ You can also double-click and double-click-and-drag to select by words.
 
 ## Configuration
 
-mflg's configuration file is written in [TOML][]. It looks for the file in each of the [XDG config directories][xdg-basedir-spec], under mflg/config.toml. (Only the first such file encountered is used at the moment.) The following keys are available:
+mflg's configuration file is written in [TOML][]. It is found in the following location:
+
+- on macOS, ~/Library/Application Support/mflg/config.toml
+- on other Unixes, ~/.config/mflg/config.toml, or $XDG_CONFIG_DIR/mflg/config.toml if $XDG_CONFIG_DIR is set
+
+The following keys are available:
 
 - TabWidth: how many spaces a tab character is rendered as
 - ScrollSpeed: how many lines to scroll for each tick of the scroll wheel
@@ -84,5 +89,4 @@ Language-specific settings are put under `[lang.AAA]` sections, where AAA is the
 
 - Formatter: array containing the name of a formatter program (ex.: gofmt for Go), followed by optional arguments.
 
-[xdg-basedir-spec]: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 [TOML]: https://github.com/toml-lang/toml
