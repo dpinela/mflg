@@ -5,6 +5,7 @@ import (
 
 	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/highlight"
+	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
 )
 
@@ -25,9 +26,8 @@ func TestUndoPastSelectionBound(t *testing.T) {
 }
 
 func TestMouseEventBelowBottom(t *testing.T) {
-	app := application{config: &config.Config{}}
+	app := application{config: &config.Config{}, screen: termdraw.NewScreen(nil, termdraw.Point{X: 80, Y: 25})}
 	app.mainWindow = newTestWindow(t, 80, 25, "")
 	app.mainWindow.app = &app
-	app.resize(25, 80)
 	app.handleMouseEvent(termesc.MouseEvent{Button: termesc.ScrollUpButton, Shift: true, Alt: true, Control: true, Move: false, X: 18, Y: 29})
 }

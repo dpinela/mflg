@@ -106,6 +106,9 @@ type GraphicAttribute interface {
 // SetGraphicAttributes returns a code that applies the specified graphic attributes to all future text written
 // to the terminal, in the order given.
 func SetGraphicAttributes(attrs ...GraphicAttribute) string {
+	if len(attrs) == 0 {
+		return ""
+	}
 	b := make([]byte, len(csi), 64)
 	copy(b, csi)
 	for _, attr := range attrs {

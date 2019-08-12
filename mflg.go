@@ -11,6 +11,7 @@ import (
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/config"
+	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"github.com/pkg/errors"
@@ -72,7 +73,7 @@ func main() {
 	if err != nil && !os.IsNotExist(errors.Cause(err)) {
 		fmt.Fprintln(os.Stderr, err)
 	}
-	app := application{saveDelay: 1 * time.Second, width: w, height: h, cursorVisible: true, config: conf, taskQueue: make(chan func(), 16)}
+	app := application{saveDelay: 1 * time.Second, screen: termdraw.NewScreen(os.Stdout, termdraw.Point{X: w, Y: h}), cursorVisible: true, config: conf, taskQueue: make(chan func(), 16)}
 	if err := app.navigateTo(selector); err != nil {
 		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
 		os.Exit(1)
@@ -87,7 +88,7 @@ func main() {
 	defer os.Stdout.WriteString(termesc.ExitAlternateScreen + termesc.DisableBracketedPaste + termesc.ShowCursor + termesc.DisableMouseReporting)
 	resizeCh := make(chan os.Signal, 32)
 	signal.Notify(resizeCh, unix.SIGWINCH)
-	if err := app.run(os.Stdin, resizeCh, os.Stdout); err != nil {
+	if err := app.run(os.Stdin, resizeCh); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/config"
+	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
 	"testing"
 
@@ -42,8 +43,12 @@ func TestEllipsify(t *testing.T) {
 	}
 }
 
+func dummyScreen() *termdraw.Screen {
+	return termdraw.NewScreen(ioutil.Discard, termdraw.Point{X: stdWidth, Y: stdHeight})
+}
+
 func TestMouseEventsOutsidePrompt(t *testing.T) {
-	app := &application{mainWindow: newWindow(stdWidth, stdHeight, buffer.New(), 4), promptWindow: newWindow(stdWidth, 1, buffer.New(), 4), width: stdWidth, height: stdHeight}
+	app := &application{mainWindow: newWindow(stdWidth, stdHeight, buffer.New(), 4), promptWindow: newWindow(stdWidth, 1, buffer.New(), 4), screen: dummyScreen()}
 	app.handleMouseEvent(termesc.MouseEvent{X: 5, Y: 5, Move: true, Button: termesc.NoButton})
 	if app.promptWindow == nil {
 		t.Error("after mouse move outside prompt, prompt window was closed, shouldn't have been")
@@ -72,14 +77,14 @@ func TestAutoSave(t *testing.T) {
 	f.Close()
 	defer os.Remove(name)
 	const saveDelay = time.Second / 20
-	app := &application{width: stdWidth, height: stdHeight, saveDelay: saveDelay, config: &config.Config{TabWidth: 4}}
+	app := &application{screen: dummyScreen(), saveDelay: saveDelay, config: &config.Config{TabWidth: 4}}
 	if err := app.navigateTo(name); err != nil {
 		t.Fatal(err)
 	}
-	app.resize(stdWidth, stdHeight)
+	app.resize(stdHeight, stdWidth)
 	fakeConsole := make(inactiveReader)
 	defer close(fakeConsole)
-	go app.run(fakeConsole, nil, ioutil.Discard)
+	go app.run(fakeConsole, nil)
 	typeString(app.mainWindow, "ABC")
 	time.Sleep(2 * saveDelay)
 	checkFileContents(t, name, "ABC")
@@ -98,7 +103,7 @@ func TestAutoReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
-	app := &application{width: stdWidth, height: stdHeight, config: &config.Config{TabWidth: 2}, taskQueue: make(chan func(), 8)}
+	app := &application{screen: dummyScreen(), config: &config.Config{TabWidth: 2}, taskQueue: make(chan func(), 8)}
 	fakeConsole := make(inactiveReader)
 	defer close(fakeConsole)
 	done := make(chan struct{}, 1)
@@ -112,7 +117,7 @@ func TestAutoReload(t *testing.T) {
 	if err := app.navigateTo(f.Name()); err != nil {
 		t.Fatal(err)
 	}
-	go app.run(fakeConsole, nil, ioutil.Discard)
+	go app.run(fakeConsole, nil)
 	t.Run("OnWrite", func(t *testing.T) {
 		f.WriteString(" LOOK, NEW TEXT!")
 		time.Sleep(30 * time.Millisecond)
@@ -197,7 +202,7 @@ func TestNavigation(t *testing.T) {
 	}
 	nameA := filepath.Join(d, "A")
 	nameB := filepath.Join(d, "B")
-	app := &application{width: stdWidth, height: stdHeight, config: &config.Config{TabWidth: 4}}
+	app := &application{screen: dummyScreen(), config: &config.Config{TabWidth: 4}}
 	t.Run("Start", func(t *testing.T) {
 		app.testNav(t, nameA)
 		app.checkLocation(t, nameA, 0)
