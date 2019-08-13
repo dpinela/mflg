@@ -8,14 +8,13 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/pkg/errors"
-
-	"github.com/tajtiattila/basedir"
 )
 
 // Copy overwrites the clipboard's contents with the given data.
@@ -49,11 +48,11 @@ func pasteGeneric() ([]byte, error) {
 }
 
 func clipboardFilename() (string, error) {
-	mflgDir, err := basedir.Data.EnsureDir("mflg", 0700)
+	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(mflgDir, "clipboard"), nil
+	return filepath.Join(dir, "mflg", "clipboard"), nil
 }
 
 func copyBuiltin(data []byte) error {
