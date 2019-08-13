@@ -15,7 +15,6 @@ import (
 	"github.com/dpinela/mflg/internal/termesc"
 
 	"github.com/pkg/errors"
-	"github.com/tajtiattila/basedir"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/sys/unix"
 )
@@ -37,11 +36,11 @@ func allASCIIDigits(s string) bool {
 }
 
 func newScratchFile() (name string, err error) {
-	dir, err := basedir.Data.EnsureDir("mflg", 0700)
+	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", errors.WithMessage(err, "error creating scratch file")
 	}
-	return filepath.Join(dir, "scratch "+time.Now().Format("2006-01-02 15.04.05.0")), nil
+	return filepath.Join(dir, "mflg", "scratch "+time.Now().Format("2006-01-02 15.04.05.0")), nil
 }
 
 // A mflg instance is made of three components:
