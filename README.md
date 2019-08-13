@@ -25,7 +25,7 @@ In other words, more like an advanced nano and less like vi or emacs.
 - **Paste**: Control-V
 - **Undo**: Control-Z
 - **Undo All/Discard Changes**: Control-U (will ask for confirmation)
-- **Replace**: Control-R, then type a regex, then the replacement. You may use $1, $2, $3... to refer to captured groups, and $name or ${name} to refer to named groups. To insert a literal $, use $$ (see [the Go regexp docs][go-regexp]).
+- **Replace**: Control-R, then type a regex, then the replacement. You may use $1, $2, $3... to refer to captured groups, and $name or ${name} to refer to named groups. To insert a literal $, use $$ (see [the Go regexp docs][go-regexp]). If you have some text selected, only that text is affected.
 - **Format**: Control-F - pipes the contents of the buffer through the formatter program for the current file's language, then replaces the buffer with the result.
 - **Quit**: Control-Q
 
