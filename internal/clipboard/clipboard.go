@@ -6,6 +6,7 @@ package clipboard
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -14,19 +15,25 @@ import (
 	"runtime"
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
-	"github.com/pkg/errors"
 )
+
+func withMessage(err error, msg string) error {
+	if err != nil {
+		return fmt.Errorf("%s: %w", msg, err)
+	}
+	return nil
+}
 
 // Copy overwrites the clipboard's contents with the given data.
 func Copy(data []byte) error {
-	return errors.WithMessage(copyGeneric(data), "copy failed")
+	return withMessage(copyGeneric(data), "copy failed")
 }
 
 // Paste returns the last data stored with Copy by any instance of mflg of the same user,
 // or the last data copied into the system clipboard if that is supported.
 func Paste() ([]byte, error) {
 	data, err := pasteGeneric()
-	return data, errors.WithMessage(err, "paste failed")
+	return data, withMessage(err, "paste failed")
 }
 
 func copyGeneric(data []byte) error {

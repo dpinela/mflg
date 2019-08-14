@@ -2,7 +2,6 @@ package color
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"strconv"
 )
 
@@ -22,7 +21,7 @@ func Parse(s string) (Color, error) {
 	}
 	n, err := strconv.ParseInt(s[1:], 16, 32)
 	if err != nil {
-		return Color{}, errors.WithMessage(err, fmt.Sprintf("color: parse %q", s))
+		return Color{}, fmt.Errorf("color: parse %q: %w", s, err)
 	}
 	return Color{uint8(n >> 16), uint8(n >> 8), uint8(n)}, nil
 }

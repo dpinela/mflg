@@ -4,8 +4,8 @@ package config
 import (
 	"github.com/BurntSushi/toml"
 	"github.com/dpinela/mflg/internal/color"
-	"github.com/pkg/errors"
 
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -36,27 +36,32 @@ func (c *Config) ConfigForExt(ext string) LangConfig { return c.Lang[ext] }
 // XDG base directory specification for configuration files. It always returns a usable *Config,
 // even if it also returns a non-nil error.
 // The file is expected to be at mflg/config.toml in one of the appropriate configuration directories.
-func Load() (*Config, error) {
-	c := Config{
+func Load() (c *Config, err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("error loading config file: %w", err)
+		}
+	}()
+	c = &Config{
 		TabWidth:    4,
 		ScrollSpeed: 1,
 		Lang:        make(map[string]LangConfig),
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		return &c, errors.WithMessage(err, "error loading config file")
+		return c, err
 	}
 	f, err := os.Open(filepath.Join(dir, "mflg", "config.toml"))
 	if err != nil {
-		return &c, errors.WithMessage(err, "error loading config file")
+		return c, err
 	}
 	defer f.Close()
-	_, err = toml.DecodeReader(f, &c)
+	_, err = toml.DecodeReader(f, c)
 	if c.TextStyle.Comment == (Style{}) {
 		c.TextStyle.Comment = Style{Foreground: &color.Color{R: 0, G: 200, B: 0}}
 	}
 	if c.TextStyle.String == (Style{}) {
 		c.TextStyle.String = Style{Foreground: &color.Color{R: 0, G: 0, B: 200}}
 	}
-	return &c, errors.WithMessage(err, "error loading config file")
+	return c, err
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/sys/unix"
 )
@@ -38,7 +38,7 @@ func allASCIIDigits(s string) bool {
 func newScratchFile() (name string, err error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		return "", errors.WithMessage(err, "error creating scratch file")
+		return "", fmt.Errorf("error creating scratch file: %w", err)
 	}
 	return filepath.Join(dir, "mflg", "scratch "+time.Now().Format("2006-01-02 15.04.05.0")), nil
 }
@@ -69,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 	conf, err := config.Load()
-	if err != nil && !os.IsNotExist(errors.Cause(err)) {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintln(os.Stderr, err)
 	}
 	app := application{saveDelay: 1 * time.Second, screen: termdraw.NewScreen(os.Stdout, termdraw.Point{X: w, Y: h}), cursorVisible: true, config: conf, taskQueue: make(chan func(), 16)}

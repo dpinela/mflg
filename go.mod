@@ -7,7 +7,6 @@ require (
 	github.com/dpinela/charseg v1.0.1
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/mattn/go-runewidth v0.0.2
-	github.com/pkg/errors v0.8.0
 	golang.org/x/crypto v0.0.0-20170925111901-847319b7fc94
 	golang.org/x/sys v0.0.0-20170927054621-314a259e304f
 )
