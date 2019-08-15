@@ -3,7 +3,6 @@ package main
 import (
 	"io"
 	"os"
-	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -148,15 +147,15 @@ func expandPath(path string) string {
 	if p := strings.TrimPrefix(path, "~"+string(filepath.Separator)); len(p) != len(path) {
 		// In the unlikely event that the lookup fails, leave the tilde unexpanded; it will be easier
 		// to detect the problem that way.
-		if u, err := currentUser(); err == nil {
-			path = filepath.Join(u.HomeDir, p)
+		if h, err := homeDir(); err == nil {
+			path = filepath.Join(h, p)
 		}
 	}
 	return path
 }
 
 // This is a variable so that it can be mocked for tests.
-var currentUser = user.Current
+var homeDir = os.UserHomeDir
 
 // gotoFile loads the file at filename into the editor, if it isn't the currently open file already.
 func (app *application) gotoFile(filename string) error {

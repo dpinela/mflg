@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -243,8 +242,8 @@ func TestNavigation(t *testing.T) {
 		app.checkLocation(t, nameA, 0)
 	})
 	t.Run("ShellFilenameExpansion", func(t *testing.T) {
-		defer func(old func() (*user.User, error)) { currentUser = old }(currentUser)
-		currentUser = func() (*user.User, error) { return &user.User{HomeDir: d}, nil }
+		defer func(old func() (string, error)) { homeDir = old }(homeDir)
+		homeDir = func() (string, error) { return d, nil }
 		if err := os.Setenv("NEW_FILE", "C"); err != nil {
 			t.Error(err)
 		}
