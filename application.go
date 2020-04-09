@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/dpinela/charseg"
-	"github.com/fsnotify/fsnotify"
 	"github.com/mattn/go-runewidth"
 
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/highlight"
+	"github.com/dpinela/mflg/internal/pathwatch"
 	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
 
@@ -36,10 +36,9 @@ type application struct {
 	saveDelay      time.Duration
 	saveTimer      timer
 	taskQueue      chan func() // Used by asynchronous tasks to run code on the main event loop
-	fsWatcher      *fsnotify.Watcher
-	watchTarget    string
-	removeTimer    timer
-	createDirTimer timer
+	fsWatcher      *pathwatch.Watcher
+	fileChangeCh   chan struct{}
+	configChangeCh chan struct{}
 
 	// These fields are used when receiving a bracketed paste
 	pasteBuffer      []byte
@@ -171,19 +170,14 @@ func (app *application) gotoFile(filename string) error {
 		} else if !os.IsNotExist(err) {
 			return err
 		}
-		// If we fail to set up the watch, we still want to open the file.
 		if app.fsWatcher == nil {
-			if w, err := fsnotify.NewWatcher(); err == nil {
-				app.fsWatcher = w
-			}
+			app.fsWatcher = pathwatch.NewWatcher()
+			app.fileChangeCh = make(chan struct{}, 20)
 		}
-		app.removeTimer.stop()
-		app.createDirTimer.stop()
-		if app.fsWatcher != nil {
-			app.setupMainWatch(filename)
-		}
+		app.fsWatcher.Remove(app.filename, app.fileChangeCh)
 		app.finishFormatNow()
 		app.saveNow()
+		app.fsWatcher.Add(filename, app.fileChangeCh)
 		size := app.screen.Size()
 		app.mainWindow = newWindow(size.X, size.Y, buf, app.config.TabWidth)
 		app.mainWindow.onChange = app.resetSaveTimer
@@ -201,30 +195,6 @@ func (app *application) gotoFile(filename string) error {
 		app.titleNeedsRedraw = true
 	}
 	return nil
-}
-
-func (app *application) setupMainWatch(filename string) error {
-	if app.watchTarget != "" {
-		app.fsWatcher.Remove(app.watchTarget)
-	}
-	parent := filepath.Dir(filename)
-	var err error
-	for {
-		if err = app.fsWatcher.Add(parent); err == nil {
-			break
-		}
-		next := filepath.Dir(parent)
-		if next == parent {
-			break
-		}
-		parent = next
-	}
-	if err == nil {
-		app.watchTarget = parent
-	} else {
-		app.watchTarget = ""
-	}
-	return err
 }
 
 func (app *application) reloadFile() error {
@@ -247,13 +217,6 @@ func (app *application) reloadFile() error {
 		app.promptWindow.needsRedraw = true
 	}
 	return nil
-}
-
-func (app *application) fsWatcherChannels() (<-chan fsnotify.Event, <-chan error) {
-	if app.fsWatcher != nil {
-		return app.fsWatcher.Events, app.fsWatcher.Errors
-	}
-	return nil, nil
 }
 
 func (app *application) gotoNextMatch() {
@@ -317,7 +280,6 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal) error {
 			return err
 		}
 		aw := app.activeWindow()
-		fsEvents, fsWatchErrors := app.fsWatcherChannels()
 		select {
 		case c, ok := <-inputCh:
 			if !ok {
@@ -441,55 +403,14 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal) error {
 			app.noteClearTimer.pending = false
 			app.note = ""
 			app.mainWindow.needsRedraw = true
-		case <-app.removeTimer.channel():
-			app.removeTimer.pending = false
+		case <-app.fileChangeCh:
 			app.reloadFile()
-		case <-app.createDirTimer.channel():
-			app.createDirTimer.pending = false
-			app.reloadFile()
-			app.setupMainWatch(app.filename)
-		case ev := <-fsEvents:
-			p, err := filepath.Abs(ev.Name)
-			if err != nil {
-				continue
-			}
-			switch {
-			case p == app.filename:
-				if ev.Op&(fsnotify.Write|fsnotify.Create) != 0 {
-					app.reloadFile()
-				}
-				// When a file is renamed on top of the one we're looking at,
-				// fsnotify may report that as a Remove immediately followed
-				// by a Create. To avoid the window flickering briefly when
-				// that happens, we wait a bit to confirm the file really was deleted.
-				if ev.Op&fsnotify.Remove != 0 {
-					app.removeTimer.reset(time.Second / 10)
-				}
-				if ev.Op&fsnotify.Create != 0 {
-					app.removeTimer.stop()
-				}
-			case strings.HasPrefix(app.filename, addTrailingSeparator(p)):
-				switch ev.Op & (fsnotify.Create | fsnotify.Remove) {
-				case fsnotify.Create:
-					app.createDirTimer.reset(15 * time.Millisecond)
-				case fsnotify.Remove, fsnotify.Create | fsnotify.Remove:
-					app.reloadFile()
-					app.setupMainWatch(app.filename)
-				}
-			}
-		case err := <-fsWatchErrors:
+		case err := <-app.fsWatcher.Errors():
 			app.setNotification(err.Error())
 		case f := <-app.taskQueue:
 			f()
 		}
 	}
-}
-
-func addTrailingSeparator(path string) string {
-	if strings.HasSuffix(path, string(filepath.Separator)) {
-		return path
-	}
-	return path + string(filepath.Separator)
 }
 
 // do schedules f to run on the main event loop.
