@@ -504,15 +504,25 @@ func (app *application) redraw() {
 	app.screen.Clear()
 	app.screen.SetTitle(app.filename)
 	app.mainWindow.redraw(app.screen)
+	// When displaying the prompt or a message, clear out the bottom row first so the existing text doesn't show.
 	switch {
 	case app.promptWindow != nil:
+		clearBottomRow(app.screen)
 		app.promptWindow.redrawAtYOffset(app.screen, app.promptYOffset())
 	case app.note != "":
+		clearBottomRow(app.screen)
 		ellipsify2(app.screen, app.note, termdraw.Style{Bold: true})
 	}
 	app.screen.SetCursorVisible(app.activeWindow().cursorInViewport())
 	p := app.cursorPos()
 	app.screen.SetCursorPos(termdraw.Point{X: p.X + app.activeWindow().gutterWidth(), Y: p.Y})
+}
+
+func clearBottomRow(scr *termdraw.Screen) {
+	s := scr.Size()
+	for p := (termdraw.Point{X: 0, Y: s.Y - 1}); p.X < s.X; p.X++ {
+		scr.Put(p, termdraw.Cell{})
+	}
 }
 
 func ellipsify2(console *termdraw.Screen, text string, style termdraw.Style) {
