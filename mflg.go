@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/dpinela/mflg/internal/atomicwrite"
 	"github.com/dpinela/mflg/internal/buffer"
-	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
 
@@ -68,11 +66,9 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error finding terminal size:", err)
 		os.Exit(1)
 	}
-	conf, err := config.Load()
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		fmt.Fprintln(os.Stderr, err)
-	}
-	app := application{saveDelay: 1 * time.Second, screen: termdraw.NewScreen(os.Stdout, termdraw.Point{X: w, Y: h}), cursorVisible: true, config: conf, taskQueue: make(chan func(), 16)}
+	app := newApplication(os.Stdout, termdraw.Point{X: w, Y: h})
+	defer app.fsWatcher.Close()
+	app.loadConfig()
 	if err := app.navigateTo(selector); err != nil {
 		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
 		os.Exit(1)

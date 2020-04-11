@@ -87,6 +87,31 @@ type location struct {
 	pos      point
 }
 
+func newApplication(outdev io.Writer, size termdraw.Point) *application {
+	return &application{
+		cursorVisible: true,
+		saveDelay:     1 * time.Second,
+		screen:        termdraw.NewScreen(outdev, size),
+		taskQueue:     make(chan func(), 32),
+
+		fileChangeCh:   make(chan struct{}, 32),
+		configChangeCh: make(chan struct{}, 32),
+		fsWatcher:      pathwatch.NewWatcher(),
+	}
+}
+
+func (app *application) loadConfig() {
+	c, err := config.Load()
+	if err != nil && !os.IsNotExist(err) {
+		app.setNotification(err.Error())
+		return
+	}
+	app.config = c
+	if ext := filepath.Ext(app.filename); ext != "" && app.mainWindow != nil {
+		app.mainWindow.langConfig = app.config.ConfigForExt(ext[1:])
+	}
+}
+
 func (app *application) navigateTo(where string) error {
 	// If this isn't the very first navigation command, save the current location and add it to the
 	// navigation stack once the command completes successfully.
@@ -170,27 +195,22 @@ func (app *application) gotoFile(filename string) error {
 		} else if !os.IsNotExist(err) {
 			return err
 		}
-		if app.fsWatcher == nil {
-			app.fsWatcher = pathwatch.NewWatcher()
-			app.fileChangeCh = make(chan struct{}, 20)
+		if app.fileChangeCh == nil {
+			app.fileChangeCh = make(chan struct{}, 32)
 		}
 		app.fsWatcher.Remove(app.filename, app.fileChangeCh)
 		app.finishFormatNow()
 		app.saveNow()
 		app.fsWatcher.Add(filename, app.fileChangeCh)
 		size := app.screen.Size()
-		app.mainWindow = newWindow(size.X, size.Y, buf, app.config.TabWidth)
+		app.mainWindow = newWindow(app, size.X, size.Y, buf)
 		app.mainWindow.onChange = app.resetSaveTimer
 		if ext := filepath.Ext(filename); ext != "" {
 			app.mainWindow.langConfig = app.config.ConfigForExt(ext[1:])
-			app.mainWindow.highlighter = highlight.Language(ext[1:], app.mainWindow, &highlight.Palette{
-				Comment: highlight.Style(app.config.TextStyle.Comment),
-				String:  highlight.Style(app.config.TextStyle.String),
-			})
+			app.mainWindow.highlighter = highlight.Language(ext[1:], app.mainWindow)
 		} else {
-			app.mainWindow.highlighter = highlight.Language(ext, app.mainWindow, &highlight.Palette{})
+			app.mainWindow.highlighter = highlight.Language(ext, app.mainWindow)
 		}
-		app.mainWindow.app = app
 		app.filename = filename
 		app.titleNeedsRedraw = true
 	}
@@ -262,6 +282,11 @@ func (app *application) finishFormatNow() {
 }
 
 func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal) error {
+	cp, err := config.Path()
+	if err != nil {
+		return err
+	}
+	app.fsWatcher.Add(cp, app.configChangeCh)
 	inputCh := make(chan string, 32)
 	go func() {
 		con := termesc.NewConsoleReader(in)
@@ -405,6 +430,8 @@ func (app *application) run(in io.Reader, resizeSignal <-chan os.Signal) error {
 			app.mainWindow.needsRedraw = true
 		case <-app.fileChangeCh:
 			app.reloadFile()
+		case <-app.configChangeCh:
+			app.loadConfig()
 		case err := <-app.fsWatcher.Errors():
 			app.setNotification(err.Error())
 		case f := <-app.taskQueue:
@@ -431,9 +458,9 @@ func (app *application) resize(height, width int) {
 // openPrompt opens a prompt window at the bottom of the viewport.
 // When the user hits Enter, whenDone is called with the entered text.
 func (app *application) openPrompt(prompt string, whenDone func(string)) {
-	app.promptWindow = newWindow(app.screen.Size().X, 1, buffer.New(), 4)
+	app.promptWindow = newWindow(app, app.screen.Size().X, 1, buffer.New())
 	app.promptWindow.setGutterText(prompt)
-	app.promptWindow.highlighter = highlight.Language("", app.promptWindow, &highlight.Palette{})
+	app.promptWindow.highlighter = highlight.Language("", app.promptWindow)
 	app.promptHandler = whenDone
 	app.note = ""
 }

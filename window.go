@@ -51,7 +51,6 @@ type window struct {
 	buf         *buffer.Buffer        // The buffer being edited in the window
 	wrappedBuf  *buffer.WrappedBuffer // Wrapped version of buf, for display purposes
 	tabString   string                // The string that should be inserted when typing a tab
-	tabWidth    int                   // The width with which hard tabs are displayed
 	langConfig  config.LangConfig
 	highlighter highlight.Highlighter
 
@@ -100,11 +99,12 @@ func (otr *optionalTextRange) Put(tr textRange) {
 	otr.Set = true
 }
 
-func newWindow(width, height int, buf *buffer.Buffer, tabWidth int) *window {
+func newWindow(app *application, width, height int, buf *buffer.Buffer) *window {
 	w := &window{
+		app:   app,
 		width: width, height: height,
-		buf:       buf,
-		tabString: tabString(buf.IndentType()), tabWidth: tabWidth,
+		buf:         buf,
+		tabString:   tabString(buf.IndentType()),
 		needsRedraw: true, moveTicker: streak.Tracker{Interval: time.Second / 5},
 	}
 	// We leave one space at the right end of the window so that we can always type
@@ -215,7 +215,7 @@ func ndigits(x int) int {
 // tab widths.
 func (w *window) getTabWidth() int {
 	if w.tabString == "\t" {
-		return w.tabWidth
+		return w.app.config.TabWidth
 	}
 	return len(w.tabString)
 }
@@ -465,7 +465,7 @@ func (w *window) replaceRegexp(re *regexp.Regexp, replacement string) {
 
 func (w *window) displayLenChar(char string) int {
 	if char == "\t" {
-		return w.tabWidth
+		return w.app.config.TabWidth
 	}
 	if len(char) == 1 && (char[0] < ' ' && char[0] != '\n' || char[0] == '\x7f') {
 		return runewidth.RuneWidth('\u2421')

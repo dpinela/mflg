@@ -6,6 +6,7 @@ import (
 
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/color"
+	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termdraw"
 	"github.com/dpinela/mflg/internal/termesc"
@@ -25,7 +26,7 @@ func (w *window) redrawAtYOffset(console *termdraw.Screen, yOffset int) {
 	}
 
 	tf := textFormatter{src: lines, highlightedRegions: hr,
-		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText, tabWidth: w.getTabWidth()}
+		invertedRegion: w.selection, gutterWidth: w.gutterWidth(), gutterText: w.customGutterText, config: w.app.config}
 	n := min(w.height, len(lines))
 	for j := 0; j < n; j++ {
 		tf.formatLine(console, yOffset, j)
@@ -39,7 +40,7 @@ type textFormatter struct {
 	invertedRegion     optionalTextRange
 	gutterText         string
 	gutterWidth        int
-	tabWidth           int
+	config             *config.Config
 }
 
 // Pre-compute the SGR escape sequences used in formatNextLine to avoid the expense of recomputing them repeatedly.
@@ -80,7 +81,7 @@ func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 		style.Inverted = true
 	}
 	if tf.currentHighlight != nil && tp.Y == tf.currentHighlight.Line && bx >= tf.currentHighlight.Start && bx < tf.currentHighlight.End {
-		copyStyle(&style, tf.currentHighlight.Style)
+		style = tf.style()
 	}
 	for len(line) > 0 {
 		if tf.invertedRegion.Set {
@@ -106,7 +107,7 @@ func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 				if tp.Y == r.Line && bx >= r.Start && bx < r.End {
 					tf.currentHighlight = &tf.highlightedRegions[i]
 					tf.highlightedRegions = tf.highlightedRegions[i+1:]
-					copyStyle(&style, tf.currentHighlight.Style)
+					style = tf.style()
 					break
 				}
 			}
@@ -114,7 +115,7 @@ func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 		n := buffer.NextCharBoundary(line)
 		switch {
 		case line[:n] == "\t":
-			for i := 0; i < tf.tabWidth; i++ {
+			for i := 0; i < tf.config.TabWidth; i++ {
 				console.Put(wp, termdraw.Cell{Style: style})
 				wp.X++
 			}
@@ -135,12 +136,20 @@ func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 	}
 }
 
-func copyStyle(ts *termdraw.Style, hs *highlight.Style) {
-	ts.Foreground = hs.Foreground
-	ts.Background = hs.Background
-	ts.Bold = hs.Bold
-	ts.Italic = hs.Italic
-	ts.Underline = hs.Underline
+// I wish I didn't need this. May want to refactor later.
+func convertStyle(cs config.Style) termdraw.Style {
+	return termdraw.Style{Foreground: cs.Foreground, Background: cs.Background, Bold: cs.Bold, Italic: cs.Italic, Underline: cs.Underline}
+}
+
+func (tf *textFormatter) style() termdraw.Style {
+	switch tf.currentHighlight.Style {
+	case highlight.StyleComment:
+		return convertStyle(tf.config.TextStyle.Comment)
+	case highlight.StyleString:
+		return convertStyle(tf.config.TextStyle.String)
+	default:
+		return termdraw.Style{}
+	}
 }
 
 func appendSpaces(b []byte, n int) []byte {
@@ -148,26 +157,4 @@ func appendSpaces(b []byte, n int) []byte {
 		b = append(b, ' ')
 	}
 	return b
-}
-
-func makeSGRString(s *highlight.Style) string {
-	var params []termesc.GraphicAttribute
-	// At the end of each highlighted region, these flags are all reset,
-	// so at the start of this one we know that they're all off.
-	if fg := s.Foreground; fg != nil {
-		params = append(params, termesc.OutputColor(*fg))
-	}
-	if bg := s.Background; bg != nil {
-		params = append(params, termesc.OutputColorBackground(*bg))
-	}
-	if s.Bold {
-		params = append(params, termesc.StyleBold)
-	}
-	if s.Italic {
-		params = append(params, termesc.StyleItalic)
-	}
-	if s.Underline {
-		params = append(params, termesc.StyleUnderline)
-	}
-	return termesc.SetGraphicAttributes(params...)
 }

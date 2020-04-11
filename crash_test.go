@@ -14,7 +14,7 @@ import (
 
 func TestUndoPastSelectionBound(t *testing.T) {
 	w := newTestWindow(t, 80, 25, "")
-	w.highlighter = highlight.Language("", w, &highlight.Palette{})
+	w.highlighter = highlight.Language("", w)
 	w.typeText("\r")
 	w.markSelectionBound()
 	w.undo()

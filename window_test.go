@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/dpinela/mflg/internal/buffer"
 	"github.com/dpinela/mflg/internal/clipboard"
+	"github.com/dpinela/mflg/internal/config"
 	"github.com/dpinela/mflg/internal/highlight"
 	"github.com/dpinela/mflg/internal/termesc"
 
@@ -37,8 +38,9 @@ func newTestWindow(t testing.TB, width, height int, content string) *window {
 	if _, err := buf.ReadFrom(strings.NewReader(content)); err != nil {
 		t.Fatal(err)
 	}
-	w := newWindow(width, height, buf, 4)
-	w.highlighter = highlight.Language("", w, &highlight.Palette{})
+	app := &application{config: &config.Config{TabWidth: 4}}
+	w := newWindow(app, width, height, buf)
+	w.highlighter = highlight.Language("", w)
 	return w
 }
 

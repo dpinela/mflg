@@ -42,12 +42,17 @@ func TestEllipsify(t *testing.T) {
 	}
 }
 
-func dummyScreen() *termdraw.Screen {
-	return termdraw.NewScreen(ioutil.Discard, termdraw.Point{X: stdWidth, Y: stdHeight})
+func newTestApplication() *application {
+	app := newApplication(ioutil.Discard, termdraw.Point{X: stdWidth, Y: stdHeight})
+	app.config = &config.Config{TabWidth: 4}
+	return app
 }
 
 func TestMouseEventsOutsidePrompt(t *testing.T) {
-	app := &application{mainWindow: newWindow(stdWidth, stdHeight, buffer.New(), 4), promptWindow: newWindow(stdWidth, 1, buffer.New(), 4), screen: dummyScreen()}
+	app := newTestApplication()
+	defer app.fsWatcher.Close()
+	app.mainWindow = newWindow(app, stdWidth, stdHeight, buffer.New())
+	app.promptWindow = newWindow(app, stdWidth, 1, buffer.New())
 	app.handleMouseEvent(termesc.MouseEvent{X: 5, Y: 5, Move: true, Button: termesc.NoButton})
 	if app.promptWindow == nil {
 		t.Error("after mouse move outside prompt, prompt window was closed, shouldn't have been")
@@ -75,8 +80,9 @@ func TestAutoSave(t *testing.T) {
 	name := f.Name()
 	f.Close()
 	defer os.Remove(name)
-	const saveDelay = time.Second / 20
-	app := &application{screen: dummyScreen(), saveDelay: saveDelay, config: &config.Config{TabWidth: 4}}
+	app := newTestApplication()
+	defer app.fsWatcher.Close()
+	app.saveDelay = time.Second / 20
 	if err := app.navigateTo(name); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +114,8 @@ func TestNavigation(t *testing.T) {
 	}
 	nameA := filepath.Join(d, "A")
 	nameB := filepath.Join(d, "B")
-	app := &application{screen: dummyScreen(), config: &config.Config{TabWidth: 4}}
+	app := newTestApplication()
+	defer app.fsWatcher.Close()
 	t.Run("Start", func(t *testing.T) {
 		app.testNav(t, nameA)
 		app.checkLocation(t, nameA, 0)

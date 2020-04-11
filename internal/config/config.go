@@ -32,10 +32,18 @@ type LangConfig struct {
 // If none exists, returns a zero LangConfig.
 func (c *Config) ConfigForExt(ext string) LangConfig { return c.Lang[ext] }
 
-// Load finds and reads the primary configuration file for the current user, according to the
-// XDG base directory specification for configuration files. It always returns a usable *Config,
-// even if it also returns a non-nil error.
-// The file is expected to be at mflg/config.toml in one of the appropriate configuration directories.
+// Path returns the location of the configuration file, as described by Load.
+func Path() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "mflg", "config.toml"), nil
+}
+
+// Load finds and reads the configuration file for the current user.
+// It always returns a usable *Config, even if it also returns a non-nil error.
+// The file is expected to be at os.UserConfigDir()/mflg/config.toml.
 func Load() (c *Config, err error) {
 	defer func() {
 		if err != nil {
@@ -47,11 +55,11 @@ func Load() (c *Config, err error) {
 		ScrollSpeed: 1,
 		Lang:        make(map[string]LangConfig),
 	}
-	dir, err := os.UserConfigDir()
+	p, err := Path()
 	if err != nil {
 		return c, err
 	}
-	f, err := os.Open(filepath.Join(dir, "mflg", "config.toml"))
+	f, err := os.Open(p)
 	if err != nil {
 		return c, err
 	}

@@ -27,8 +27,7 @@ type cStyleHighlighter struct {
 	strEvents    map[byte]string
 	literalStart *regexp.Regexp
 
-	src     LineSource
-	palette *Palette
+	src LineSource
 }
 
 type cStyleHighlighterState struct {
@@ -89,25 +88,25 @@ func (f *cStyleHighlighter) run(startY int, lines []string) {
 			}
 			switch line[i+next[0] : i+next[1]] {
 			case `"`, "'", "`":
-				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i + next[0], End: i + next[1], Style: &f.palette.String})
+				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i + next[0], End: i + next[1], Style: StyleString})
 				mode = textString
 				strDelimiter = line[i+next[0]]
 				strEvents = f.strEvents[strDelimiter]
 				i += next[1]
 			case "//":
-				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i + next[0], End: len(line), Style: &f.palette.Comment})
+				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i + next[0], End: len(line), Style: StyleComment})
 				i = len(line)
 			case "/*":
-				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i + next[0], End: i + next[1], Style: &f.palette.Comment})
+				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i + next[0], End: i + next[1], Style: StyleComment})
 				mode = textComment
 				i += next[1]
 			}
 		case textComment:
 			if next := strings.Index(line[i:], "*/"); next == -1 {
-				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: len(line), Style: &f.palette.Comment})
+				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: len(line), Style: StyleComment})
 				i = len(line)
 			} else {
-				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: i + next + 2, Style: &f.palette.Comment})
+				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: i + next + 2, Style: StyleComment})
 				mode = textNeutral
 				i += next + 2
 			}
@@ -118,10 +117,10 @@ func (f *cStyleHighlighter) run(startY int, lines []string) {
 				// skip over it. Some escape sequences are longer than 2 characters, but
 				// none of them are supposed to contain quotes, so this shortcut is OK.
 				case '\\':
-					f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: i + next + 2, Style: &f.palette.String})
+					f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: i + next + 2, Style: StyleString})
 					i += next + 2
 				default:
-					f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: i + next + 1, Style: &f.palette.String})
+					f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: i + next + 1, Style: StyleString})
 					mode = textNeutral
 					i += next + 1
 				}
@@ -129,7 +128,7 @@ func (f *cStyleHighlighter) run(startY int, lines []string) {
 				if strDelimiter != '`' {
 					mode = textNeutral
 				}
-				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: len(line), Style: &f.palette.String})
+				f.regions = appendRegion(f.regions, StyledRegion{Line: ty, Start: i, End: len(line), Style: StyleString})
 				i = len(line)
 			}
 		}

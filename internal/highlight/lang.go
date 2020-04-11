@@ -2,8 +2,6 @@ package highlight
 
 import (
 	"sort"
-
-	"github.com/dpinela/mflg/internal/color"
 )
 
 // A Highlighter provides syntax highlighting for a specific language.
@@ -27,14 +25,14 @@ type LineSource interface {
 // The styles returned by Regions can point to fields of the given palette;
 // modifying the palette will change these styles automatically.
 // It always returns a non-nil Highlighter.
-func Language(lang string, src LineSource, pal *Palette) Highlighter {
+func Language(lang string, src LineSource) Highlighter {
 	switch lang {
 	case "go":
-		return &cStyleHighlighter{src: src, palette: pal, strEvents: goStrEvents, literalStart: goLiteralStart}
+		return &cStyleHighlighter{src: src, strEvents: goStrEvents, literalStart: goLiteralStart}
 	case "c", "java":
-		return &cStyleHighlighter{src: src, palette: pal, strEvents: goStrEvents, literalStart: cLiteralStart}
+		return &cStyleHighlighter{src: src, strEvents: goStrEvents, literalStart: cLiteralStart}
 	case "json":
-		return &cStyleHighlighter{src: src, palette: pal, strEvents: goStrEvents, literalStart: jsonLiteralStart}
+		return &cStyleHighlighter{src: src, strEvents: goStrEvents, literalStart: jsonLiteralStart}
 	default:
 		// If no formatter is available for the desired language, return one
 		// that doesn't do anything.
@@ -42,26 +40,21 @@ func Language(lang string, src LineSource, pal *Palette) Highlighter {
 	}
 }
 
-// A Palette defines the colours to be used to highlight the types of text
-// recognized by the highlighter.
-type Palette struct {
-	Comment, String Style
-}
+// A Style indicates which text style should be used for a Region.
+type Style int
+
+const (
+	StyleNone Style = iota
+	StyleComment
+	StyleString
+)
 
 // A StyledRegion is a region of text that should be rendered with the associated style.
 // The indexes reference the slice of strings that was passed to the highlighter.
 type StyledRegion struct {
 	Line       int
 	Start, End int // Measured in bytes
-	*Style
-}
-
-// A Style describes the appearance of a chunk of text.
-// The zero Style means non-bold, non-underline text with the default colors
-// for the output device.
-type Style struct {
-	Foreground, Background  *color.Color
-	Bold, Italic, Underline bool
+	Style
 }
 
 // appendRegion appends r to out, coalescing it with the last region in out
