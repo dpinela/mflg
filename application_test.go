@@ -85,14 +85,16 @@ func TestAutoSave(t *testing.T) {
 	defer close(fakeConsole)
 	go app.run(fakeConsole, nil)
 	typeString(app.mainWindow, "ABC")
-	time.Sleep(2 * saveDelay)
+	// This test is inherently flaky, because the autosave timer is running concurrently with this code.
+	// To properly fix this flakiness, we would need a fake clock.
+	time.Sleep(time.Second / 4)
 	checkFileContents(t, name, "ABC")
 	typeString(app.mainWindow, "\rBlorp")
-	time.Sleep(2 * saveDelay)
+	time.Sleep(time.Second / 4)
 	checkFileContents(t, name, "ABC\nBlorp")
 	app.mainWindow.selection.Put(buffer.Range{point{0, 1}, point{3, 1}})
 	app.mainWindow.backspace()
-	time.Sleep(2 * saveDelay)
+	time.Sleep(time.Second / 4)
 	checkFileContents(t, name, "ABC\nrp")
 }
 
