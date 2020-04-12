@@ -70,7 +70,7 @@ func main() {
 	defer app.fsWatcher.Close()
 	app.loadConfig()
 	if err := app.navigateTo(selector); err != nil {
-		fmt.Fprintf(os.Stderr, "error loading %s: %v", os.Args[1], err)
+		fmt.Fprintf(os.Stderr, "error loading %s: %v\n", os.Args[1], err)
 		os.Exit(1)
 	}
 	oldMode, err := terminal.MakeRaw(0)
