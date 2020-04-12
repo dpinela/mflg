@@ -134,7 +134,14 @@ func (app *application) navigateTo(where string) error {
 			return err
 		}
 	}
-	if filename != "" {
+	switch filename {
+	case "-c":
+		filename, err = config.Path()
+		if err != nil {
+			return err
+		}
+	case "":
+	default:
 		filename = expandPath(filename)
 		// Interpret relative paths relative to the directory containing the current file, if any.
 		// When starting up, interpret them relative to the working directory.

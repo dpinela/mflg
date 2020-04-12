@@ -68,7 +68,7 @@ You can also double-click and double-click-and-drag to select by words.
 
 ## Configuration
 
-mflg's configuration file is written in [TOML][]. It is found in the following location:
+To open mflg's configuration file, run `mflg -c` or go to a file named `-c` while already in the editor. The file is written in [TOML][] and is stored in the following location:
 
 - on macOS, ~/Library/Application Support/mflg/config.toml
 - on other Unixes, ~/.config/mflg/config.toml, or $XDG_CONFIG_DIR/mflg/config.toml if $XDG_CONFIG_DIR is set
