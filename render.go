@@ -81,7 +81,7 @@ func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 		style.Inverted = true
 	}
 	if tf.currentHighlight != nil && tp.Y == tf.currentHighlight.Line && bx >= tf.currentHighlight.Start && bx < tf.currentHighlight.End {
-		style = tf.style()
+		mergeStyle(&style, tf.style())
 	}
 	for len(line) > 0 {
 		if tf.invertedRegion.Set {
@@ -107,7 +107,7 @@ func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 				if tp.Y == r.Line && bx >= r.Start && bx < r.End {
 					tf.currentHighlight = &tf.highlightedRegions[i]
 					tf.highlightedRegions = tf.highlightedRegions[i+1:]
-					style = tf.style()
+					mergeStyle(&style, tf.style())
 					break
 				}
 			}
@@ -136,19 +136,22 @@ func (tf *textFormatter) formatLine(console *termdraw.Screen, yOffset, j int) {
 	}
 }
 
-// I wish I didn't need this. May want to refactor later.
-func convertStyle(cs config.Style) termdraw.Style {
-	return termdraw.Style{Foreground: cs.Foreground, Background: cs.Background, Bold: cs.Bold, Italic: cs.Italic, Underline: cs.Underline}
+func mergeStyle(ts *termdraw.Style, cs config.Style) {
+	ts.Foreground = cs.Foreground
+	ts.Background = cs.Background
+	ts.Bold = cs.Bold
+	ts.Italic = cs.Italic
+	ts.Underline = cs.Underline
 }
 
-func (tf *textFormatter) style() termdraw.Style {
+func (tf *textFormatter) style() config.Style {
 	switch tf.currentHighlight.Style {
 	case highlight.StyleComment:
-		return convertStyle(tf.config.TextStyle.Comment)
+		return tf.config.TextStyle.Comment
 	case highlight.StyleString:
-		return convertStyle(tf.config.TextStyle.String)
+		return tf.config.TextStyle.String
 	default:
-		return termdraw.Style{}
+		return config.Style{}
 	}
 }
 
