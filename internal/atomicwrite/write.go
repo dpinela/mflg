@@ -29,7 +29,7 @@ func Write(filename string, contentWriter func(io.Writer) error) (err error) {
 	if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
 		return err
 	}
-	tf, err := ioutil.TempFile(dir, "mflg-atomic-write")
+	tf, err := ioutil.TempFile(dir, ".mflg-atomic-write")
 	if err != nil {
 		return err
 	}
